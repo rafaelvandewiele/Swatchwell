@@ -1,0 +1,25 @@
+{
+  "name": "swatchwell",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "dev:web": "npm run dev --workspace=@swatchwell/web",
+    "dev:mobile": "npm run start --workspace=@swatchwell/mobile",
+    "build:web": "npm run build --workspace=@swatchwell/web"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "private": "true",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
