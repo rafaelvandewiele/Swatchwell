@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deltaE2000, rgbToLab } from "./index";
 import {
   contrastRatio,
   hexToRgb,
@@ -87,5 +88,45 @@ describe("Color calculations", () => {
   it("returns zero distance for identical colors", () => {
     const color = { r: 120, g: 80, b: 40 };
     expect(rgbDistance(color, color)).toBe(0);
+  });
+});
+
+describe("CIE Lab and Delta E 2000", () => {
+  it("converts white RGB to Lab", () => {
+    const result = rgbToLab({ r: 255, g: 255, b: 255 });
+
+    expect(result.l).toBeCloseTo(100, 2);
+    expect(result.a).toBeCloseTo(0, 2);
+    expect(result.b).toBeCloseTo(0, 2);
+  });
+
+  it("converts black RGB to Lab", () => {
+    const result = rgbToLab({ r: 0, g: 0, b: 0 });
+
+    expect(result.l).toBeCloseTo(0, 5);
+    expect(result.a).toBeCloseTo(0, 5);
+    expect(result.b).toBeCloseTo(0, 5);
+  });
+
+  it("returns zero for identical Lab colors", () => {
+    const color = { l: 50, a: 20, b: 30 };
+
+    expect(deltaE2000(color, color)).toBeCloseTo(0, 10);
+  });
+
+  it("matches a published Delta E 2000 reference pair", () => {
+    const first = { l: 50, a: 2.6772, b: -79.7751 };
+    const second = { l: 50, a: 0, b: -82.7485 };
+
+    expect(deltaE2000(first, second)).toBeCloseTo(2.0425, 4);
+  });
+
+  it("rejects non-finite Lab values", () => {
+    expect(() =>
+      deltaE2000(
+        { l: Number.NaN, a: 0, b: 0 },
+        { l: 50, a: 0, b: 0 },
+      ),
+    ).toThrow(RangeError);
   });
 });

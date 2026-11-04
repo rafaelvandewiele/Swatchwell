@@ -177,3 +177,143 @@ export function rgbDistance(first: RGB, second: RGB): number {
     (first.b - second.b) ** 2
   );
 }
+
+export interface Lab {
+  l: number;
+  a: number;
+  b: number;
+}
+
+export function rgbToLab(rgb: RGB): Lab {
+  validateRGB(rgb);
+
+  const r = linearize(rgb.r);
+  const g = linearize(rgb.g);
+  const b = linearize(rgb.b);
+
+  const x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+  const y = r * 0.2126729 + g * 0.7151522 + b * 0.072175;
+  const z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) / 1.08883;
+
+  const f = (value: number) => {
+    const epsilon = 216 / 24389;
+    const kappa = 24389 / 27;
+    return value > epsilon
+      ? Math.cbrt(value)
+      : (kappa * value + 16) / 116;
+  };
+
+  const fx = f(x);
+  const fy = f(y);
+  const fz = f(z);
+
+  return {
+    l: 116 * fy - 16,
+    a: 500 * (fx - fy),
+    b: 200 * (fy - fz),
+  };
+}
+
+function degreesToRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+function radiansToDegrees(radians: number): number {
+  return (radians * 180) / Math.PI;
+}
+
+function hueAngle(a: number, b: number): number {
+  if (a === 0 && b === 0) return 0;
+  const angle = radiansToDegrees(Math.atan2(b, a));
+  return (angle + 360) % 360;
+}
+
+export function deltaE2000(first: Lab, second: Lab): number {
+  const values = [first.l, first.a, first.b, second.l, second.a, second.b];
+
+  if (!values.every(Number.isFinite)) {
+    throw new RangeError("Lab values must be finite numbers.");
+  }
+
+  const { l: l1, a: a1, b: b1 } = first;
+  const { l: l2, a: a2, b: b2 } = second;
+
+  const c1 = Math.hypot(a1, b1);
+  const c2 = Math.hypot(a2, b2);
+  const cBar = (c1 + c2) / 2;
+
+  const cBar7 = cBar ** 7;
+  const g = 0.5 * (1 - Math.sqrt(cBar7 / (cBar7 + 25 ** 7)));
+
+  const a1Prime = (1 + g) * a1;
+  const a2Prime = (1 + g) * a2;
+
+  const c1Prime = Math.hypot(a1Prime, b1);
+  const c2Prime = Math.hypot(a2Prime, b2);
+
+  const h1Prime = hueAngle(a1Prime, b1);
+  const h2Prime = hueAngle(a2Prime, b2);
+
+  const deltaL = l2 - l1;
+  const deltaC = c2Prime - c1Prime;
+
+  let deltaHue = h2Prime - h1Prime;
+
+  if (c1Prime * c2Prime === 0) {
+    deltaHue = 0;
+  } else if (deltaHue > 180) {
+    deltaHue -= 360;
+  } else if (deltaHue < -180) {
+    deltaHue += 360;
+  }
+
+  const deltaH = 2 * Math.sqrt(c1Prime * c2Prime) *
+    Math.sin(degreesToRadians(deltaHue / 2));
+
+  const lBar = (l1 + l2) / 2;
+  const cBarPrime = (c1Prime + c2Prime) / 2;
+
+  let hBar = h1Prime + h2Prime;
+
+  if (c1Prime * c2Prime === 0) {
+    hBar = h1Prime + h2Prime;
+  } else if (Math.abs(h1Prime - h2Prime) <= 180) {
+    hBar /= 2;
+  } else if (h1Prime + h2Prime < 360) {
+    hBar = (hBar + 360) / 2;
+  } else {
+    hBar = (hBar - 360) / 2;
+  }
+
+  const t =
+    1 -
+    0.17 * Math.cos(degreesToRadians(hBar - 30)) +
+    0.24 * Math.cos(degreesToRadians(2 * hBar)) +
+    0.32 * Math.cos(degreesToRadians(3 * hBar + 6)) -
+    0.20 * Math.cos(degreesToRadians(4 * hBar - 63));
+
+  const deltaTheta = 30 * Math.exp(-(((hBar - 275) / 25) ** 2));
+  const cBarPrime7 = cBarPrime ** 7;
+  const rC = 2 * Math.sqrt(cBarPrime7 / (cBarPrime7 + 25 ** 7));
+
+  const sL =
+    1 +
+    (0.015 * (lBar - 50) ** 2) /
+      Math.sqrt(20 + (lBar - 50) ** 2);
+
+  const sC = 1 + 0.045 * cBarPrime;
+  const sH = 1 + 0.015 * cBarPrime * t;
+
+  const rT = -Math.sin(degreesToRadians(2 * deltaTheta)) * rC;
+
+  const lTerm = deltaL / sL;
+  const cTerm = deltaC / sC;
+  const hTerm = deltaH / sH;
+
+  return Math.sqrt(
+    lTerm ** 2 +
+    cTerm ** 2 +
+    hTerm ** 2 +
+    rT * cTerm * hTerm
+  );
+}
