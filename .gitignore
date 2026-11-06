@@ -9,3 +9,9 @@ coverage/
 !.env.example
 .DS_Store
 *.log
+
+!apps/web/.env.example
+!apps/mobile/.env.example
+
+# Local recovery backups
+*.backup

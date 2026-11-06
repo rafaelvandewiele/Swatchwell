@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './Wardrobe.css'
+import { supabase } from '../../lib/supabase'
+import { loadUserStyleData, saveUserStyleData } from '../../lib/user-style-data'
+import { getWardrobePhotoUrl, uploadWardrobePhoto, deleteWardrobePhoto, wardrobePhotoPath } from '../../lib/wardrobe-photos'
 
 type Category =
   | 'Shirts'
   | 'T-shirts'
-  | 'Knitwear'
+  | 'Polo shirts'
+  | 'Sweaters'
   | 'Trousers'
   | 'Outerwear'
   | 'Shoes'
@@ -15,6 +19,7 @@ interface ClothingItem {
   name: string
   category: Category
   color: string
+  extraColors?: string[]
   brand: string
   notes: string
   imageKey: string
@@ -25,6 +30,7 @@ interface Draft {
   name: string
   category: Category
   color: string
+  extraColors: string[]
   brand: string
   notes: string
   image: File | null
@@ -33,7 +39,8 @@ interface Draft {
 const categories: Category[] = [
   'Shirts',
   'T-shirts',
-  'Knitwear',
+  'Polo shirts',
+  'Sweaters',
   'Trousers',
   'Outerwear',
   'Shoes',
@@ -44,97 +51,18 @@ const emptyDraft: Draft = {
   name: '',
   category: 'Shirts',
   color: '#D8D4C9',
+  extraColors: [],
   brand: '',
   notes: '',
   image: null,
 }
 
-const DB_NAME = 'swatchwell-wardrobe'
-const STORE_NAME = 'photos'
-const ITEMS_KEY = 'swatchwell-wardrobe-items'
-
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME)
-      }
-    }
-
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-async function savePhoto(key: string, file: Blob): Promise<void> {
-  const db = await openDatabase()
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite')
-    transaction.objectStore(STORE_NAME).put(file, key)
-    transaction.oncomplete = () => {
-      db.close()
-      resolve()
-    }
-    transaction.onerror = () => {
-      db.close()
-      reject(transaction.error)
-    }
-  })
-}
-
-async function getPhoto(key: string): Promise<Blob | undefined> {
-  const db = await openDatabase()
-
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(STORE_NAME).objectStore(STORE_NAME).get(key)
-    request.onsuccess = () => {
-      db.close()
-      resolve(request.result as Blob | undefined)
-    }
-    request.onerror = () => {
-      db.close()
-      reject(request.error)
-    }
-  })
-}
-
-async function deletePhoto(key: string): Promise<void> {
-  const db = await openDatabase()
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite')
-    transaction.objectStore(STORE_NAME).delete(key)
-    transaction.oncomplete = () => {
-      db.close()
-      resolve()
-    }
-    transaction.onerror = () => {
-      db.close()
-      reject(transaction.error)
-    }
-  })
-}
-
-function readItems(): ClothingItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(ITEMS_KEY) || '[]') as ClothingItem[]
-  } catch {
-    return []
-  }
-}
-
-function saveItems(items: ClothingItem[]) {
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(items))
-}
 
 export default function Wardrobe() {
   const [items, setItems] = useState<ClothingItem[]>([])
   const [photos, setPhotos] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All pieces')
   const [modalOpen, setModalOpen] = useState(false)
@@ -145,45 +73,70 @@ export default function Wardrobe() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     let active = true
-    const urls: string[] = []
+    let generation = 0
+    let urls: string[] = []
 
-    async function load() {
-      const stored = readItems()
-      if (active) setItems(stored)
+    async function loadForUser(id: string | null) {
+      const current = ++generation
+      urls.forEach(URL.revokeObjectURL)
+      urls = []
+      setUserId(id)
+      setItems([])
+      setPhotos({})
+      setError('')
+      setLoading(Boolean(id))
 
-      const loadedPhotos: Record<string, string> = {}
-
-      for (const item of stored) {
-        try {
-          const blob = await getPhoto(item.imageKey)
-          if (blob) {
-            const url = URL.createObjectURL(blob)
-            urls.push(url)
-            loadedPhotos[item.id] = url
-          }
-        } catch {
-          // A missing photo does not prevent the wardrobe from loading.
-        }
+      if (!id) {
+        setLoading(false)
+        return
       }
 
-      if (active) {
-        setPhotos(loadedPhotos)
-        setLoading(false)
-      } else {
-        urls.forEach(URL.revokeObjectURL)
+      try {
+        const data = await loadUserStyleData()
+        if (!active || current !== generation || data?.userId !== id) return
+
+        const stored = data.wardrobe as ClothingItem[]
+        setItems(stored)
+        const loadedPhotos: Record<string, string> = {}
+
+        for (const item of stored) {
+          try {
+            const url = await getWardrobePhotoUrl(id, item.id, item.imageKey)
+            if (!active || current !== generation) return
+            if (url) loadedPhotos[item.id] = url
+          } catch {
+            // Missing photos do not prevent the wardrobe from loading.
+          }
+        }
+
+        if (active && current === generation) setPhotos(loadedPhotos)
+      } catch {
+        if (active && current === generation) {
+          setError('Your wardrobe could not be loaded. Please refresh the page.')
+        }
+      } finally {
+        if (active && current === generation) setLoading(false)
       }
     }
 
-    load().catch(() => {
-      if (active) {
-        setError('Your wardrobe could not be loaded. Please refresh the page.')
-        setLoading(false)
-      }
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      void loadForUser(session?.user.id ?? null)
+    })
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) void loadForUser(data.session?.user.id ?? null)
     })
 
     return () => {
       active = false
+      generation++
+      data.subscription.unsubscribe()
       urls.forEach(URL.revokeObjectURL)
     }
   }, [])
@@ -203,8 +156,9 @@ export default function Wardrobe() {
     })
   }, [items, search, filter])
 
-  function persist(next: ClothingItem[]) {
-    saveItems(next)
+  async function persist(next: ClothingItem[]) {
+    if (!userId) throw new Error('Sign in before saving wardrobe items.')
+    await saveUserStyleData({ wardrobe: next })
     setItems(next)
   }
 
@@ -221,6 +175,7 @@ export default function Wardrobe() {
       name: item.name,
       category: item.category,
       color: item.color,
+      extraColors: item.extraColors ?? [],
       brand: item.brand,
       notes: item.notes,
       image: null,
@@ -242,10 +197,10 @@ export default function Wardrobe() {
     try {
       const existing = items.find((item) => item.id === editing)
       const id = existing?.id ?? crypto.randomUUID()
-      const imageKey = existing?.imageKey ?? id
-
+      if (!userId) throw new Error('Sign in before saving wardrobe items.')
+      const imageKey = wardrobePhotoPath(userId, id)
       if (draft.image) {
-        await savePhoto(imageKey, draft.image)
+        await uploadWardrobePhoto(userId, id, draft.image)
       }
 
       const updated: ClothingItem = {
@@ -253,6 +208,11 @@ export default function Wardrobe() {
         name: draft.name.trim(),
         category: draft.category,
         color: draft.color,
+        extraColors: [...new Set(
+          draft.extraColors.filter((color) =>
+            /^#[0-9a-fA-F]{6}$/.test(color),
+          ),
+        )].slice(0, 5),
         brand: draft.brand.trim(),
         notes: draft.notes.trim(),
         imageKey,
@@ -263,16 +223,15 @@ export default function Wardrobe() {
         ? items.map((item) => (item.id === id ? updated : item))
         : [updated, ...items]
 
-      persist(next)
+      await persist(next)
 
       if (draft.image) {
-        const oldUrl = photos[id]
-        if (oldUrl) URL.revokeObjectURL(oldUrl)
 
-        setPhotos((current) => ({
-          ...current,
-          [id]: URL.createObjectURL(draft.image!),
-        }))
+
+        const photoUrl = await getWardrobePhotoUrl(userId, id)
+        if (photoUrl) {
+          setPhotos((current) => ({ ...current, [id]: photoUrl }))
+        }
       }
 
       setModalOpen(false)
@@ -288,11 +247,11 @@ export default function Wardrobe() {
     if (!window.confirm(`Remove "${item.name}" from your wardrobe?`)) return
 
     try {
-      await deletePhoto(item.imageKey)
       const next = items.filter((entry) => entry.id !== item.id)
-      persist(next)
+      await persist(next)
+      await deleteWardrobePhoto(userId, item.id)
 
-      if (photos[item.id]) URL.revokeObjectURL(photos[item.id])
+
 
       setPhotos((current) => {
         const nextPhotos = { ...current }
@@ -302,6 +261,17 @@ export default function Wardrobe() {
     } catch {
       setError('Could not remove this piece. Please try again.')
     }
+  }
+
+  if (!userId && !loading) {
+    return (
+      <div className="page-content subpage wardrobe-page">
+        <div className="wardrobe-intro">
+          <h1>Your wardrobe</h1>
+          <p>Sign in through your profile to view and manage your personal wardrobe.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -330,7 +300,14 @@ export default function Wardrobe() {
           <span>CATEGORIES</span>
         </div>
         <div>
-          <strong>{new Set(items.map((item) => item.color.toLowerCase())).size.toString().padStart(2, '0')}</strong>
+          <strong>{new Set(
+                        items.flatMap((item) => [
+                          item.color.toLowerCase(),
+                          ...(item.extraColors ?? []).map((color) =>
+                            color.toLowerCase(),
+                          ),
+                        ]),
+                      ).size.toString().padStart(2, '0')}</strong>
           <span>UNIQUE COLOURS</span>
         </div>
       </div>
@@ -400,11 +377,16 @@ export default function Wardrobe() {
                   <h3>{item.name}</h3>
                   <p>{item.brand || 'No brand added'}</p>
                 </div>
-                <span
-                  className="wardrobe-live-color"
-                  style={{ backgroundColor: item.color }}
-                  title={item.color}
-                />
+                <div className="wardrobe-live-colors" aria-label="Garment colours">
+                {[item.color, ...(item.extraColors ?? [])].map((color, index) => (
+                  <span
+                    className="wardrobe-live-color"
+                    key={`${item.id}-${index}`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
               </div>
               {item.notes && <p className="wardrobe-notes">{item.notes}</p>}
             </article>
@@ -498,6 +480,51 @@ export default function Wardrobe() {
                 <span>{draft.color.toUpperCase()}</span>
               </div>
             </label>
+
+            <div className="wardrobe-field">
+              <span>EXTRA COLOURS (OPTIONAL)</span>
+              <p className="wardrobe-field-hint">
+                Add up to five additional colours. Leave empty for a single-colour piece.
+              </p>
+
+              {draft.extraColors.map((color, index) => (
+                <div className="wardrobe-extra-color-row" key={index}>
+                  <input
+                    type="color"
+                    value={color}
+                    aria-label={`Extra colour ${index + 1}`}
+                    onChange={(event) => {
+                      const next = [...draft.extraColors]
+                      next[index] = event.target.value
+                      setDraft({ ...draft, extraColors: next })
+                    }}
+                  />
+                  <span>{color.toUpperCase()}</span>
+                  <button
+                    type="button"
+                    className="remove-extra-color"
+                    onClick={() => setDraft({
+                      ...draft,
+                      extraColors: draft.extraColors.filter((_, i) => i !== index),
+                    })}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="add-extra-color"
+                disabled={draft.extraColors.length >= 5}
+                onClick={() => setDraft({
+                  ...draft,
+                  extraColors: [...draft.extraColors, '#808080'],
+                })}
+              >
+                + Add another colour
+              </button>
+            </div>
 
             <label className="wardrobe-field">
               <span>NOTES</span>

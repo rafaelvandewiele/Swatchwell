@@ -12,10 +12,6 @@ export interface HSL {
 
 export type HexColor = `#${string}`;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function validateRGB(rgb: RGB): void {
   for (const channel of [rgb.r, rgb.g, rgb.b]) {
     if (!Number.isFinite(channel) || channel < 0 || channel > 255) {
@@ -317,3 +313,86 @@ export function deltaE2000(first: Lab, second: Lab): number {
     rT * cTerm * hTerm
   );
 }
+
+export type ColorPalette = HexColor[];
+
+function rotateHue(hsl: HSL, degrees: number): HSL {
+  return {
+    ...hsl,
+    h: (hsl.h + degrees + 360) % 360,
+  };
+}
+
+function hslToHex(hsl: HSL): HexColor {
+  return rgbToHex(hslToRgb(hsl));
+}
+
+export function generateComplementary(hex: string): ColorPalette {
+  const base = rgbToHsl(hexToRgb(hex));
+
+  return [
+    normalizeHex(hex),
+    hslToHex(rotateHue(base, 180)),
+  ];
+}
+
+export function generateAnalogous(
+  hex: string,
+  angle = 30,
+): ColorPalette {
+  if (!Number.isFinite(angle) || angle <= 0 || angle > 180) {
+    throw new RangeError("Analogous angle must be between 0 and 180.");
+  }
+
+  const base = rgbToHsl(hexToRgb(hex));
+
+  return [
+    hslToHex(rotateHue(base, -angle)),
+    normalizeHex(hex),
+    hslToHex(rotateHue(base, angle)),
+  ];
+}
+
+export function generateTriadic(hex: string): ColorPalette {
+  const base = rgbToHsl(hexToRgb(hex));
+
+  return [
+    normalizeHex(hex),
+    hslToHex(rotateHue(base, 120)),
+    hslToHex(rotateHue(base, 240)),
+  ];
+}
+
+export function generateSplitComplementary(hex: string): ColorPalette {
+  const base = rgbToHsl(hexToRgb(hex));
+
+  return [
+    normalizeHex(hex),
+    hslToHex(rotateHue(base, 150)),
+    hslToHex(rotateHue(base, 210)),
+  ];
+}
+
+export function generateMonochromatic(
+  hex: string,
+  variations = 5,
+): ColorPalette {
+  if (!Number.isInteger(variations) || variations < 2 || variations > 10) {
+    throw new RangeError("Variations must be an integer between 2 and 10.");
+  }
+
+  const base = rgbToHsl(hexToRgb(hex));
+
+  return Array.from({ length: variations }, (_, index) => {
+    const lightness = 10 + (80 * index) / (variations - 1);
+
+    return hslToHex({
+      ...base,
+      l: lightness,
+    });
+  });
+}
+
+export * from "./seasonal-analysis";
+export * from "./seasonal-palettes";
+export * from "./color-compatibility";

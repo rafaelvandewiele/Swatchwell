@@ -6,8 +6,9 @@ export const APP_DESCRIPTION =
 export type ClothingCategory =
   | "pants"
   | "shirt"
-  | "sweater"
   | "tshirt"
+  | "polo"
+  | "sweater"
   | "jacket"
   | "shoes"
   | "accessory";
@@ -17,4 +18,5 @@ export interface ClothingItem {
   name: string;
   category: ClothingCategory;
   color: string;
+  extraColors?: string[];
 }

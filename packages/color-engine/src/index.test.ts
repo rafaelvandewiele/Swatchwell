@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { deltaE2000, rgbToLab } from "./index";
 import {
+  generateAnalogous,
+  generateComplementary,
+  generateMonochromatic,
+  generateSplitComplementary,
+  generateTriadic,
+} from "./index";
+import {
   contrastRatio,
   hexToRgb,
   hslToRgb,
@@ -128,5 +135,60 @@ describe("CIE Lab and Delta E 2000", () => {
         { l: 50, a: 0, b: 0 },
       ),
     ).toThrow(RangeError);
+  });
+});
+
+describe("Color harmonies", () => {
+  it("generates complementary colors", () => {
+    const palette = generateComplementary("#ff0000");
+
+    expect(palette).toHaveLength(2);
+    expect(palette[0]).toBe("#ff0000");
+    expect(palette[1]).toBe("#00ffff");
+  });
+
+  it("generates analogous colors", () => {
+    const palette = generateAnalogous("#ff0000");
+
+    expect(palette).toHaveLength(3);
+    expect(palette[1]).toBe("#ff0000");
+    expect(new Set(palette).size).toBe(3);
+  });
+
+  it("generates triadic colors", () => {
+    const palette = generateTriadic("#ff0000");
+
+    expect(palette).toHaveLength(3);
+    expect(palette[0]).toBe("#ff0000");
+    expect(new Set(palette).size).toBe(3);
+  });
+
+  it("generates split-complementary colors", () => {
+    const palette = generateSplitComplementary("#ff0000");
+
+    expect(palette).toHaveLength(3);
+    expect(palette[0]).toBe("#ff0000");
+    expect(new Set(palette).size).toBe(3);
+  });
+
+  it("generates monochromatic variations", () => {
+    const palette = generateMonochromatic("#336699");
+
+    expect(palette).toHaveLength(5);
+    expect(new Set(palette).size).toBe(5);
+  });
+
+  it("supports a custom number of monochromatic variations", () => {
+    expect(generateMonochromatic("#336699", 7)).toHaveLength(7);
+  });
+
+  it("rejects invalid analogous angles", () => {
+    expect(() => generateAnalogous("#ff0000", 0)).toThrow(RangeError);
+    expect(() => generateAnalogous("#ff0000", 200)).toThrow(RangeError);
+  });
+
+  it("rejects invalid monochromatic variation counts", () => {
+    expect(() => generateMonochromatic("#ff0000", 1)).toThrow(RangeError);
+    expect(() => generateMonochromatic("#ff0000", 11)).toThrow(RangeError);
   });
 });

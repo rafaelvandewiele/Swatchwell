@@ -486,3 +486,64 @@
   }
 }
 
+
+/* Multiple garment colours */
+.wardrobe-live-colors {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 90px;
+}
+
+.wardrobe-field-hint {
+  margin: 5px 0 10px;
+  color: #938d80;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.wardrobe-extra-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.wardrobe-extra-color-row input {
+  width: 43px;
+  height: 36px;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.wardrobe-extra-color-row span {
+  flex: 1;
+  color: #77766d;
+  font-size: 10px;
+}
+
+.remove-extra-color,
+.add-extra-color {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.remove-extra-color {
+  color: #9c625b;
+}
+
+.add-extra-color {
+  display: block;
+  padding: 8px 0;
+  color: #a48a6b;
+}
+
+.add-extra-color:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@swatchwell/color-engine": "1.0.0",
+    "@swatchwell/shared": "1.0.0"
+  }
 }

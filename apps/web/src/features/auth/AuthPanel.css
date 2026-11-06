@@ -1,0 +1,144 @@
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(24 35 45 / 45%);
+  backdrop-filter: blur(5px);
+}
+
+.auth-panel {
+  position: relative;
+  width: min(100%, 430px);
+  padding: 38px;
+  border: 1px solid #eae7df;
+  border-radius: 20px;
+  background: #fffefa;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 15%);
+  color: #243b53;
+}
+
+.auth-close {
+  position: absolute;
+  top: 15px;
+  right: 18px;
+  border: 0;
+  background: transparent;
+  color: #77776f;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.auth-eyebrow {
+  color: #8b887d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.auth-panel h2 {
+  margin: 13px 0 25px;
+  font-size: 29px;
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+
+.auth-panel form,
+.auth-account {
+  display: grid;
+  gap: 17px;
+}
+
+.auth-panel label {
+  display: grid;
+  gap: 8px;
+  color: #55574f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-panel input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #e2dfd6;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #243b53;
+  font: inherit;
+}
+
+.auth-panel input:focus {
+  border-color: #243b53;
+}
+
+.auth-primary,
+.auth-secondary {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #243b53;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.auth-primary {
+  background: #243b53;
+  color: white;
+}
+
+.auth-primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.auth-secondary {
+  background: transparent;
+  color: #243b53;
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 20px;
+}
+
+.auth-links button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #596d7e;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-error {
+  color: #a33b35;
+  font-size: 13px;
+}
+
+.auth-message {
+  color: #55745d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-account p {
+  margin: 0;
+  color: #77776f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .auth-panel {
+    padding: 30px 23px;
+  }
+}
