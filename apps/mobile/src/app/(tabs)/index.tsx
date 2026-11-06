@@ -4,8 +4,8 @@ import Screen, { styles as shared } from '../../components/Screen';
 export default function HomeScreen() {
   return (
     <Screen
-      eyebrow="Your personal style assistant"
-      title="Swatchwell"
+      showBrandLogo
+      title="Your personal style"
       subtitle="Build a wardrobe that works together."
     >
       <View style={shared.card}>

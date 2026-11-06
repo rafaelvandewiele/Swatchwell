@@ -193,10 +193,11 @@ function App() {
             navigate("Overview");
           }}
         >
-          <span className="brand-mark">s.</span>
-          <span>
-            swatchwell<span className="brand-period">.</span>
-          </span>
+          <img
+            className="brand-logo"
+            src="/logo.png"
+            alt="Swatchwell"
+          />
         </a>
 
         <div className="sidebar-label">MENU</div>

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface ScreenProps {
   eyebrow?: string;
+  showBrandLogo?: boolean;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -10,6 +11,7 @@ interface ScreenProps {
 
 export default function Screen({
   eyebrow,
+  showBrandLogo = false,
   title,
   subtitle,
   children,
@@ -21,6 +23,14 @@ export default function Screen({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
+        {showBrandLogo ? (
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="Swatchwell"
+          />
+        ) : null}
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow.toUpperCase()}</Text> : null}
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -43,6 +53,12 @@ export const styles = StyleSheet.create({
   },
   header: {
     gap: 8,
+  },
+  brandLogo: {
+    width: 210,
+    height: 65,
+    alignSelf: 'flex-start',
+    marginBottom: 5,
   },
   eyebrow: {
     color: '#8B887D',

@@ -34,15 +34,12 @@
   font-weight: 600;
 }
 
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--navy);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-family: var(--serif);
-  font-size: 20px;
+.brand-logo {
+  display: block;
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 .brand-period { color: #ad8b66; }
 
