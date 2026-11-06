@@ -1,9 +1,11 @@
 import { supabase } from './supabase'
+import type { StoredColorProfile } from '../features/color-profile/color-profile'
 
 export interface UserStyleData {
   userId: string
   wardrobe: unknown[]
   savedOutfits: unknown[]
+  colorProfile: StoredColorProfile | null
 }
 
 const LEGACY_WARDROBE_KEY = 'swatchwell-wardrobe-items'
@@ -105,7 +107,7 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
 
   const { data, error } = await supabase
     .from('user_style_data')
-    .select('wardrobe, saved_outfits')
+    .select('wardrobe, saved_outfits, color_profile')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -118,6 +120,9 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
       savedOutfits: Array.isArray(data.saved_outfits)
         ? data.saved_outfits
         : [],
+      colorProfile: data.color_profile && typeof data.color_profile === 'object'
+        ? data.color_profile as StoredColorProfile
+        : null,
     }
   }
 
@@ -157,11 +162,11 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
   localStorage.removeItem(LEGACY_WARDROBE_KEY)
   localStorage.removeItem(LEGACY_OUTFITS_KEY)
 
-  return { userId, wardrobe, savedOutfits }
+  return { userId, wardrobe, savedOutfits, colorProfile: null }
 }
 
 export async function saveUserStyleData(
-  patch: Partial<Pick<UserStyleData, 'wardrobe' | 'savedOutfits'>>,
+  patch: Partial<Pick<UserStyleData, 'wardrobe' | 'savedOutfits' | 'colorProfile'>>,
 ): Promise<void> {
   if (!supabase) throw new Error('Account storage is not configured.')
 
@@ -176,6 +181,7 @@ export async function saveUserStyleData(
   const values: {
     wardrobe?: unknown[]
     saved_outfits?: unknown[]
+    color_profile?: StoredColorProfile | null
     updated_at: string
   } = { updated_at: updatedAt }
 
@@ -187,7 +193,15 @@ export async function saveUserStyleData(
     values.saved_outfits = patch.savedOutfits
   }
 
-  if (values.wardrobe === undefined && values.saved_outfits === undefined) {
+  if (patch.colorProfile !== undefined) {
+    values.color_profile = patch.colorProfile
+  }
+
+  if (
+    values.wardrobe === undefined &&
+    values.saved_outfits === undefined &&
+    values.color_profile === undefined
+  ) {
     return
   }
 
@@ -210,6 +224,7 @@ export async function saveUserStyleData(
       user_id: userId,
       wardrobe: patch.wardrobe ?? [],
       saved_outfits: patch.savedOutfits ?? [],
+      color_profile: patch.colorProfile ?? null,
       updated_at: updatedAt,
     })
 

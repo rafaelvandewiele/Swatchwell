@@ -1,53 +1,98 @@
 import { describe, expect, it } from "vitest";
-import { analyzeSeasonalProfile } from "./seasonal-analysis";
+import {
+  analyzeSeasonalProfile,
+  type SeasonalProfile,
+} from "./seasonal-analysis";
 
-describe("Seasonal color analysis", () => {
-  it("classifies Spring", () => {
-    const result = analyzeSeasonalProfile({
-      undertone: "warm",
-      value: "light",
-      chroma: "clear",
-      contrast: "medium",
-    });
+describe("Twelve-season color analysis", () => {
+  const cases: Array<{
+    name: string;
+    profile: SeasonalProfile;
+    expected: string;
+  }> = [
+    {
+      name: "Light Spring",
+      profile: { undertone: "warm", value: "light", chroma: "clear", contrast: "low" },
+      expected: "light-spring",
+    },
+    {
+      name: "True Spring",
+      profile: { undertone: "warm", value: "balanced", chroma: "clear", contrast: "medium" },
+      expected: "true-spring",
+    },
+    {
+      name: "Bright Spring",
+      profile: { undertone: "neutral", value: "light", chroma: "clear", contrast: "high" },
+      expected: "bright-spring",
+    },
+    {
+      name: "Light Summer",
+      profile: { undertone: "cool", value: "light", chroma: "soft", contrast: "low" },
+      expected: "light-summer",
+    },
+    {
+      name: "True Summer",
+      profile: { undertone: "cool", value: "balanced", chroma: "soft", contrast: "medium" },
+      expected: "true-summer",
+    },
+    {
+      name: "Soft Summer",
+      profile: { undertone: "neutral", value: "balanced", chroma: "soft", contrast: "low" },
+      expected: "soft-summer",
+    },
+    {
+      name: "Soft Autumn",
+      profile: { undertone: "warm", value: "balanced", chroma: "soft", contrast: "low" },
+      expected: "soft-autumn",
+    },
+    {
+      name: "True Autumn",
+      profile: { undertone: "warm", value: "balanced", chroma: "soft", contrast: "medium" },
+      expected: "true-autumn",
+    },
+    {
+      name: "Deep Autumn",
+      profile: { undertone: "warm", value: "deep", chroma: "soft", contrast: "high" },
+      expected: "deep-autumn",
+    },
+    {
+      name: "Deep Winter",
+      profile: { undertone: "cool", value: "deep", chroma: "clear", contrast: "high" },
+      expected: "deep-winter",
+    },
+    {
+      name: "True Winter",
+      profile: { undertone: "cool", value: "balanced", chroma: "clear", contrast: "medium" },
+      expected: "true-winter",
+    },
+    {
+      name: "Bright Winter",
+      profile: { undertone: "cool", value: "light", chroma: "clear", contrast: "high" },
+      expected: "bright-winter",
+    },
+  ];
 
-    expect(result.season).toBe("spring");
-    expect(result.status).toBe("classified");
+  it.each(cases)("returns a result for $name", ({ profile, expected }) => {
+    const result = analyzeSeasonalProfile(profile);
+    expect(result.subSeason).toBe(expected);
+    expect(result.season).toBeTruthy();
   });
 
-  it("classifies Summer", () => {
+  it("always returns a profile when every answer is uncertain", () => {
     const result = analyzeSeasonalProfile({
-      undertone: "cool",
-      value: "light",
-      chroma: "soft",
-      contrast: "low",
+      undertone: "uncertain",
+      value: "uncertain",
+      chroma: "uncertain",
+      contrast: "uncertain",
     });
 
+    expect(result.subSeason).toBe("soft-summer");
     expect(result.season).toBe("summer");
+    expect(result.confidence).toBe("low");
+    expect(result.status).toBe("needs_review");
   });
 
-  it("classifies Autumn", () => {
-    const result = analyzeSeasonalProfile({
-      undertone: "warm",
-      value: "deep",
-      chroma: "soft",
-      contrast: "medium",
-    });
-
-    expect(result.season).toBe("autumn");
-  });
-
-  it("classifies Winter", () => {
-    const result = analyzeSeasonalProfile({
-      undertone: "cool",
-      value: "deep",
-      chroma: "clear",
-      contrast: "high",
-    });
-
-    expect(result.season).toBe("winter");
-  });
-
-  it("does not force a classification for neutral undertones", () => {
+  it("returns a profile for neutral and mixed characteristics", () => {
     const result = analyzeSeasonalProfile({
       undertone: "neutral",
       value: "light",
@@ -55,20 +100,20 @@ describe("Seasonal color analysis", () => {
       contrast: "low",
     });
 
-    expect(result.season).toBeNull();
-    expect(result.status).toBe("needs_review");
+    expect(result.subSeason).toBeTruthy();
+    expect(result.season).toBeTruthy();
   });
 
-  it("does not force a classification for mixed characteristics", () => {
+  it("returns a result when only one answer is known", () => {
     const result = analyzeSeasonalProfile({
       undertone: "warm",
-      value: "light",
-      chroma: "soft",
-      contrast: "medium",
+      value: "uncertain",
+      chroma: "uncertain",
+      contrast: "uncertain",
     });
 
-    expect(result.season).toBeNull();
-    expect(result.status).toBe("needs_review");
+    expect(result.subSeason).toBeTruthy();
+    expect(result.confidence).toBe("low");
   });
 
   it("rejects invalid profile values", () => {

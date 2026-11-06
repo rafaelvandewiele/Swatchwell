@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   SeasonalProfile,
@@ -7,15 +7,14 @@ import type {
 } from "@swatchwell/color-engine";
 
 import {
-  getSeasonalPalette,
+  getSubSeasonalPalette,
+  getSubSeasonLabel,
 } from "@swatchwell/color-engine";
+import { SEASONAL_QUESTIONS as QUESTIONS } from "@swatchwell/color-engine";
 
-import {
-  getSeasonLabel,
-  readColorProfile,
-  saveColorProfile,
-  removeColorProfile,
-} from "./color-profile";
+import { createColorProfile } from "./color-profile";
+import { supabase } from "../../lib/supabase";
+import { loadUserStyleData, saveUserStyleData } from "../../lib/user-style-data";
 
 import "./ColorProfile.css";
 
@@ -26,56 +25,6 @@ const INITIAL_PROFILE: SeasonalProfile = {
   contrast: "uncertain",
 };
 
-const QUESTIONS = [
-  {
-    key: "undertone",
-    title: "Your undertone",
-    description:
-      "Which underlying colour temperature seems most suitable?",
-    options: [
-      { value: "warm", label: "Warm", detail: "Golden, peach or yellow undertones" },
-      { value: "cool", label: "Cool", detail: "Pink, red or blue undertones" },
-      { value: "neutral", label: "Neutral", detail: "A balance between warm and cool" },
-      { value: "uncertain", label: "Not sure", detail: "I cannot confidently determine this" },
-    ],
-  },
-  {
-    key: "value",
-    title: "Your colour depth",
-    description:
-      "Which general colour depth best describes your natural colouring?",
-    options: [
-      { value: "light", label: "Light", detail: "Generally lighter colouring" },
-      { value: "deep", label: "Deep", detail: "Generally deeper colouring" },
-      { value: "balanced", label: "Balanced", detail: "Neither particularly light nor deep" },
-      { value: "uncertain", label: "Not sure", detail: "I cannot confidently determine this" },
-    ],
-  },
-  {
-    key: "chroma",
-    title: "Your colour clarity",
-    description:
-      "Which colour quality do you tend to prefer?",
-    options: [
-      { value: "soft", label: "Soft", detail: "Muted and understated colours" },
-      { value: "clear", label: "Clear", detail: "Bright and saturated colours" },
-      { value: "balanced", label: "Balanced", detail: "Somewhere between soft and clear" },
-      { value: "uncertain", label: "Not sure", detail: "I cannot confidently determine this" },
-    ],
-  },
-  {
-    key: "contrast",
-    title: "Your contrast",
-    description:
-      "How much contrast do you generally notice between your natural features?",
-    options: [
-      { value: "low", label: "Low", detail: "A relatively subtle overall contrast" },
-      { value: "medium", label: "Medium", detail: "A moderate level of contrast" },
-      { value: "high", label: "High", detail: "A more noticeable overall contrast" },
-      { value: "uncertain", label: "Not sure", detail: "I cannot confidently determine this" },
-    ],
-  },
-] as const;
 
 const SEASON_DETAILS: Record<
   ColorSeason,
@@ -125,14 +74,14 @@ const CATEGORY_DETAILS: {
   },
 ];
 
-function SeasonalPaletteDisplay({ season }: { season: ColorSeason }) {
-  const palette = getSeasonalPalette(season);
+function SeasonalPaletteDisplay({ subSeason }: { subSeason: import('@swatchwell/color-engine').SubSeason }) {
+  const palette = getSubSeasonalPalette(subSeason);
 
   return (
     <section className="seasonal-palette">
       <div className="seasonal-palette-heading">
         <div className="eyebrow">YOUR COLOUR SELECTION</div>
-        <h3>The {getSeasonLabel(season)} palette</h3>
+        <h3>The {getSubSeasonLabel(palette.subSeason)} palette</h3>
         <p>
           Twelve curated colours to use as inspiration when
           building your wardrobe.
@@ -178,50 +127,140 @@ function SeasonalPaletteDisplay({ season }: { season: ColorSeason }) {
 }
 
 export default function ColorProfile() {
-  const [profile, setProfile] = useState<SeasonalProfile>(
-    () => readColorProfile()?.profile ?? INITIAL_PROFILE,
-  );
-
-  const [saved, setSaved] = useState(
-    () => readColorProfile() !== null,
-  );
-
+  const [profile, setProfile] = useState<SeasonalProfile>(INITIAL_PROFILE);
+  const [storedProfile, setStoredProfile] = useState<ReturnType<typeof createColorProfile> | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+  const loadVersion = useRef(0);
 
   const currentQuestion = QUESTIONS[step];
-  const result = saved ? readColorProfile()?.analysis : null;
+  const result = saved ? storedProfile?.analysis ?? null : null;
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      setError("Account storage is not configured.");
+      return;
+    }
+
+    let active = true;
+
+    async function loadProfile() {
+      const version = ++loadVersion.current;
+      setLoading(true);
+      setStoredProfile(null);
+      setProfile(INITIAL_PROFILE);
+      setSaved(false);
+      setError("");
+
+      try {
+        const data = await loadUserStyleData();
+        const { data: authData, error: authError } = await supabase!.auth.getUser();
+        if (authError) throw authError;
+        if (!active || version !== loadVersion.current) return;
+
+        if (!authData.user || !data || data.userId !== authData.user.id) {
+          setError("Sign in to create and save your personal colour profile.");
+          return;
+        }
+
+        const candidate = data.colorProfile;
+        if (
+          candidate &&
+          candidate.profile &&
+          typeof candidate.profile === "object"
+        ) {
+          const restored = createColorProfile(candidate.profile);
+          setStoredProfile({
+            ...restored,
+            updatedAt: typeof candidate.updatedAt === "string"
+              ? candidate.updatedAt
+              : restored.updatedAt,
+          });
+          setProfile(restored.profile);
+          setSaved(true);
+        }
+      } catch {
+        if (active && version === loadVersion.current) {
+          setError("Your colour profile could not be loaded. Please try again.");
+        }
+      } finally {
+        if (active && version === loadVersion.current) setLoading(false);
+      }
+    }
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      loadVersion.current += 1;
+      setStoredProfile(null);
+      setProfile(INITIAL_PROFILE);
+      setSaved(false);
+      setLoading(true);
+      queueMicrotask(() => {
+        if (active) void loadProfile();
+      });
+    });
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+      loadVersion.current += 1;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   function updateAnswer(value: string) {
     setProfile((current) => ({
       ...current,
       [currentQuestion.key]: value,
     }) as SeasonalProfile);
-
+    setSaved(false);
+    setStoredProfile(null);
     setError("");
   }
 
-  function saveProfile() {
+  async function saveProfile() {
+    if (!supabase) {
+      setError("Account storage is not configured.");
+      return;
+    }
+
     try {
-      saveColorProfile(profile);
-      setSaved(true);
+      setSaving(true);
       setError("");
+      const nextProfile = createColorProfile(profile);
+      await saveUserStyleData({ colorProfile: nextProfile });
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Sign in required.");
+
+      setStoredProfile(nextProfile);
+      setSaved(true);
     } catch {
-      setError(
-        "Your profile could not be saved. Check browser storage.",
-      );
+      setError("Your profile could not be saved. Check your connection and sign-in status.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  function resetProfile() {
+  async function resetProfile() {
     try {
-      removeColorProfile();
+      setSaving(true);
+      setError("");
+      await saveUserStyleData({ colorProfile: null });
       setProfile(INITIAL_PROFILE);
+      setStoredProfile(null);
       setSaved(false);
       setStep(0);
-      setError("");
     } catch {
-      setError("Your profile could not be removed.");
+      setError("Your profile could not be removed. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -238,25 +277,26 @@ export default function ColorProfile() {
         </p>
       </section>
 
-      {saved && result ? (
+      {loading ? (
+        <section className="profile-wizard">
+          <p>Loading your account colour profile…</p>
+        </section>
+      ) : saved && result ? (
         <>
           <section className="profile-result">
             <div className="eyebrow">YOUR CURRENT PROFILE</div>
 
             {result.season ? (
               <>
-                <h2>{getSeasonLabel(result.season)}</h2>
+                <h2>{getSubSeasonLabel(result.subSeason)}</h2>
                 <p>{SEASON_DETAILS[result.season].subtitle}</p>
                 <p>{SEASON_DETAILS[result.season].description}</p>
+                <p>Result confidence: {result.confidence}</p>
               </>
             ) : (
               <>
-                <h2>Profile needs review</h2>
-                <p>
-                  Your selected characteristics do not produce a
-                  confident four-season classification. You can
-                  update your answers to explore another result.
-                </p>
+                <h2>{getSubSeasonLabel(result.subSeason)}</h2>
+                <p>This is a starting recommendation based on the answers available. You can refine it by updating your answers.</p>
               </>
             )}
 
@@ -291,16 +331,15 @@ export default function ColorProfile() {
               <button
                 className="profile-reset-button"
                 type="button"
-                onClick={resetProfile}
+                onClick={() => void resetProfile()}
+                disabled={saving}
               >
                 Reset profile
               </button>
             </div>
           </section>
 
-          {result.season && (
-            <SeasonalPaletteDisplay season={result.season} />
-          )}
+          <SeasonalPaletteDisplay subSeason={result.subSeason} />
         </>
       ) : (
         <section className="profile-wizard">
@@ -367,9 +406,10 @@ export default function ColorProfile() {
               <button
                 type="button"
                 className="primary-button"
-                onClick={saveProfile}
+                onClick={() => void saveProfile()}
+                disabled={saving}
               >
-                Save colour profile
+                {saving ? "Saving…" : "Save colour profile"}
               </button>
             )}
           </div>
@@ -377,9 +417,7 @@ export default function ColorProfile() {
       )}
 
       <p className="profile-disclaimer">
-        This simplified four-season system is an experimental styling
-        guide. It is not a scientific assessment or a definitive
-        determination of personal colour suitability.
+        This twelve-profile seasonal system is an experimental styling guide, not a scientific assessment or a definitive determination of personal colour suitability.
       </p>
     </div>
   );

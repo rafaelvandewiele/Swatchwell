@@ -13,10 +13,7 @@ import {
   type OutfitRecommendation,
 } from "@swatchwell/outfit-engine";
 
-import {
-  readColorProfile,
-  getSeasonLabel,
-} from "../color-profile/color-profile";
+import { getSeasonLabel } from "../color-profile/color-profile";
 
 import {
   toGeneratorWardrobe,
@@ -245,9 +242,7 @@ export default function OutfitGenerator() {
     {},
   );
 
-  const [season, setSeason] = useState<ColorSeason | undefined>(
-    () => readColorProfile()?.analysis.season ?? undefined,
-  );
+  const [season, setSeason] = useState<ColorSeason | undefined>(undefined);
 
   const [saveError, setSaveError] = useState("");
 
@@ -266,6 +261,7 @@ export default function OutfitGenerator() {
       setUserId(id);
       setWardrobe([]);
       setSavedOutfits([]);
+      setSeason(undefined);
       setSaveError("");
       setLoading(Boolean(id));
 
@@ -284,6 +280,7 @@ export default function OutfitGenerator() {
             (entry) => isRecord(entry) && isOutfitRecommendation(entry.outfit),
           ),
         );
+        setSeason(data.colorProfile?.analysis?.season);
       } catch {
         if (active && current === generation) {
           setSaveError("Your personal style data could not be loaded. Please refresh.");
@@ -411,7 +408,7 @@ export default function OutfitGenerator() {
           (entry) => isRecord(entry) && isOutfitRecommendation(entry.outfit),
         ),
       );
-      setSeason(readColorProfile()?.analysis.season ?? undefined);
+      setSeason(data.colorProfile?.analysis?.season);
       setSaveError("");
     } catch {
       setSaveError("Your wardrobe could not be refreshed.");

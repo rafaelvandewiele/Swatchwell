@@ -396,3 +396,4 @@ export function generateMonochromatic(
 export * from "./seasonal-analysis";
 export * from "./seasonal-palettes";
 export * from "./color-compatibility";
+export * from "./seasonal-questionnaire";

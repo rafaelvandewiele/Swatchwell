@@ -8,17 +8,15 @@ import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
 import { supabase } from "./lib/supabase";
 import { loadUserStyleData } from "./lib/user-style-data";
+import type { StoredColorProfile } from "./features/color-profile/color-profile";
 import { getWardrobePhotoUrl } from "./lib/wardrobe-photos";
 
 import {
-  getSeasonalPalette,
+  getSubSeasonalPalette,
   getAllSeasonalPalettes,
 } from "@swatchwell/color-engine";
 
-import {
-  readColorProfile,
-  getSeasonLabel,
-} from "./features/color-profile/color-profile";
+import { getSeasonLabel } from "./features/color-profile/color-profile";
 
 type Page =
   | "Overview"
@@ -85,6 +83,7 @@ function App() {
     Record<string, string>
   >({});
   const [savedOutfitCount, setSavedOutfitCount] = useState(0);
+  const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
     setPage(name);
@@ -106,6 +105,7 @@ function App() {
       setDashboardItems([]);
       setDashboardPhotos({});
       setSavedOutfitCount(0);
+      setColorProfile(null);
 
       if (!userId) return;
 
@@ -116,6 +116,7 @@ function App() {
         const items = data.wardrobe as DashboardWardrobeItem[];
         setDashboardItems(items);
         setSavedOutfitCount(data.savedOutfits.length);
+        setColorProfile(data.colorProfile);
 
         const photos: Record<string, string> = {};
         for (const item of items) {
@@ -134,6 +135,7 @@ function App() {
           setDashboardItems([]);
           setDashboardPhotos({});
           setSavedOutfitCount(0);
+          setColorProfile(null);
         }
       }
     }
@@ -142,6 +144,7 @@ function App() {
       setDashboardItems([]);
       setDashboardPhotos({});
       setSavedOutfitCount(0);
+      setColorProfile(null);
       return () => {
         active = false;
         objectUrls.forEach(URL.revokeObjectURL);
@@ -166,13 +169,12 @@ function App() {
     };
   }, [page]);
 
-  const colorProfile = readColorProfile();
   const season = colorProfile?.analysis.season;
 
   const wardrobeCount = dashboardItems.length;
 
-  const dashboardColors = season
-    ? getSeasonalPalette(season).colors
+  const dashboardColors = colorProfile
+    ? getSubSeasonalPalette(colorProfile.analysis.subSeason).colors
     : getAllSeasonalPalettes()
         .flatMap((palette) => palette.colors)
         .filter((color) => color.category === "neutral")
