@@ -26,6 +26,8 @@ export default function AccountScreen() {
   )
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -67,6 +69,11 @@ export default function AccountScreen() {
       return
     }
 
+    if (mode === 'register' && (!firstName.trim() || !lastName.trim())) {
+      setError('Please enter both your first name and surname.')
+      return
+    }
+
     setBusy(true)
     clearFeedback()
 
@@ -77,16 +84,26 @@ export default function AccountScreen() {
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: redirectTo },
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+            },
+          },
         })
         if (error) throw error
         setMessage('Registration received. Check your email to verify your account.')
       } else if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         })
         if (error) throw error
+        if (!data.user.email_confirmed_at) {
+          await supabase.auth.signOut({ scope: 'local' })
+          throw new Error('Please verify your email address before signing in.')
+        }
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(
           email.trim(),
@@ -188,6 +205,30 @@ export default function AccountScreen() {
         <View style={styles.card}>
           {mode !== 'update' && (
             <>
+              {mode === 'register' && (
+                <>
+                  <Text style={styles.label}>FIRST NAME</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="First name"
+                    placeholderTextColor="#A4A196"
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                  />
+                  <Text style={styles.label}>SURNAME</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Surname"
+                    placeholderTextColor="#A4A196"
+                    autoCapitalize="words"
+                    autoComplete="family-name"
+                  />
+                </>
+              )}
               <Text style={styles.label}>EMAIL ADDRESS</Text>
               <TextInput
                 style={styles.input}

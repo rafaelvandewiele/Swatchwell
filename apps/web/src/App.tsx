@@ -60,12 +60,32 @@ function App() {
   const [showProfile, setShowProfile] = useState(
     () => new URLSearchParams(window.location.search).get("type") === "recovery",
   );
+  const [profileInitial, setProfileInitial] = useState("S");
 
   useEffect(() => {
     if (!supabase) return;
 
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    const updateProfileInitial = (session: import('@supabase/supabase-js').Session | null) => {
+      const firstName = session?.user.user_metadata?.first_name;
+      const email = session?.user.email;
+      const initial =
+        typeof firstName === 'string' && firstName.trim()
+          ? firstName.trim().charAt(0)
+          : typeof email === 'string' && email.trim()
+            ? email.trim().charAt(0)
+            : 'S';
+
+      setProfileInitial(initial.toUpperCase());
+    };
+
+    void supabase.auth.getSession().then(({ data }) => {
+      updateProfileInitial(data.session);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      updateProfileInitial(session);
+
+      if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
         setShowProfile(true);
       }
@@ -239,7 +259,7 @@ function App() {
             type="button"
             aria-expanded={showProfile}
           >
-            <span className="avatar">R</span>
+            <span className="avatar">{profileInitial}</span>
 
             <span className="profile-info">
               <strong>Your profile</strong>
@@ -256,12 +276,6 @@ function App() {
             />
       )}
 
-      {showProfile && (
-            <div className="profile-popover">
-              <strong>Profile settings</strong>
-              <p>Your personal style profile will be available here.</p>
-            </div>
-          )}
         </div>
       </aside>
 
@@ -282,7 +296,7 @@ function App() {
               type="button"
               aria-label="Open profile settings"
             >
-              R
+              {profileInitial}
             </button>
           </div>
         </header>

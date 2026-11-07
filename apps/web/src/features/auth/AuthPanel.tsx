@@ -20,6 +20,8 @@ export default function AuthPanel({ onClose, initialMode }: Props) {
   )
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<{ role: string; is_premium: boolean } | null>(null)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -85,22 +87,36 @@ export default function AuthPanel({ onClose, initialMode }: Props) {
     setMessage('')
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`
+      const redirectTo = 'https://swatchwell.veyca.dev/auth/callback'
+
+      if (mode === 'register' && (!firstName.trim() || !lastName.trim())) {
+        throw new Error('Please enter both your first name and surname.')
+      }
 
       if (mode === 'register') {
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: redirectTo },
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+            },
+          },
         })
         if (error) throw error
         setMessage('Registration received. Check your email to verify your account.')
       } else if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         })
         if (error) throw error
+        if (!data.user.email_confirmed_at) {
+          await supabase.auth.signOut({ scope: 'local' })
+          throw new Error('Please verify your email address before signing in.')
+        }
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(
           email.trim(),
@@ -176,6 +192,30 @@ export default function AuthPanel({ onClose, initialMode }: Props) {
           </div>
         ) : (
           <form onSubmit={submit}>
+            {mode === 'register' && (
+              <>
+                <label>
+                  First name
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    required
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Surname
+                  <input
+                    type="text"
+                    autoComplete="family-name"
+                    required
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                  />
+                </label>
+              </>
+            )}
             {mode !== 'update' && (
               <label>
                 Email address
