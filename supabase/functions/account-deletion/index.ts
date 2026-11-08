@@ -27,16 +27,15 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const userClient = createClient(url,anon,{global:{headers:{Authorization:authHeader}}});
   const admin = createClient(url,service);
-  const {data:{user},error:userError}=await userClient.auth.getUser();
-  if(userError || !user) return json({error:"Unauthorized"},401);
-
   let body: {action?:string;token?:string};
   try { body=await req.json(); } catch { return json({error:"Invalid request"},400); }
 
   if(body.action==="request") {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(url,anon,{global:{headers:{Authorization:authHeader}}});
+    const {data:{user},error:userError}=await userClient.auth.getUser();
+    if(userError || !user) return json({error:"Unauthorized"},401);
     const {data:profile}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
     const language = profile?.language in messages ? profile.language as keyof typeof messages : "en";
     const copy=messages[language];
@@ -67,11 +66,12 @@ Deno.serve(async (req) => {
     if(typeof body.token!=="string" || body.token.length<32 || body.token.length>200) return json({error:"Invalid token"},400);
     const tokenHash=await digest(body.token);
     const {data:request,error:requestError}=await admin.from("account_deletion_requests")
-      .select("id,user_id,expires_at").eq("token_hash",tokenHash).eq("user_id",user.id).maybeSingle();
+      .select("id,user_id,expires_at").eq("token_hash",tokenHash).maybeSingle();
     if(requestError || !request || new Date(request.expires_at).getTime()<Date.now()) return json({error:"Invalid or expired token"},400);
-    const {data:files}=await admin.storage.from("wardrobe-photos").list(user.id,{limit:1000});
-    if(files?.length) await admin.storage.from("wardrobe-photos").remove(files.map((file)=>user.id+"/"+file.name));
-    const {error:deleteError}=await admin.auth.admin.deleteUser(user.id);
+    const targetUserId=request.user_id;
+    const {data:files}=await admin.storage.from("wardrobe-photos").list(targetUserId,{limit:1000});
+    if(files?.length) await admin.storage.from("wardrobe-photos").remove(files.map((file)=>targetUserId+"/"+file.name));
+    const {error:deleteError}=await admin.auth.admin.deleteUser(targetUserId);
     if(deleteError) return json({error:"Could not delete account"},500);
     return json({success:true});
   }
