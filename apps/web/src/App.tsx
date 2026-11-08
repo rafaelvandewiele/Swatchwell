@@ -60,9 +60,13 @@ interface DashboardWardrobeItem {
 }
 
 function App() {
-  const { t } = useI18n();
-  const [page, setPage] = useState<Page>("Overview");
-  const [activeNav, setActiveNav] = useState<Page>("Overview");
+  const { t, language, setLanguage } = useI18n();
+  const pageFromPath = (): Page => {
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
+  };
+  const [page, setPage] = useState<Page>(pageFromPath);
+  const [activeNav, setActiveNav] = useState<Page>(pageFromPath());
   const [recoveryMode, setRecoveryMode] = useState(
     () => new URLSearchParams(window.location.search).get("type") === "recovery",
   );
