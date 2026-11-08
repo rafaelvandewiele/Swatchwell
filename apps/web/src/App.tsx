@@ -658,9 +658,9 @@ function App() {
           </span>
 
           <nav className="footer-links" aria-label="Legal">
-            <button type="button" onClick={() => navigate("Privacy policy")}>{t("Privacy policy")}</button>
-            <button type="button" onClick={() => navigate("Terms and conditions")}>{t("Terms and conditions")}</button>
-            <button type="button" onClick={() => navigate("Cookie policy")}>{t("Cookie policy")}</button>
+            <button type="button" onClick={() => navigate("Privacy policy")}>{language === "nl" ? "Privacybeleid" : language === "fr" ? "Confidentialité" : language === "de" ? "Datenschutz" : "Privacy policy"}</button>
+            <button type="button" onClick={() => navigate("Terms and conditions")}>{language === "nl" ? "Algemene voorwaarden" : language === "fr" ? "Conditions générales" : language === "de" ? "Nutzungsbedingungen" : "Terms and conditions"}</button>
+            <button type="button" onClick={() => navigate("Cookie policy")}>{language === "nl" ? "Cookiebeleid" : language === "fr" ? "Politique relative aux cookies" : language === "de" ? "Cookie-Richtlinie" : "Cookie policy"}</button>
           </nav>
           <span>© {new Date().getFullYear()} SWATCHWELL</span>
         </footer>
