@@ -71,7 +71,7 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
     <div className="eyebrow">SWATCHWELL</div>
     <h1>{confirmDeletion ? c.confirmTitle : c.title}</h1>
     <p className="settings-intro">{confirmDeletion ? c.confirmText : c.intro}</p>
-    {!signedIn ? <p>{c.signIn}</p> : confirmDeletion ? <section className="settings-card settings-danger"><p>{email}</p><button className="settings-danger-button" disabled={busy} onClick={confirm}>{busy ? '…' : c.confirmButton}</button></section> : <>
+    {!signedIn && !confirmDeletion ? <p>{c.signIn}</p> : confirmDeletion ? <section className="settings-card settings-danger"><p>{email}</p><button className="settings-danger-button" disabled={busy} onClick={confirm}>{busy ? '…' : c.confirmButton}</button></section> : <>
       <form className="settings-card" onSubmit={save}>
         <h2>{c.profile}</h2>
         <label>{c.first}<input value={firstName} maxLength={80} required onChange={e=>setFirstName(e.target.value)} /></label>
