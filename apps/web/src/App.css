@@ -347,3 +347,23 @@ h1 em { color: #a48a6b; font-weight: 400; }
   .full-grid .item-visual { height: 165px; }
   .footer { margin-inline: 20px; gap: 10px; flex-wrap: wrap; }
 }
+
+/* Settings, language and legal navigation */
+.sidebar-bottom { display:none; }
+.settings-shortcut {
+  margin-top:auto; align-self:flex-start; width:40px; height:40px;
+  display:grid; place-items:center; border:1px solid var(--line);
+  border-radius:6px; background:#f9f8f4; color:var(--navy);
+  font-size:20px; cursor:pointer;
+}
+.settings-shortcut:hover { background:#ebe7de; }
+.top-language { display:flex; align-items:center; gap:6px; color:var(--muted); }
+.top-language select { border:1px solid var(--line); background:#fbfaf7; color:var(--navy); padding:7px 8px; font-size:10px; letter-spacing:.5px; }
+.footer-links { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.footer-links button { border:0; padding:0; background:transparent; color:#77776f; font:inherit; letter-spacing:inherit; cursor:pointer; }
+.footer-links button:hover { color:var(--navy); text-decoration:underline; }
+@media (max-width:650px) {
+  .settings-shortcut { position:fixed; z-index:8; left:14px; bottom:78px; margin:0; width:36px; height:36px; }
+  .sidebar-bottom { display:none; }
+  .footer-links { width:100%; }
+}

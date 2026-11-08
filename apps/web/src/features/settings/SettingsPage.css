@@ -1,0 +1,14 @@
+.settings-page { max-width: 850px; min-height: 60vh; }
+.settings-page h1 { margin-bottom: 8px; }
+.settings-intro { color: #77776f; margin-bottom: 30px; }
+.settings-card { display:grid; gap:16px; background:#fbfaf7; border:1px solid var(--line); padding:26px; margin:20px 0; }
+.settings-card h2 { margin:0; font:400 23px var(--serif); color:var(--navy); }
+.settings-card label { display:grid; gap:7px; color:#55574f; font-size:12px; font-weight:600; }
+.settings-card input,.settings-card select { width:100%; box-sizing:border-box; padding:13px; border:1px solid #e2dfd6; border-radius:4px; background:white; color:var(--navy); font:inherit; }
+.settings-primary,.settings-danger-button { justify-self:start; padding:13px 18px; border:1px solid var(--navy); background:var(--navy); color:white; cursor:pointer; font:inherit; }
+.settings-danger { border-color:#d9b9b4; }
+.settings-danger p { color:#77776f; line-height:1.6; margin:0; }
+.settings-danger-button { background:#8e3934; border-color:#8e3934; }
+.settings-email { font-size:12px; }
+.settings-success { color:#426b4b; }
+.settings-error { color:#a33b35; }

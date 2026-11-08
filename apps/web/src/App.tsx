@@ -6,6 +6,8 @@ import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
 import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
+import SettingsPage from "./features/settings/SettingsPage";
+import LegalPage from "./features/legal/LegalPage";
 import { supabase } from "./lib/supabase";
 import { loadUserStyleData } from "./lib/user-style-data";
 import type { StoredColorProfile } from "./features/color-profile/color-profile";
@@ -17,13 +19,18 @@ import {
 } from "@swatchwell/color-engine";
 
 import { getSeasonLabel } from "./features/color-profile/color-profile";
-import { useI18n, translateCategory } from "./lib/i18n";
+import { useI18n, translateCategory, type Language } from "./lib/i18n";
 
 type Page =
   | "Overview"
   | "My wardrobe"
   | "Color analysis"
-  | "Outfits";
+  | "Outfits"
+  | "Settings"
+  | "Privacy policy"
+  | "Terms and conditions"
+  | "Cookie policy"
+  | "Confirm account deletion";
 
 const navigation: { name: Page; icon: string }[] = [
   { name: "Overview", icon: "◫" },
@@ -53,9 +60,13 @@ interface DashboardWardrobeItem {
 }
 
 function App() {
-  const { t } = useI18n();
-  const [page, setPage] = useState<Page>("Overview");
-  const [activeNav, setActiveNav] = useState<Page>("Overview");
+  const { t, language, setLanguage } = useI18n();
+  const pageFromPath = (): Page => {
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
+  };
+  const [page, setPage] = useState<Page>(pageFromPath);
+  const [activeNav, setActiveNav] = useState<Page>(pageFromPath());
   const [recoveryMode, setRecoveryMode] = useState(
     () => new URLSearchParams(window.location.search).get("type") === "recovery",
   );
@@ -153,9 +164,29 @@ function App() {
   const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    window.history.pushState({}, "", paths[name]);
     setPage(name);
-    setActiveNav(name);
+    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(name) ? name : "Overview");
     setShowProfile(false);
+  }
+
+  useEffect(() => {
+    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(next) ? next : "Overview"); setShowProfile(false); };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  async function changeLanguage(next: Language) {
+    if (supabase) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: profile } = await supabase.from("profiles").select("first_name,last_name").eq("id", userData.user.id).maybeSingle();
+        const { error } = await supabase.rpc("update_my_profile", { p_first_name: profile?.first_name ?? "", p_last_name: profile?.last_name ?? "", p_language: next });
+        if (error) return;
+      }
+    }
+    setLanguage(next);
   }
 
   useEffect(() => {
@@ -295,6 +326,8 @@ function App() {
           ))}
         </nav>
 
+        <button className="settings-shortcut" type="button" aria-label={t("Settings")} title={t("Settings")} onClick={() => navigate("Settings")}>⚙</button>
+
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <span className="note-eyebrow">{t("YOUR STYLE JOURNEY")}</span>
@@ -324,13 +357,7 @@ function App() {
             <span className="profile-menu">···</span>
           </button>
 
-          {showProfile && (
-        <AuthPanel
-              initialMode={recoveryMode ? "update" : undefined}
-              onClose={() => setShowProfile(false)}
-              onRecoveryComplete={() => setRecoveryMode(false)}
-            />
-      )}
+
 
         </div>
       </aside>
@@ -342,16 +369,13 @@ function App() {
           </div>
 
           <div className="topbar-right">
-            <span className="date-label">
-              {t("YOUR PERSONAL STYLE SPACE")}
-            </span>
-
-            <button
-              className="top-avatar"
-              onClick={() => setShowProfile((current) => !current)}
-              type="button"
-              aria-label={t("Open profile settings")}
-            >
+            <label className="top-language" aria-label={t("Preferred language")}>
+              <span aria-hidden="true">文</span>
+              <select value={language} onChange={(event) => void changeLanguage(event.target.value as Language)}>
+                <option value="nl">NL</option><option value="en">EN</option><option value="fr">FR</option><option value="de">DE</option>
+              </select>
+            </label>
+            <button className="top-avatar" onClick={() => setShowProfile((current) => !current)} type="button" aria-label={t("Open profile")} aria-expanded={showProfile}>
               {profileInitial}
             </button>
           </div>
@@ -620,13 +644,24 @@ function App() {
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
         {page === "Color analysis" && <ColorProfile />}
+        {page === "Settings" && <SettingsPage /> }
+        {page === "Privacy policy" && <LegalPage kind="privacy" /> }
+        {page === "Terms and conditions" && <LegalPage kind="terms" /> }
+        {page === "Cookie policy" && <LegalPage kind="cookies" /> }
+        {page === "Confirm account deletion" && <SettingsPage confirmDeletion /> }
+
+        {showProfile && <AuthPanel initialMode={recoveryMode ? "update" : undefined} onClose={() => setShowProfile(false)} onRecoveryComplete={() => setRecoveryMode(false)} /> }
 
         <footer className="footer">
           <span>
             SWATCHWELL<span className="brand-period">.</span>
           </span>
 
-          <span>{t("PERSONAL STYLE, CONSIDERED.")}</span>
+          <nav className="footer-links" aria-label="Legal">
+            <button type="button" onClick={() => navigate("Privacy policy")}>{language === "nl" ? "Privacybeleid" : language === "fr" ? "Confidentialité" : language === "de" ? "Datenschutz" : "Privacy policy"}</button>
+            <button type="button" onClick={() => navigate("Terms and conditions")}>{language === "nl" ? "Algemene voorwaarden" : language === "fr" ? "Conditions générales" : language === "de" ? "Nutzungsbedingungen" : "Terms and conditions"}</button>
+            <button type="button" onClick={() => navigate("Cookie policy")}>{language === "nl" ? "Cookiebeleid" : language === "fr" ? "Politique relative aux cookies" : language === "de" ? "Cookie-Richtlinie" : "Cookie policy"}</button>
+          </nav>
           <span>© {new Date().getFullYear()} SWATCHWELL</span>
         </footer>
       </main>

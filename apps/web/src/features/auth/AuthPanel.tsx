@@ -236,50 +236,6 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
     }
   }
 
-  async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!supabase || !session) return
-
-    setBusy(true)
-    setError('')
-    setMessage('')
-
-    try {
-      const { error } = await supabase.rpc('update_my_profile', {
-        p_first_name: firstName.trim(),
-        p_last_name: lastName.trim(),
-        p_language: language,
-      })
-
-      if (error) throw error
-
-      const { data, error: reloadError } = await supabase
-        .from('profiles')
-        .select('role, is_premium, first_name, last_name, language')
-        .eq('id', session.user.id)
-        .single()
-
-      if (reloadError) throw reloadError
-
-      setProfile(data)
-      setFirstName(data.first_name ?? '')
-      setLastName(data.last_name ?? '')
-      setPreferredLanguage(data.language ?? 'en')
-      setLanguage((data.language ?? 'en') as Language)
-      setMessage(t('Your profile settings have been saved.'))
-    } catch (err) {
-      const savedLanguage = profile?.language
-      if (savedLanguage === 'nl' || savedLanguage === 'en' ||
-          savedLanguage === 'fr' || savedLanguage === 'de') {
-        setPreferredLanguage(savedLanguage)
-        setLanguage(savedLanguage)
-      }
-      setError(getAuthErrorMessage(err, t))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const titles: Record<Mode, string> = {
     login: 'Welcome back',
     register: 'Create your account',
@@ -310,54 +266,6 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
               <p className="auth-message">{t("Administrator access is active.")}</p>
             )}
 
-            <form className="auth-profile-form" onSubmit={saveProfile}>
-              <h3>{t("Profile settings")}</h3>
-              <label>
-                {t("First name")}
-                <input
-                  type="text"
-                  autoComplete="given-name"
-                  maxLength={80}
-                  required
-                  value={firstName}
-                  onChange={(event) => setFirstName(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("Surname")}
-                <input
-                  type="text"
-                  autoComplete="family-name"
-                  maxLength={80}
-                  required
-                  value={lastName}
-                  onChange={(event) => setLastName(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("Preferred language")}
-                <select
-                  value={language}
-                  onChange={(event) => {
-                      const nextLanguage = event.target.value as Language
-                      setPreferredLanguage(nextLanguage)
-                      setLanguage(nextLanguage)
-                    }}
-                >
-                  <option value="nl">Nederlands</option>
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                </select>
-              </label>
-              <button className="auth-primary" type="submit" disabled={busy}>
-                {busy ? t('Saving…') : t('Save profile')}
-              </button>
-            </form>
-
-            <button className="auth-secondary" onClick={() => setMode('update')}>
-              {t("Change password")}
-            </button>
             <button className="auth-secondary" onClick={signOut}>{t("Sign out")}</button>
           </div>
         ) : (
