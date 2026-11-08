@@ -25,7 +25,12 @@ type Page =
   | "Overview"
   | "My wardrobe"
   | "Color analysis"
-  | "Outfits";
+  | "Outfits"
+  | "Settings"
+  | "Privacy policy"
+  | "Terms and conditions"
+  | "Cookie policy"
+  | "Confirm account deletion";
 
 const navigation: { name: Page; icon: string }[] = [
   { name: "Overview", icon: "◫" },
