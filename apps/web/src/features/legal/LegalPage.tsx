@@ -1,4 +1,5 @@
 import { useI18n, type Language } from '../../lib/i18n'
+import './LegalPage.css'
 
 const legalCopy: Record<Language, Record<string,{title:string;intro:string;sections:[string,string][]}>> = {
  en:{
