@@ -357,13 +357,7 @@ function App() {
             <span className="profile-menu">···</span>
           </button>
 
-          {showProfile && (
-        <AuthPanel
-              initialMode={recoveryMode ? "update" : undefined}
-              onClose={() => setShowProfile(false)}
-              onRecoveryComplete={() => setRecoveryMode(false)}
-            />
-      )}
+
 
         </div>
       </aside>
@@ -650,13 +644,24 @@ function App() {
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
         {page === "Color analysis" && <ColorProfile />}
+        {page === "Settings" && <SettingsPage /> }
+        {page === "Privacy policy" && <LegalPage kind="privacy" /> }
+        {page === "Terms and conditions" && <LegalPage kind="terms" /> }
+        {page === "Cookie policy" && <LegalPage kind="cookies" /> }
+        {page === "Confirm account deletion" && <SettingsPage confirmDeletion /> }
+
+        {showProfile && <AuthPanel initialMode={recoveryMode ? "update" : undefined} onClose={() => setShowProfile(false)} onRecoveryComplete={() => setRecoveryMode(false)} /> }
 
         <footer className="footer">
           <span>
             SWATCHWELL<span className="brand-period">.</span>
           </span>
 
-          <span>{t("PERSONAL STYLE, CONSIDERED.")}</span>
+          <nav className="footer-links" aria-label="Legal">
+            <button type="button" onClick={() => navigate("Privacy policy")}>{t("Privacy policy")}</button>
+            <button type="button" onClick={() => navigate("Terms and conditions")}>{t("Terms and conditions")}</button>
+            <button type="button" onClick={() => navigate("Cookie policy")}>{t("Cookie policy")}</button>
+          </nav>
           <span>© {new Date().getFullYear()} SWATCHWELL</span>
         </footer>
       </main>
