@@ -164,9 +164,29 @@ function App() {
   const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    window.history.pushState({}, "", paths[name]);
     setPage(name);
-    setActiveNav(name);
+    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(name) ? name : "Overview");
     setShowProfile(false);
+  }
+
+  useEffect(() => {
+    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(next) ? next : "Overview"); setShowProfile(false); };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  async function changeLanguage(next: Language) {
+    if (supabase) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: profile } = await supabase.from("profiles").select("first_name,last_name").eq("id", userData.user.id).maybeSingle();
+        const { error } = await supabase.rpc("update_my_profile", { p_first_name: profile?.first_name ?? "", p_last_name: profile?.last_name ?? "", p_language: next });
+        if (error) return;
+      }
+    }
+    setLanguage(next);
   }
 
   useEffect(() => {
