@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     if(recent?.length) return json({error:"A confirmation email was already requested recently"},429);
     await admin.from("account_deletion_requests").delete().eq("user_id",user.id);
     const {data:profile}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
-    const language = profile?.language in messages ? profile.language as keyof typeof messages : "en";
+    const language = profile && profile.language in messages ? profile.language as keyof typeof messages : "en";
     const copy=messages[language];
     const token = [...crypto.getRandomValues(new Uint8Array(32))].map((b)=>b.toString(16).padStart(2,"0")).join("");
     const tokenHash=await digest(token);
