@@ -36,6 +36,11 @@ Deno.serve(async (req) => {
     const userClient = createClient(url,anon,{global:{headers:{Authorization:authHeader}}});
     const {data:{user},error:userError}=await userClient.auth.getUser();
     if(userError || !user) return json({error:"Unauthorized"},401);
+    const apiKey=Deno.env.get("RESEND_API_KEY");
+    if(!apiKey) return json({error:"Email provider is not configured"},503);
+    const {data:recent}=await admin.from("account_deletion_requests").select("id").eq("user_id",user.id).gt("created_at",new Date(Date.now()-15*60*1000).toISOString()).limit(1);
+    if(recent?.length) return json({error:"A confirmation email was already requested recently"},429);
+    await admin.from("account_deletion_requests").delete().eq("user_id",user.id);
     const {data:profile}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
     const language = profile?.language in messages ? profile.language as keyof typeof messages : "en";
     const copy=messages[language];
@@ -46,8 +51,6 @@ Deno.serve(async (req) => {
     });
     if(insertError) return json({error:"Could not create confirmation"},500);
     const confirmUrl = "https://swatchwell.veyca.dev/account-deletion/confirm?token="+encodeURIComponent(token);
-    const apiKey=Deno.env.get("RESEND_API_KEY");
-    if(!apiKey) return json({error:"Email provider is not configured"},503);
     const response=await fetch("https://api.resend.com/emails",{
       method:"POST",
       headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},
