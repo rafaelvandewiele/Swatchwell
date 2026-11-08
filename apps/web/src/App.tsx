@@ -6,6 +6,8 @@ import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
 import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
+import SettingsPage from "./features/settings/SettingsPage";
+import LegalPage from "./features/legal/LegalPage";
 import { supabase } from "./lib/supabase";
 import { loadUserStyleData } from "./lib/user-style-data";
 import type { StoredColorProfile } from "./features/color-profile/color-profile";
@@ -17,7 +19,7 @@ import {
 } from "@swatchwell/color-engine";
 
 import { getSeasonLabel } from "./features/color-profile/color-profile";
-import { useI18n, translateCategory } from "./lib/i18n";
+import { useI18n, translateCategory, type Language } from "./lib/i18n";
 
 type Page =
   | "Overview"
