@@ -236,50 +236,6 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
     }
   }
 
-  async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!supabase || !session) return
-
-    setBusy(true)
-    setError('')
-    setMessage('')
-
-    try {
-      const { error } = await supabase.rpc('update_my_profile', {
-        p_first_name: firstName.trim(),
-        p_last_name: lastName.trim(),
-        p_language: language,
-      })
-
-      if (error) throw error
-
-      const { data, error: reloadError } = await supabase
-        .from('profiles')
-        .select('role, is_premium, first_name, last_name, language')
-        .eq('id', session.user.id)
-        .single()
-
-      if (reloadError) throw reloadError
-
-      setProfile(data)
-      setFirstName(data.first_name ?? '')
-      setLastName(data.last_name ?? '')
-      setPreferredLanguage(data.language ?? 'en')
-      setLanguage((data.language ?? 'en') as Language)
-      setMessage(t('Your profile settings have been saved.'))
-    } catch (err) {
-      const savedLanguage = profile?.language
-      if (savedLanguage === 'nl' || savedLanguage === 'en' ||
-          savedLanguage === 'fr' || savedLanguage === 'de') {
-        setPreferredLanguage(savedLanguage)
-        setLanguage(savedLanguage)
-      }
-      setError(getAuthErrorMessage(err, t))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const titles: Record<Mode, string> = {
     login: 'Welcome back',
     register: 'Create your account',
@@ -310,9 +266,6 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
               <p className="auth-message">{t("Administrator access is active.")}</p>
             )}
 
-           <button className="auth-secondary" onClick={() => setMode('update')}>
-              {t("Change password")}
-            </button>
             <button className="auth-secondary" onClick={signOut}>{t("Sign out")}</button>
           </div>
         ) : (
