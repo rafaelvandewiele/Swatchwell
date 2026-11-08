@@ -17,6 +17,7 @@ import {
 } from "@swatchwell/color-engine";
 
 import { getSeasonLabel } from "./features/color-profile/color-profile";
+import { useI18n, translateCategory } from "./lib/i18n";
 
 type Page =
   | "Overview"
@@ -52,6 +53,7 @@ interface DashboardWardrobeItem {
 }
 
 function App() {
+  const { t } = useI18n();
   const [page, setPage] = useState<Page>("Overview");
   const [activeNav, setActiveNav] = useState<Page>("Overview");
   const [recoveryMode, setRecoveryMode] = useState(
@@ -62,10 +64,19 @@ function App() {
   );
   const [profileInitial, setProfileInitial] = useState("S");
 
-  useEffect(() => {
-    if (!supabase) return;
+  const [authReady, setAuthReady] = useState(!supabase);
 
-    const updateProfileInitial = (session: import('@supabase/supabase-js').Session | null) => {
+  useEffect(() => {
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
+
+    let active = true;
+
+    const updateProfileInitial = (
+      session: import('@supabase/supabase-js').Session | null,
+    ) => {
       const firstName = session?.user.user_metadata?.first_name;
       const email = session?.user.email;
       const initial =
@@ -78,20 +89,56 @@ function App() {
       setProfileInitial(initial.toUpperCase());
     };
 
-    void supabase.auth.getSession().then(({ data }) => {
-      updateProfileInitial(data.session);
-    });
+    const handleSession = (
+      session: import('@supabase/supabase-js').Session | null,
+      event?: string,
+    ) => {
+      if (!active) return;
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && !session.user.email_confirmed_at) {
+        setProfileInitial('S');
+        setRecoveryMode(false);
+        setShowProfile(false);
+        setAuthReady(false);
+
+        window.setTimeout(() => {
+          if (active) {
+            void supabase.auth.signOut({ scope: 'local' });
+          }
+        }, 0);
+
+        return;
+      }
+
       updateProfileInitial(session);
+      setAuthReady(true);
 
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
         setShowProfile(true);
       }
+    };
+
+    const { data } = supabase.auth.onAuthStateChange(
+      (event, session) => handleSession(session, event),
+    );
+
+    void supabase.auth.getSession().then(({ data: sessionData, error }) => {
+      if (!active) return;
+
+      if (error) {
+        console.error('Unable to restore authentication session:', error);
+        setAuthReady(true);
+        return;
+      }
+
+      handleSession(sessionData.session, 'INITIAL_SESSION');
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
 
@@ -112,7 +159,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (page !== "Overview") return;
+    if (page !== "Overview" || !authReady) return;
 
     let active = true;
     let generation = 0;
@@ -173,12 +220,12 @@ function App() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        void loadDashboard(session?.user.id ?? null);
+        void loadDashboard(session?.user.email_confirmed_at ? session.user.id : null);
       },
     );
 
     void supabase.auth.getSession().then(({ data }) => {
-      if (active) void loadDashboard(data.session?.user.id ?? null);
+      if (active) void loadDashboard(data.session?.user.email_confirmed_at ? data.session.user.id : null);
     });
 
     return () => {
@@ -187,7 +234,7 @@ function App() {
       authListener.subscription.unsubscribe();
       objectUrls.forEach(URL.revokeObjectURL);
     };
-  }, [page]);
+  }, [page, authReady]);
 
   const season = colorProfile?.analysis.season;
 
@@ -203,6 +250,14 @@ function App() {
             all.findIndex((item) => item.hex === color.hex) === index,
         )
         .slice(0, 6);
+
+  if (!authReady) {
+    return (
+      <div className="app-shell">
+        <div className="loading-state">{t("Checking your session...")}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -222,7 +277,7 @@ function App() {
           />
         </a>
 
-        <div className="sidebar-label">MENU</div>
+        <div className="sidebar-label">{t("MENU")}</div>
 
         <nav className="navigation">
           {navigation.map((item) => (
@@ -235,21 +290,21 @@ function App() {
               type="button"
             >
               <span className="nav-icon">{item.icon}</span>
-              {item.name}
+              {t(item.name)}
             </button>
           ))}
         </nav>
 
         <div className="sidebar-bottom">
           <div className="sidebar-note">
-            <span className="note-eyebrow">YOUR STYLE JOURNEY</span>
-            <p>Good style starts with knowing your colours.</p>
+            <span className="note-eyebrow">{t("YOUR STYLE JOURNEY")}</span>
+            <p>{t("Good style starts with knowing your colours.")}</p>
 
             <button
               type="button"
               onClick={() => navigate("Color analysis")}
             >
-              Discover your palette <span>↗</span>
+              {t("Discover your palette")} <span>↗</span>
             </button>
           </div>
 
@@ -262,8 +317,8 @@ function App() {
             <span className="avatar">{profileInitial}</span>
 
             <span className="profile-info">
-              <strong>Your profile</strong>
-              <small>Personal account</small>
+              <strong>{t("Your profile")}</strong>
+              <small>{t("Personal account")}</small>
             </span>
 
             <span className="profile-menu">···</span>
@@ -273,6 +328,7 @@ function App() {
         <AuthPanel
               initialMode={recoveryMode ? "update" : undefined}
               onClose={() => setShowProfile(false)}
+              onRecoveryComplete={() => setRecoveryMode(false)}
             />
       )}
 
@@ -282,19 +338,19 @@ function App() {
       <main className="main-content">
         <header className="topbar">
           <div className="breadcrumb">
-            YOUR SPACE <span>/</span> {page.toUpperCase()}
+            {t("YOUR SPACE")} <span>/</span> {t(page).toUpperCase()}
           </div>
 
           <div className="topbar-right">
             <span className="date-label">
-              YOUR PERSONAL STYLE SPACE
+              {t("YOUR PERSONAL STYLE SPACE")}
             </span>
 
             <button
               className="top-avatar"
               onClick={() => setShowProfile((current) => !current)}
               type="button"
-              aria-label="Open profile settings"
+              aria-label={t("Open profile settings")}
             >
               {profileInitial}
             </button>
@@ -306,19 +362,19 @@ function App() {
             <section className="welcome-section">
               <div>
                 <div className="eyebrow">
-                  YOUR PERSONAL STYLE EDITION
+                  {t("YOUR PERSONAL STYLE EDITION")}
                 </div>
 
                 <h1>
-                  Discover your
+                  {t("Discover your")}
                   <br />
-                  <em>personal style.</em>
+                  <em>{t("personal style.")}</em>
                 </h1>
 
                 <p className="welcome-copy">
-                  A considered wardrobe. Colours that complement.
+                  {t("A considered wardrobe. Colours that complement.")}
                   <br className="desktop-break" />
-                  A little more intention in everything you wear.
+                  {t("A little more intention in everything you wear.")}
                 </p>
 
                 <button
@@ -326,7 +382,7 @@ function App() {
                   onClick={() => navigate("Color analysis")}
                   type="button"
                 >
-                  Explore your colours <span>↗</span>
+                  {t("Explore your colours")} <span>↗</span>
                 </button>
               </div>
 
@@ -337,69 +393,69 @@ function App() {
                   <div className="hero-circle circle-three" />
 
                   <div className="hero-caption">
-                    <span>THE ART OF</span>
-                    <strong>PERSONAL STYLE</strong>
+                    <span>{t("THE ART OF")}</span>
+                    <strong>{t("PERSONAL STYLE")}</strong>
                   </div>
 
                   <div className="hero-number">№ 01 — 2026</div>
                 </div>
 
                 <span className="image-credit">
-                  A MORE CONSIDERED WAY TO DRESS
+                  {t("A MORE CONSIDERED WAY TO DRESS")}
                 </span>
               </div>
             </section>
 
             <section className="stats-grid">
               <div className="stat-card">
-                <span className="stat-label">WARDROBE PIECES</span>
+                <span className="stat-label">{t("WARDROBE PIECES")}</span>
 
                 <strong>
                   {String(wardrobeCount).padStart(2, "0")}
                 </strong>
 
                 <span className="stat-foot">
-                  Your personal collection
+                  {t("Your personal collection")}
                 </span>
               </div>
 
               <div className="stat-card">
                 <span className="stat-label">
-                  YOUR COLOUR PROFILE
+                  {t("YOUR COLOUR PROFILE")}
                 </span>
 
                 {season ? (
                   <>
                     <strong className="stat-pending">
-                      {getSeasonLabel(season)}
+                      {t(getSeasonLabel(season))}
                     </strong>
 
                     <span className="stat-foot">
-                      Your seasonal colour profile
+                      {t("Your seasonal colour profile")}
                     </span>
                   </>
                 ) : (
                   <>
                     <strong className="stat-pending">
-                      Not yet defined
+                      {t("Not yet defined")}
                     </strong>
 
                     <span className="stat-foot">
-                      Discover your personal palette
+                      {t("Discover your personal palette")}
                     </span>
                   </>
                 )}
               </div>
 
               <div className="stat-card">
-                <span className="stat-label">SAVED OUTFITS</span>
+                <span className="stat-label">{t("SAVED OUTFITS")}</span>
 
                 <strong>
                   {String(savedOutfitCount).padStart(2, "0")}
                 </strong>
 
                 <span className="stat-foot">
-                  Looks worth keeping
+                  {t("Looks worth keeping")}
                 </span>
               </div>
             </section>
@@ -408,10 +464,10 @@ function App() {
               <div className="section-heading">
                 <div>
                   <div className="eyebrow">
-                    A GOOD PLACE TO START
+                    {t("A GOOD PLACE TO START")}
                   </div>
 
-                  <h2>Your style essentials</h2>
+                  <h2>{t("Your style essentials")}</h2>
                 </div>
 
                 <button
@@ -419,7 +475,7 @@ function App() {
                   onClick={() => navigate("My wardrobe")}
                   type="button"
                 >
-                  View wardrobe <span>↗</span>
+                  {t("View wardrobe")} <span>↗</span>
                 </button>
               </div>
 
@@ -452,18 +508,18 @@ function App() {
                         )}
 
                         <span className="item-label">
-                          {item.category.toUpperCase()}
+                          {translateCategory(item.category, t).toUpperCase()}
                         </span>
                       </div>
 
                       <div className="item-details">
                         <div>
                           <strong>{item.name}</strong>
-                          <span>{item.category}</span>
+                          <span>{translateCategory(item.category, t)}</span>
                         </div>
 
                         <div
-                          aria-label="Garment colours"
+                          aria-label={t("Garment colours")}
                           style={{
                             display: "flex",
                             gap: "5px",
@@ -492,11 +548,10 @@ function App() {
                   ))
                 ) : (
                   <div className="wardrobe-empty">
-                    <h2>Your collection starts here.</h2>
+                    <h2>{t("Your collection starts here.")}</h2>
 
                     <p>
-                      Add your first clothing piece to see it on
-                      your dashboard.
+                      {t("Add your first clothing piece to see it on your dashboard.")}
                     </p>
 
                     <button
@@ -504,7 +559,7 @@ function App() {
                       onClick={() => navigate("My wardrobe")}
                       type="button"
                     >
-                      Add your first piece <span>↗</span>
+                      {t("Add your first piece")} <span>↗</span>
                     </button>
                   </div>
                 )}
@@ -516,14 +571,14 @@ function App() {
                 <div>
                   <div className="eyebrow">
                     {season
-                      ? "YOUR PERSONAL COLOURS"
-                      : "COLOUR INSPIRATION"}
+                      ? t("YOUR PERSONAL COLOURS")
+                      : t("COLOUR INSPIRATION")}
                   </div>
 
                   <h2>
                     {season
-                      ? `Your ${getSeasonLabel(season)} palette`
-                      : "A timeless palette"}
+                      ? `${t("Your")} ${t(getSeasonLabel(season))} ${t("palette")}`
+                      : t("A timeless palette")}
                   </h2>
                 </div>
 
@@ -533,8 +588,8 @@ function App() {
                   type="button"
                 >
                   {season
-                    ? "View full palette"
-                    : "Discover your palette"}
+                    ? t("View full palette")
+                    : t("Discover your palette")}
                   <span> ↗</span>
                 </button>
               </div>
@@ -547,7 +602,7 @@ function App() {
                       style={{ backgroundColor: color.hex }}
                     />
 
-                    <span>{color.name}</span>
+                    <span>{t(color.name)}</span>
                     <small>{color.hex}</small>
                   </div>
                 ))}
@@ -555,8 +610,8 @@ function App() {
 
               <p className="disclaimer">
                 {season
-                  ? "Your seasonal palette is a styling guide to inspire your wardrobe."
-                  : "A selection of neutral colours from the Swatchwell seasonal palettes. Complete your colour analysis to discover your personal selection."}
+                  ? t("Your seasonal palette is a styling guide to inspire your wardrobe.")
+                  : t("A selection of neutral colours from the Swatchwell seasonal palettes. Complete your colour analysis to discover your personal selection.")}
               </p>
             </section>
           </div>
@@ -571,8 +626,8 @@ function App() {
             SWATCHWELL<span className="brand-period">.</span>
           </span>
 
-          <span>PERSONAL STYLE, CONSIDERED.</span>
-          <span>© 2026 SWATCHWELL</span>
+          <span>{t("PERSONAL STYLE, CONSIDERED.")}</span>
+          <span>© {new Date().getFullYear()} SWATCHWELL</span>
         </footer>
       </main>
     </div>

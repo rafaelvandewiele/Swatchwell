@@ -92,7 +92,8 @@ export async function getCurrentStyleUserId(): Promise<string | null> {
   if (!supabase) return null
 
   const { data, error } = await supabase.auth.getUser()
-  if (error || !data.user) return null
+
+  if (error || !data.user || !data.user.email_confirmed_at) return null
 
   return data.user.id
 }
@@ -101,7 +102,12 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
   if (!supabase) return null
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
-  if (authError || !authData.user) return null
+
+  if (
+    authError ||
+    !authData.user ||
+    !authData.user.email_confirmed_at
+  ) return null
 
   const userId = authData.user.id
 
@@ -114,6 +120,12 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
   if (error) throw error
 
   if (data) {
+    // Cloud data already belongs to this account. Close the legacy migration
+    // so another account cannot claim leftover device-wide browser data.
+    localStorage.setItem(MIGRATION_KEY, 'done')
+    localStorage.removeItem(LEGACY_WARDROBE_KEY)
+    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+
     return {
       userId,
       wardrobe: Array.isArray(data.wardrobe) ? data.wardrobe : [],
@@ -126,13 +138,17 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
     }
   }
 
-  let wardrobe = readLegacyArray(LEGACY_WARDROBE_KEY)
-  const savedOutfits = readLegacyArray(LEGACY_OUTFITS_KEY)
+  let wardrobe: unknown[] = []
+  let savedOutfits: unknown[] = []
 
-  if (localStorage.getItem(MIGRATION_KEY) === 'done') {
-    wardrobe = []
-  } else {
+  // Legacy browser data has no account owner. Only the first account
+  // may claim it; subsequent accounts start with empty personal data.
+  if (localStorage.getItem(MIGRATION_KEY) !== 'done') {
+    wardrobe = readLegacyArray(LEGACY_WARDROBE_KEY)
+    savedOutfits = readLegacyArray(LEGACY_OUTFITS_KEY)
+
     await copyLegacyPhotos(userId, wardrobe)
+
     wardrobe = wardrobe.map((entry) => {
       if (!entry || typeof entry !== 'object') return entry
       const item = entry as Record<string, unknown>
@@ -171,8 +187,13 @@ export async function saveUserStyleData(
   if (!supabase) throw new Error('Account storage is not configured.')
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
-  if (authError || !authData.user) {
-    throw new Error('Sign in to save your personal style data.')
+
+  if (
+    authError ||
+    !authData.user ||
+    !authData.user.email_confirmed_at
+  ) {
+    throw new Error('Verify your email address before saving personal style data.')
   }
 
   const userId = authData.user.id

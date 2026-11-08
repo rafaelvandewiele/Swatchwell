@@ -142,3 +142,35 @@
     padding: 30px 23px;
   }
 }
+
+
+.auth-profile-form {
+  display: grid;
+  gap: 15px;
+  padding-top: 18px;
+  margin-top: 4px;
+  border-top: 1px solid #eae7df;
+}
+
+.auth-profile-form h3 {
+  margin: 0;
+  color: #243b53;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.auth-profile-form select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #e2dfd6;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #243b53;
+  font: inherit;
+}
+
+.auth-profile-form select:focus {
+  border-color: #243b53;
+}

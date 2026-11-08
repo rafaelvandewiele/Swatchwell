@@ -81,10 +81,14 @@ export async function getWardrobePhotoUrl(
   if (existing?.signedUrl) return existing.signedUrl
 
   // Migrate a legacy browser photo only when no cloud photo exists.
+  // Only read legacy photos explicitly scoped to this account.
+  const scopedLegacyKey = legacyKey?.startsWith(`${userId}:`)
+    ? legacyKey
+    : ''
+
   const legacyPhoto = await readLegacyPhoto([
-    legacyKey ?? '',
+    scopedLegacyKey,
     `${userId}:${itemId}`,
-    itemId,
   ])
 
   if (!legacyPhoto) return null

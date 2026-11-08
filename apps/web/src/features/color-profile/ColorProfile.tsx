@@ -16,6 +16,7 @@ import { createColorProfile } from "./color-profile";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData, saveUserStyleData } from "../../lib/user-style-data";
 
+import { useI18n } from "../../lib/i18n";
 import "./ColorProfile.css";
 
 const INITIAL_PROFILE: SeasonalProfile = {
@@ -75,16 +76,17 @@ const CATEGORY_DETAILS: {
 ];
 
 function SeasonalPaletteDisplay({ subSeason }: { subSeason: import('@swatchwell/color-engine').SubSeason }) {
+  const { t } = useI18n();
   const palette = getSubSeasonalPalette(subSeason);
 
   return (
     <section className="seasonal-palette">
       <div className="seasonal-palette-heading">
-        <div className="eyebrow">YOUR COLOUR SELECTION</div>
-        <h3>The {getSubSeasonLabel(palette.subSeason)} palette</h3>
+        <div className="eyebrow">{t("YOUR COLOUR SELECTION")}</div>
+        <h3>{t("The")} {t(getSubSeasonLabel(palette.subSeason))} {t("palette")}</h3>
         <p>
-          Twelve curated colours to use as inspiration when
-          building your wardrobe.
+          {t("Twelve curated colours to use as inspiration when")}
+          {t("building your wardrobe.")}
         </p>
       </div>
 
@@ -97,10 +99,10 @@ function SeasonalPaletteDisplay({ subSeason }: { subSeason: import('@swatchwell/
           <div className="palette-category" key={category.key}>
             <div className="palette-category-heading">
               <div>
-                <h4>{category.title}</h4>
-                <p>{category.description}</p>
+                <h4>{t(category.title)}</h4>
+                <p>{t(category.description)}</p>
               </div>
-              <span>{String(colors.length).padStart(2, "0")} COLOURS</span>
+              <span>{String(colors.length).padStart(2, "0")} {t("COLOURS")}</span>
             </div>
 
             <div className="seasonal-color-grid">
@@ -109,11 +111,11 @@ function SeasonalPaletteDisplay({ subSeason }: { subSeason: import('@swatchwell/
                   <div
                     className="seasonal-color-swatch"
                     style={{ backgroundColor: color.hex }}
-                    aria-label={`${color.name}, ${color.hex}`}
-                    title={`${color.name} — ${color.hex}`}
+                    aria-label={`${t(color.name)}, ${color.hex}`}
+                    title={`${t(color.name)} — ${color.hex}`}
                   />
                   <div className="seasonal-color-details">
-                    <strong>{color.name}</strong>
+                    <strong>{t(color.name)}</strong>
                     <span>{color.hex}</span>
                   </div>
                 </article>
@@ -127,6 +129,7 @@ function SeasonalPaletteDisplay({ subSeason }: { subSeason: import('@swatchwell/
 }
 
 export default function ColorProfile() {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<SeasonalProfile>(INITIAL_PROFILE);
   const [storedProfile, setStoredProfile] = useState<ReturnType<typeof createColorProfile> | null>(null);
   const [saved, setSaved] = useState(false);
@@ -142,7 +145,7 @@ export default function ColorProfile() {
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
-      setError("Account storage is not configured.");
+      setError(t("Account storage is not configured."));
       return;
     }
 
@@ -163,7 +166,7 @@ export default function ColorProfile() {
         if (!active || version !== loadVersion.current) return;
 
         if (!authData.user || !data || data.userId !== authData.user.id) {
-          setError("Sign in to create and save your personal colour profile.");
+          setError(t("Sign in to create and save your personal colour profile."));
           return;
         }
 
@@ -185,7 +188,7 @@ export default function ColorProfile() {
         }
       } catch {
         if (active && version === loadVersion.current) {
-          setError("Your colour profile could not be loaded. Please try again.");
+          setError(t("Your colour profile could not be loaded. Please try again."));
         }
       } finally {
         if (active && version === loadVersion.current) setLoading(false);
@@ -225,7 +228,7 @@ export default function ColorProfile() {
 
   async function saveProfile() {
     if (!supabase) {
-      setError("Account storage is not configured.");
+      setError(t("Account storage is not configured."));
       return;
     }
 
@@ -237,12 +240,12 @@ export default function ColorProfile() {
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Sign in required.");
+      if (!authData.user) throw new Error(t("Sign in required."));
 
       setStoredProfile(nextProfile);
       setSaved(true);
     } catch {
-      setError("Your profile could not be saved. Check your connection and sign-in status.");
+      setError(t("Your profile could not be saved. Check your connection and sign-in status."));
     } finally {
       setSaving(false);
     }
@@ -258,7 +261,7 @@ export default function ColorProfile() {
       setSaved(false);
       setStep(0);
     } catch {
-      setError("Your profile could not be removed. Please try again.");
+      setError(t("Your profile could not be removed. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -267,55 +270,54 @@ export default function ColorProfile() {
   return (
     <div className="page-content subpage color-profile-page">
       <section className="color-profile-intro">
-        <div className="eyebrow">YOUR PERSONAL COLOUR JOURNEY</div>
+        <div className="eyebrow">{t("YOUR PERSONAL COLOUR JOURNEY")}</div>
         <h1>
-          Understand your <em>colours.</em>
+          {t("Understand your")} <em>{t("colours.")}</em>
         </h1>
         <p className="welcome-copy">
-          Explore your personal colour characteristics and discover
-          a palette to guide your wardrobe.
+          {t("Explore your personal colour characteristics and discover a palette to guide your wardrobe.")}
         </p>
       </section>
 
       {loading ? (
         <section className="profile-wizard">
-          <p>Loading your account colour profile…</p>
+          <p>{t("Loading your account colour profile…")}</p>
         </section>
       ) : saved && result ? (
         <>
           <section className="profile-result">
-            <div className="eyebrow">YOUR CURRENT PROFILE</div>
+            <div className="eyebrow">{t("YOUR CURRENT PROFILE")}</div>
 
             {result.season ? (
               <>
-                <h2>{getSubSeasonLabel(result.subSeason)}</h2>
-                <p>{SEASON_DETAILS[result.season].subtitle}</p>
-                <p>{SEASON_DETAILS[result.season].description}</p>
-                <p>Result confidence: {result.confidence}</p>
+                <h2>{t(getSubSeasonLabel(result.subSeason))}</h2>
+                <p>{t(SEASON_DETAILS[result.season].subtitle)}</p>
+                <p>{t(SEASON_DETAILS[result.season].description)}</p>
+                <p>{t("Result confidence:")} {result.confidence}</p>
               </>
             ) : (
               <>
-                <h2>{getSubSeasonLabel(result.subSeason)}</h2>
-                <p>This is a starting recommendation based on the answers available. You can refine it by updating your answers.</p>
+                <h2>{t(getSubSeasonLabel(result.subSeason))}</h2>
+                <p>{t("This is a starting recommendation based on the answers available. You can refine it by updating your answers.")}</p>
               </>
             )}
 
             <div className="profile-characteristics">
               <div>
-                <span>Undertone</span>
-                <strong>{profile.undertone}</strong>
+                <span>{t("Undertone")}</span>
+                <strong>{t(profile.undertone)}</strong>
               </div>
               <div>
-                <span>Depth</span>
-                <strong>{profile.value}</strong>
+                <span>{t("Depth")}</span>
+                <strong>{t(profile.value)}</strong>
               </div>
               <div>
-                <span>Clarity</span>
-                <strong>{profile.chroma}</strong>
+                <span>{t("Clarity")}</span>
+                <strong>{t(profile.chroma)}</strong>
               </div>
               <div>
-                <span>Contrast</span>
-                <strong>{profile.contrast}</strong>
+                <span>{t("Contrast")}</span>
+                <strong>{t(profile.contrast)}</strong>
               </div>
             </div>
 
@@ -325,7 +327,7 @@ export default function ColorProfile() {
                 type="button"
                 onClick={() => setSaved(false)}
               >
-                Edit profile
+                {t("Edit profile")}
               </button>
 
               <button
@@ -334,7 +336,7 @@ export default function ColorProfile() {
                 onClick={() => void resetProfile()}
                 disabled={saving}
               >
-                Reset profile
+                {t("Reset profile")}
               </button>
             </div>
           </section>
@@ -344,7 +346,7 @@ export default function ColorProfile() {
       ) : (
         <section className="profile-wizard">
           <div className="profile-progress">
-            <span>STEP {step + 1} OF {QUESTIONS.length}</span>
+           <span>{t("STEP")} {step + 1} {t("OF")} {QUESTIONS.length}</span>
             <div>
               <span
                 style={{
@@ -355,11 +357,11 @@ export default function ColorProfile() {
           </div>
 
           <div className="eyebrow">
-            PERSONAL COLOUR CHARACTERISTICS
+            {t("PERSONAL COLOUR CHARACTERISTICS")}
           </div>
 
-          <h2>{currentQuestion.title}</h2>
-          <p>{currentQuestion.description}</p>
+          <h2>{t(currentQuestion.title)}</h2>
+          <p>{t(currentQuestion.description)}</p>
 
           <div className="profile-options">
             {currentQuestion.options.map((option) => (
@@ -375,8 +377,8 @@ export default function ColorProfile() {
               >
                 <span className="profile-option-radio" />
                 <span>
-                  <strong>{option.label}</strong>
-                  <small>{option.detail}</small>
+                  <strong>{t(option.label)}</strong>
+                  <small>{t(option.detail)}</small>
                 </span>
               </button>
             ))}
@@ -391,7 +393,7 @@ export default function ColorProfile() {
               disabled={step === 0}
               onClick={() => setStep((current) => current - 1)}
             >
-              Previous
+              {t("Previous")}
             </button>
 
             {step < QUESTIONS.length - 1 ? (
@@ -400,7 +402,7 @@ export default function ColorProfile() {
                 className="primary-button"
                 onClick={() => setStep((current) => current + 1)}
               >
-                Continue
+                {t("Continue")}
               </button>
             ) : (
               <button
@@ -409,7 +411,7 @@ export default function ColorProfile() {
                 onClick={() => void saveProfile()}
                 disabled={saving}
               >
-                {saving ? "Saving…" : "Save colour profile"}
+                {saving ? t("Saving…") : t("Save colour profile")}
               </button>
             )}
           </div>
@@ -417,7 +419,7 @@ export default function ColorProfile() {
       )}
 
       <p className="profile-disclaimer">
-        This twelve-profile seasonal system is an experimental styling guide, not a scientific assessment or a definitive determination of personal colour suitability.
+        {t("This twelve-profile seasonal system is an experimental styling guide, not a scientific assessment or a definitive determination of personal colour suitability.")}
       </p>
     </div>
   );

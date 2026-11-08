@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData, saveUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
+import { useI18n } from "../../lib/i18n";
 
 import {
   type ColorSeason,
@@ -163,15 +164,17 @@ function OutfitCard({
   isSaved: boolean;
   onToggleSave: () => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <article className="outfit-card">
       <div className="outfit-card-top">
         <div>
           <span className="outfit-eyebrow">
-            OUTFIT {String(index + 1).padStart(2, "0")}
+            {t("OUTFIT")} {String(index + 1).padStart(2, "0")}
           </span>
 
-          <h3>Your combination</h3>
+          <h3>{t("Your combination")}</h3>
         </div>
 
         <div className="outfit-score">
@@ -181,7 +184,7 @@ function OutfitCard({
       </div>
 
       <div className="outfit-rating">
-        {outfit.rating} colour compatibility
+        {t(outfit.rating)} {t("colour compatibility")}
       </div>
 
       <div className="outfit-items">
@@ -205,17 +208,21 @@ function OutfitCard({
 
             <div className="outfit-item-details">
               <strong>{item.name}</strong>
-              <span>{item.category}</span>
+              <span>{t(item.category)}</span>
             </div>
           </div>
         ))}
       </div>
 
       <div className="outfit-explanation">
-        <span>THE COLOUR NOTES</span>
+        <span>{t("THE COLOUR NOTES")}</span>
 
         {outfit.explanation.map((note, noteIndex) => (
-          <p key={noteIndex}>{note}</p>
+          <p key={noteIndex}>
+            {note.startsWith("Seasonal palette compatibility:")
+              ? `${t("Seasonal palette compatibility")}${note.slice("Seasonal palette compatibility".length)}`
+              : t(note)}
+          </p>
         ))}
       </div>
 
@@ -223,16 +230,17 @@ function OutfitCard({
         className={`outfit-save-button ${isSaved ? "is-saved" : ""}`}
         onClick={onToggleSave}
         type="button"
-        aria-label={isSaved ? "Remove saved outfit" : "Save outfit"}
+        aria-label={isSaved ? t("Remove saved outfit") : t("Save outfit")}
       >
         <span>{isSaved ? "♥" : "♡"}</span>
-        {isSaved ? "Saved to favourites" : "Save outfit"}
+        {isSaved ? t("Saved to favourites") : t("Save outfit")}
       </button>
     </article>
   );
 }
 
 export default function OutfitGenerator() {
+  const { t } = useI18n();
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
   const [savedOutfits, setSavedOutfits] = useState<StoredOutfit[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -283,7 +291,7 @@ export default function OutfitGenerator() {
         setSeason(data.colorProfile?.analysis?.season);
       } catch {
         if (active && current === generation) {
-          setSaveError("Your personal style data could not be loaded. Please refresh.");
+          setSaveError(t("Your personal style data could not be loaded. Please refresh."));
         }
       } finally {
         if (active && current === generation) setLoading(false);
@@ -298,7 +306,9 @@ export default function OutfitGenerator() {
       if (active) void loadForUser(data.session?.user.id ?? null);
     });
 
-    return () => {
+
+
+  return () => {
       active = false;
       generation++;
       data.subscription.unsubscribe();
@@ -351,7 +361,7 @@ export default function OutfitGenerator() {
       return {
         outfits: [] as OutfitRecommendation[],
         error:
-          "Some wardrobe items have invalid data. Please review your wardrobe.",
+          t("Some wardrobe items have invalid data. Please review your wardrobe."),
       };
     }
   }, [wardrobe, season]);
@@ -366,7 +376,7 @@ export default function OutfitGenerator() {
     useEffect(() => {
       if (!userId || loading) return;
       void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }).catch(() => {
-        setSaveError("Your saved outfits could not be synchronised.");
+        setSaveError(t("Your saved outfits could not be synchronised."));
       });
     }, [reconciledSavedOutfits, userId, loading]);
 
@@ -393,7 +403,7 @@ export default function OutfitGenerator() {
         setSavedOutfits(updated);
         setSaveError("");
       } catch {
-        setSaveError("Your changes could not be saved. Please try again.");
+        setSaveError(t("Your changes could not be saved. Please try again."));
       }
     }
 
@@ -411,7 +421,7 @@ export default function OutfitGenerator() {
       setSeason(data.colorProfile?.analysis?.season);
       setSaveError("");
     } catch {
-      setSaveError("Your wardrobe could not be refreshed.");
+      setSaveError(t("Your wardrobe could not be refreshed."));
     }
   }
 
@@ -425,8 +435,8 @@ export default function OutfitGenerator() {
     return (
       <div className="page-content subpage outfit-generator-page">
         <section className="outfit-intro">
-          <h1>Your outfits</h1>
-          <p>Sign in through your profile to access your personal wardrobe and saved outfits.</p>
+          <h1>{t("Your outfits")}</h1>
+          <p>{t("Sign in through your profile to access your personal wardrobe and saved outfits.")}</p>
         </section>
       </div>
     );
@@ -436,16 +446,15 @@ export default function OutfitGenerator() {
     <div className="page-content subpage outfit-generator-page">
       <section className="outfit-intro">
         <div className="eyebrow">
-          YOUR PERSONAL STYLING ASSISTANT
+          {t("YOUR PERSONAL STYLING ASSISTANT")}
         </div>
 
         <h1>
-          Get dressed with <em>intention.</em>
+          {t("Get dressed with")} <em>{t("intention.")}</em>
         </h1>
 
         <p>
-          Thoughtfully combined outfits, created from the pieces you
-          already own.
+          {t("Thoughtfully combined outfits, created from the pieces you already own.")}
         </p>
 
         <button
@@ -453,39 +462,39 @@ export default function OutfitGenerator() {
           onClick={refreshWardrobe}
           type="button"
         >
-          Refresh wardrobe <span>↻</span>
+          {t("Refresh wardrobe")} <span>↻</span>
         </button>
 
         <p className="outfit-profile-status">
           {season
-            ? `Personalised for your ${getSeasonLabel(season)} colour profile`
-            : "Create a colour profile to personalise your outfit suggestions."}
+            ? `${t("Personalised for your")} ${t(getSeasonLabel(season))} ${t("colour profile")}`
+            : t("Create a colour profile to personalise your outfit suggestions.")}
         </p>
       </section>
 
       <section className="outfit-overview">
         <div>
-          <span>YOUR WARDROBE</span>
+          <span>{t("YOUR WARDROBE")}</span>
           <strong>{wardrobe.length}</strong>
-          <small>Available pieces</small>
+          <small>{t("Available pieces")}</small>
         </div>
 
         <div>
-          <span>TOPS</span>
+          <span>{t("TOPS")}</span>
           <strong>{topCount}</strong>
-          <small>Shirts, T-shirts and polos</small>
+          <small>{t("Shirts, T-shirts and polos")}</small>
         </div>
 
         <div>
-          <span>TROUSERS</span>
+          <span>{t("TROUSERS")}</span>
           <strong>{pantsCount}</strong>
-          <small>Available bottoms</small>
+          <small>{t("Available bottoms")}</small>
         </div>
 
         <div>
-          <span>COMBINATIONS</span>
+          <span>{t("COMBINATIONS")}</span>
           <strong>{result.outfits.length}</strong>
-          <small>Recommendations</small>
+          <small>{t("Recommendations")}</small>
         </div>
       </section>
 
@@ -497,7 +506,7 @@ export default function OutfitGenerator() {
 
       {result.error && (
         <div className="outfit-message outfit-error">
-          {result.error}
+          {t(result.error)}
         </div>
       )}
 
@@ -506,13 +515,13 @@ export default function OutfitGenerator() {
           <div className="section-heading">
             <div>
               <div className="eyebrow">
-                YOUR PERSONAL COLLECTION
+                {t("YOUR PERSONAL COLLECTION")}
               </div>
 
-              <h2>Saved outfits</h2>
+              <h2>{t("Saved outfits")}</h2>
             </div>
 
-            <span>{reconciledSavedOutfits.length} favourites</span>
+            <span>{reconciledSavedOutfits.length} {t("favourites")}</span>
           </div>
 
           <div className="outfit-grid">
@@ -536,11 +545,10 @@ export default function OutfitGenerator() {
         <div className="outfit-empty">
           <span className="outfit-empty-icon">◇</span>
 
-          <h2>Your wardrobe awaits.</h2>
+          <h2>{t("Your wardrobe awaits.")}</h2>
 
           <p>
-            Add clothing pieces to My Wardrobe before generating
-            your first outfits.
+            {t("Add clothing pieces to My Wardrobe before generating your first outfits.")}
           </p>
         </div>
       )}
@@ -551,11 +559,10 @@ export default function OutfitGenerator() {
           <div className="outfit-empty">
             <span className="outfit-empty-icon">◇</span>
 
-            <h2>A few more essentials.</h2>
+            <h2>{t("A few more essentials.")}</h2>
 
             <p>
-              Add at least one shirt, T-shirt or polo shirt and one pair
-              of trousers to create complete outfit combinations.
+              {t("Add at least one shirt, T-shirt or polo shirt and one pair of trousers to create complete outfit combinations.")}
             </p>
           </div>
         )}
@@ -565,13 +572,13 @@ export default function OutfitGenerator() {
           <div className="section-heading">
             <div>
               <div className="eyebrow">
-                CURATED FOR YOUR WARDROBE
+                {t("CURATED FOR YOUR WARDROBE")}
               </div>
 
-              <h2>Your outfit suggestions</h2>
+              <h2>{t("Your outfit suggestions")}</h2>
             </div>
 
-            <span>{result.outfits.length} combinations</span>
+            <span>{result.outfits.length} {t("combinations")}</span>
           </div>
 
           <div className="outfit-grid">
@@ -588,10 +595,7 @@ export default function OutfitGenerator() {
           </div>
 
           <p className="outfit-disclaimer">
-            Colour scores are experimental estimates based on
-            perceptual colour differences and curated palette
-            comparisons. They do not represent an objective measure
-            of personal style.
+            {t("Colour scores are experimental estimates based on perceptual colour differences and curated palette comparisons. They do not represent an objective measure of personal style.")}
           </p>
         </section>
       )}

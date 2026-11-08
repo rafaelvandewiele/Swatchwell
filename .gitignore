@@ -15,3 +15,7 @@ coverage/
 
 # Local recovery backups
 *.backup
+
+# Generated files
+supabase/.temp/
+apps/web/public/sitemap.xml
