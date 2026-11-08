@@ -310,52 +310,7 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
               <p className="auth-message">{t("Administrator access is active.")}</p>
             )}
 
-            <form className="auth-profile-form" onSubmit={saveProfile}>
-              <h3>{t("Profile settings")}</h3>
-              <label>
-                {t("First name")}
-                <input
-                  type="text"
-                  autoComplete="given-name"
-                  maxLength={80}
-                  required
-                  value={firstName}
-                  onChange={(event) => setFirstName(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("Surname")}
-                <input
-                  type="text"
-                  autoComplete="family-name"
-                  maxLength={80}
-                  required
-                  value={lastName}
-                  onChange={(event) => setLastName(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("Preferred language")}
-                <select
-                  value={language}
-                  onChange={(event) => {
-                      const nextLanguage = event.target.value as Language
-                      setPreferredLanguage(nextLanguage)
-                      setLanguage(nextLanguage)
-                    }}
-                >
-                  <option value="nl">Nederlands</option>
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                </select>
-              </label>
-              <button className="auth-primary" type="submit" disabled={busy}>
-                {busy ? t('Saving…') : t('Save profile')}
-              </button>
-            </form>
-
-            <button className="auth-secondary" onClick={() => setMode('update')}>
+           <button className="auth-secondary" onClick={() => setMode('update')}>
               {t("Change password")}
             </button>
             <button className="auth-secondary" onClick={signOut}>{t("Sign out")}</button>
