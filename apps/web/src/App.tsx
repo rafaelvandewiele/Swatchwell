@@ -326,6 +326,8 @@ function App() {
           ))}
         </nav>
 
+        <button className="settings-shortcut" type="button" aria-label={t("Settings")} title={t("Settings")} onClick={() => navigate("Settings")}>⚙</button>
+
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <span className="note-eyebrow">{t("YOUR STYLE JOURNEY")}</span>
@@ -373,16 +375,13 @@ function App() {
           </div>
 
           <div className="topbar-right">
-            <span className="date-label">
-              {t("YOUR PERSONAL STYLE SPACE")}
-            </span>
-
-            <button
-              className="top-avatar"
-              onClick={() => setShowProfile((current) => !current)}
-              type="button"
-              aria-label={t("Open profile settings")}
-            >
+            <label className="top-language" aria-label={t("Preferred language")}>
+              <span aria-hidden="true">文</span>
+              <select value={language} onChange={(event) => void changeLanguage(event.target.value as Language)}>
+                <option value="nl">NL</option><option value="en">EN</option><option value="fr">FR</option><option value="de">DE</option>
+              </select>
+            </label>
+            <button className="top-avatar" onClick={() => setShowProfile((current) => !current)} type="button" aria-label={t("Open profile")} aria-expanded={showProfile}>
               {profileInitial}
             </button>
           </div>
