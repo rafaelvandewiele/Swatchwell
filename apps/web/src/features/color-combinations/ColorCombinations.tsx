@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
+import { supabase } from '../../lib/supabase';
 import {
   getFirstColourOptions,
   getMatchingShirtColours,
@@ -66,13 +67,29 @@ function ColourChoice({ colour, label, selected, onSelect }: { colour: GarmentCo
 }
 
 export default function ColorCombinations() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [access, setAccess] = useState<'loading' | 'signedout' | 'locked' | 'allowed'>('loading');
   const [step, setStep] = useState(0);
   const [firstGarment, setFirstGarment] = useState<FirstGarment | null>(null);
   const [firstColour, setFirstColour] = useState<GarmentColour | null>(null);
   const [shirtColour, setShirtColour] = useState<GarmentColour | null>(null);
   const [thirdColour, setThirdColour] = useState<GarmentColour | null>(null);
   const [vectors, setVectors] = useState<GarmentSvgs>({});
+
+  useEffect(() => {
+    if (!supabase) { setAccess('signedout'); return; }
+    let active = true;
+    const checkAccess = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!active) return;
+      if (!user) { setAccess('signedout'); return; }
+      const { data: profile } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
+      if (active) setAccess(profile?.role === 'admin' || profile?.is_premium ? 'allowed' : 'locked');
+    };
+    void checkAccess();
+    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void checkAccess(); }); });
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     let active = true;
