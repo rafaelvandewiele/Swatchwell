@@ -13,6 +13,7 @@ import {
   analyzeSeasonalProfile,
   getSubSeasonalPalette,
   getSubSeasonLabel,
+  COLOUR_CLARITY_SWATCHES,
   SEASONAL_QUESTIONS,
   type SeasonalProfile,
   type SeasonalAnalysisResult,
@@ -457,6 +458,24 @@ export default function ColorsScreen() {
               {currentQuestion.description}
             </Text>
 
+            {currentQuestion.key === 'chroma' ? (
+              <View style={styles.clarityComparison}>
+                {[
+                  { label: 'Soft', colours: COLOUR_CLARITY_SWATCHES.soft },
+                  { label: 'Clear', colours: COLOUR_CLARITY_SWATCHES.clear },
+                ].map((group) => (
+                  <View key={group.label} style={styles.clarityGroup}>
+                    <Text style={styles.clarityLabel}>{group.label}</Text>
+                    <View style={styles.claritySwatches}>
+                      {group.colours.map((colour) => (
+                        <View key={colour} accessible accessibilityLabel={group.label + ' colour example'} style={[styles.claritySwatch, { backgroundColor: colour }]} />
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <View style={styles.progressTrack}>
               <View
                 style={[
@@ -581,6 +600,32 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: '600',
     letterSpacing: -0.7,
+  },
+  clarityComparison: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  clarityGroup: {
+    flex: 1,
+    gap: 9,
+  },
+  clarityLabel: {
+    color: '#243B53',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  claritySwatches: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  claritySwatch: {
+    flex: 1,
+    height: 42,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 30, 30, 0.08)',
   },
   progressTrack: {
     height: 4,
