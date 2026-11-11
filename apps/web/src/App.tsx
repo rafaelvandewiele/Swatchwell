@@ -77,8 +77,24 @@ function App() {
     () => new URLSearchParams(window.location.search).get("type") === "recovery",
   );
   const [profileInitial, setProfileInitial] = useState("S");
+  const [isPremium, setIsPremium] = useState(false);
 
   const [authReady, setAuthReady] = useState(!supabase);
+
+  useEffect(() => {
+    if (!supabase) { setIsPremium(false); return; }
+    let active = true;
+    const refreshPremium = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!active) return;
+      if (!user) { setIsPremium(false); return; }
+      const { data } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
+      if (active) setIsPremium(data?.role === 'admin' || Boolean(data?.is_premium));
+    };
+    void refreshPremium();
+    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void refreshPremium(); }); });
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, [page]);
 
   useEffect(() => {
     if (!supabase) {
@@ -324,6 +340,7 @@ function App() {
               type="button"
             >
               <span className="nav-icon">{item.icon}</span>
+              {item.name === "Colour combinations" && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
               {t(item.name)}
             </button>
           ))}
