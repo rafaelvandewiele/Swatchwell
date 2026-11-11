@@ -39,7 +39,7 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
     '$1$2$4',
   );
   const markup = withoutCanvas
-    ?.replace(/<svg\b([^>]*)>/, '<svg$1 width="100%" height="100%" preserveAspectRatio="xMidYMid meet">')
+    ?.replace(/<svg\b([^>]*)>/, '<svg$1 preserveAspectRatio="xMidYMid meet">')
     .replaceAll('fill="#fff"', `fill="${colour}"`);
   return (
     <div className={`colour-combination-garment colour-combination-garment--${garment}`}>
