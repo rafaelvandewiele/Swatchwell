@@ -30,6 +30,7 @@
 .colour-combinations-actions .secondary-button { border:1px solid var(--line); background:transparent; color:var(--navy); padding:11px 17px; cursor:pointer; }
 .colour-combinations-actions .primary-button { margin:0; }
 .colour-combinations-actions .primary-button:disabled { opacity:.45; cursor:not-allowed; }
+.colour-combinations-actions .primary-button:disabled { opacity:.45; cursor:not-allowed; }
 .approved-combination-note { margin-top:20px; padding:15px; background:#f2efe8; border-left:2px solid #9b8061; }
 .approved-combination-note strong { color:var(--navy); font-size:11px; }
 .approved-combination-note p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.6; }
