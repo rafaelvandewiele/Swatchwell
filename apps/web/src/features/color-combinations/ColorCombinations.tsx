@@ -35,11 +35,11 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   // the remaining white garment shapes. This keeps the SVG background
   // transparent and preserves the black seams and outlines.
   const withoutCanvas = svg?.replace(
-    /(<path d=")([\\s\\S]*)(m-?[\\d.e+-]+-?[\\d.e+-]+h[\\d.e+-]+v[\\d.e+-]+h-[\\d.e+-]+z)(" fill="#fff")/,
+    /(<path d=")([\s\S]*)(m-?[\d.e+-]+-?[\d.e+-]+h[\d.e+-]+v[\d.e+-]+h-[\d.e+-]+z)(" fill="#fff")/,
     '$1$2$4',
   );
   const markup = withoutCanvas
-    ?.replace(/<svg\\b([^>]*)>/, '<svg$1 width="100%" height="100%" preserveAspectRatio="xMidYMid meet">')
+    ?.replace(/<svg\b([^>]*)>/, '<svg$1 width="100%" height="100%" preserveAspectRatio="xMidYMid meet">')
     .replaceAll('fill="#fff"', `fill="${colour}"`);
   return (
     <div className={`colour-combination-garment colour-combination-garment--${garment}`}>
