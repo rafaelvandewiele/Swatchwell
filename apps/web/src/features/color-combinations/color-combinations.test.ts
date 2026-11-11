@@ -5,6 +5,7 @@ import {
   getMatchingShirtColours,
   getMatchingThirdColours,
   getApprovedCombinations,
+  getCompleteOutfitColours,
 } from './color-combinations';
 
 describe('curated colour combinations', () => {
@@ -54,6 +55,23 @@ describe('curated colour combinations', () => {
       'Mid-blue jeans',
       'Dark blue jeans',
     ]));
+  });
+
+  it('assigns the selected colours to the correct final garment vectors', () => {
+    const upper = { name: 'Navy', hex: '#263B55' };
+    const shirt = { name: 'White', hex: '#F5F2EA' };
+    const trousers = { name: 'Light blue jeans', hex: '#A9C7DF' };
+
+    expect(getCompleteOutfitColours('upper', upper, shirt, trousers)).toEqual({
+      upper,
+      shirt,
+      trousers,
+    });
+    expect(getCompleteOutfitColours('trousers', trousers, shirt, upper)).toEqual({
+      upper,
+      shirt,
+      trousers,
+    });
   });
 
 });
