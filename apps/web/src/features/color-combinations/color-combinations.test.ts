@@ -46,4 +46,14 @@ describe('curated colour combinations', () => {
     expect(upperFirst.some((colour) => colour.hex === '#C8BDAA')).toBe(true);
     expect(trousersFirst.some((colour) => colour.hex === '#263B55')).toBe(true);
   });
+  it('provides a broad catalogue with all three denim washes', () => {
+    expect(CURATED_COLOUR_COMBINATIONS.length).toBeGreaterThan(200);
+    const trouserColours = getFirstColourOptions('trousers').map((colour) => colour.name);
+    expect(trouserColours).toEqual(expect.arrayContaining([
+      'Light blue jeans',
+      'Mid-blue jeans',
+      'Dark blue jeans',
+    ]));
+  });
+
 });
