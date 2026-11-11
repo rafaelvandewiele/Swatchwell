@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import "./App.css";
 
@@ -80,21 +80,32 @@ function App() {
   const [isPremium, setIsPremium] = useState(false);
 
   const [authReady, setAuthReady] = useState(!supabase);
+  const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+  const authenticatedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) { setIsPremium(false); return; }
+    if (!supabase || !authenticatedUserId) {
+      setIsPremium(false);
+      return;
+    }
+
     let active = true;
-    const refreshPremium = async () => {
-      const { data: { user } } = await supabase!.auth.getUser();
-      if (!active) return;
-      if (!user) { setIsPremium(false); return; }
-      const { data } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
-      if (active) setIsPremium(data?.role === 'admin' || Boolean(data?.is_premium));
+    const accountId = authenticatedUserId;
+
+    void supabase
+      .from('profiles')
+      .select('role,is_premium')
+      .eq('id', accountId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        setIsPremium(!error && (data?.role === 'admin' || Boolean(data?.is_premium)));
+      });
+
+    return () => {
+      active = false;
     };
-    void refreshPremium();
-    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void refreshPremium(); }); });
-    return () => { active = false; data.subscription.unsubscribe(); };
-  }, [page]);
+  }, [authenticatedUserId]);
 
   useEffect(() => {
     if (!supabase) {
@@ -124,6 +135,17 @@ function App() {
       event?: string,
     ) => {
       if (!active) return;
+
+      const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
+      if (authenticatedUserIdRef.current !== nextUserId) {
+        authenticatedUserIdRef.current = nextUserId;
+        setAuthenticatedUserId(nextUserId);
+        setIsPremium(false);
+        setDashboardItems([]);
+        setDashboardPhotos({});
+        setSavedOutfitCount(0);
+        setColorProfile(null);
+      }
 
       if (session && !session.user.email_confirmed_at) {
         setProfileInitial('S');
@@ -303,7 +325,7 @@ function App() {
 
   if (!authReady) {
     return (
-      <div className="app-shell">
+      <div className="app-shell" key={authenticatedUserId ?? 'signed-out'}>
         <div className="loading-state">{t("Checking your session...")}</div>
       </div>
     );
