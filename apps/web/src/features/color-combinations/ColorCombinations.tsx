@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
 import {
   getFirstColourOptions,
@@ -31,17 +31,17 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   const svg = vectors[garment];
   const markup = svg?.replaceAll('__GARMENT_COLOR__', colour).replaceAll('#fff', colour);
   return (
-    <div className={`colour-combination-garment colour-combination-garment--${garment}`} style={{ '--garment-colour': colour } as CSSProperties}>
+    <div className={`colour-combination-garment colour-combination-garment--${garment}`}>
       {markup ? (
         <div className="colour-combination-vector" dangerouslySetInnerHTML={{ __html: markup }} />
       ) : (
-        <div className="colour-combination-vector-loading" aria-label="Loading garment illustration" />
+        <div className="colour-combination-vector-loading" style={{ backgroundColor: colour }} aria-label="Loading garment illustration" />
       )}
     </div>
   );
 }
 
-function ColourChoice({ colour, selected, onSelect }: { colour: GarmentColour; selected: boolean; onSelect: () => void }) {
+function ColourChoice({ colour, label, selected, onSelect }: { colour: GarmentColour; label: string; selected: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
@@ -50,7 +50,7 @@ function ColourChoice({ colour, selected, onSelect }: { colour: GarmentColour; s
       aria-pressed={selected}
     >
       <span className="colour-choice-swatch" style={{ backgroundColor: colour.hex }} />
-      <span className="colour-choice-name">{colour.name}</span>
+      <span className="colour-choice-name">{label}</span>
       <span className="colour-choice-hex">{colour.hex}</span>
     </button>
   );
@@ -104,8 +104,9 @@ export default function ColorCombinations() {
   const thirdGarment: Garment | null = firstGarment === 'upper' ? 'trousers' : firstGarment === 'trousers' ? 'upper' : null;
   const firstPreviewGarment: Garment | null = firstGarment;
   const currentGarment: Garment | null = step === 1 ? firstPreviewGarment : step === 2 ? 'shirt' : step === 3 ? thirdGarment : null;
-  const currentColour = step === 1 ? firstColour : step === 2 ? shirtColour : step === 3 ? thirdColour : null;
   const currentOptions = step === 1 ? firstOptions : step === 2 ? shirtOptions : step === 3 ? thirdOptions : [];
+  const currentSelection = step === 1 ? firstColour : step === 2 ? shirtColour : step === 3 ? thirdColour : null;
+  const currentColour = currentSelection ?? currentOptions[0] ?? null;
 
   function chooseFirstGarment(value: FirstGarment) {
     setFirstGarment(value);
@@ -200,7 +201,8 @@ export default function ColorCombinations() {
                   <ColourChoice
                     key={colour.hex}
                     colour={colour}
-                    selected={currentColour?.hex === colour.hex}
+                    label={t(colour.name)}
+                    selected={currentSelection?.hex === colour.hex}
                     onSelect={() => {
                       if (step === 1) chooseFirstColour(colour);
                       else if (step === 2) chooseShirtColour(colour);
@@ -253,7 +255,7 @@ export default function ColorCombinations() {
               <GarmentPreview garment={currentGarment} colour={currentColour.hex} vectors={vectors} />
               <div>
                 <strong>{currentGarment === 'shirt' ? t('Shirt') : currentGarment === 'upper' ? t('Upper layer') : t('Trousers')}</strong>
-                <span>{currentColour.name} · {currentColour.hex}</span>
+                <span>{t(currentColour.name)} · {currentColour.hex}</span>
               </div>
             </div>
           ) : (
@@ -264,9 +266,9 @@ export default function ColorCombinations() {
           )}
           {step > 0 && firstColour ? (
             <div className="colour-combinations-selection-summary">
-              <span>{t('FIRST CHOICE')}</span><strong>{firstLabel}: {firstColour.name}</strong>
-              {shirtColour ? <><span>{t('SHIRT')}</span><strong>{shirtColour.name}</strong></> : null}
-              {thirdColour ? <><span>{t('FINAL CHOICE')}</span><strong>{thirdLabel}: {thirdColour.name}</strong></> : null}
+              <span>{t('FIRST CHOICE')}</span><strong>{firstLabel}: {t(firstColour.name)}</strong>
+              {shirtColour ? <><span>{t('SHIRT')}</span><strong>{t(shirtColour.name)}</strong></> : null}
+              {thirdColour ? <><span>{t('FINAL CHOICE')}</span><strong>{thirdLabel}: {t(thirdColour.name)}</strong></> : null}
             </div>
           ) : null}
         </div>
