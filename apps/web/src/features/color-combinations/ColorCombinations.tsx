@@ -34,7 +34,7 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   // rectangle and apply the selected colour to the garment silhouette.
   // All other paths (including the garment's black line details) stay intact.
   const markup = svg?.replace(
-    /(<path d=")([^"]*?)\\s+m-726-801h1e3v1326h-1e3z(" fill="#fff")/,
+    /(<path d=")([^"]*?)\s+m-726-801h1e3v1326h-1e3z(" fill="#fff")/,
     (_match, opening: string, garmentPath: string, closing: string) =>
       `${opening}${garmentPath}${closing.replace('fill="#fff"', `fill="${colour}"`)}`,
   );
