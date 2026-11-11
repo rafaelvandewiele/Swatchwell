@@ -126,3 +126,14 @@ export function getApprovedCombinations(firstGarment: FirstGarment, firstHex: st
     combination.shirt.hex === shirtHex,
   );
 }
+
+export function getCompleteOutfitColours(
+  firstGarment: FirstGarment,
+  firstColour: GarmentColour,
+  shirtColour: GarmentColour,
+  thirdColour: GarmentColour,
+) {
+  return firstGarment === 'upper'
+    ? { upper: firstColour, shirt: shirtColour, trousers: thirdColour }
+    : { upper: thirdColour, shirt: shirtColour, trousers: firstColour };
+}
