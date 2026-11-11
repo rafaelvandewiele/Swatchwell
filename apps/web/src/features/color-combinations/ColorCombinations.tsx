@@ -29,10 +29,15 @@ async function loadVector(path: string): Promise<string> {
 
 function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour: string; vectors: GarmentSvgs }) {
   const svg = vectors[garment];
-  // The supplied vectors use unfilled paths for the garment artwork and an
-  // explicit white fill for the canvas/background. Recolour only those
-  // unfilled garment paths; never replace white globally.
-  const markup = svg?.replace(/<path\\b(?![^>]*\\bfill=)/g, `<path fill="${colour}"`);
+  // Each supplied vector stores the garment silhouette and the white
+  // canvas as two subpaths in one compound path. Remove only the canvas
+  // rectangle and apply the selected colour to the garment silhouette.
+  // All other paths (including the garment's black line details) stay intact.
+  const markup = svg?.replace(
+    /(<path d=")([^"]*?)\\s+m-726-801h1e3v1326h-1e3z(" fill="#fff")/,
+    (_match, opening: string, garmentPath: string, closing: string) =>
+      `${opening}${garmentPath}${closing.replace('fill="#fff"', `fill="${colour}"`)}`,
+  );
   return (
     <div className={`colour-combination-garment colour-combination-garment--${garment}`}>
       {markup ? (
