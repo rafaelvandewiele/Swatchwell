@@ -13,38 +13,87 @@ export interface CuratedColourCombination {
   note: string;
 }
 
-/**
- * Curated outfit combinations.
- *
- * Each record is one approved three-colour outfit: upper layer + shirt + trousers.
- * Add or edit a record here to change the combinations offered by the flow.
- * The UI only exposes colours from complete approved records, so the final
- * garment can only be selected when it matches both earlier choices.
- */
-export const CURATED_COLOUR_COMBINATIONS: CuratedColourCombination[] = [
-  { id: 'navy-white-stone', upper: { name: 'Navy', hex: '#263B55' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Stone', hex: '#C8BDAA' }, note: 'A timeless navy-and-white foundation softened by warm stone.' },
-  { id: 'navy-blue-grey', upper: { name: 'Navy', hex: '#263B55' }, shirt: { name: 'Pale blue', hex: '#B8CAD8' }, trousers: { name: 'Mid grey', hex: '#858783' }, note: 'Cool, restrained tones with a clear light-to-dark balance.' },
-  { id: 'navy-rose-beige', upper: { name: 'Navy', hex: '#263B55' }, shirt: { name: 'Dusty rose', hex: '#C58F91' }, trousers: { name: 'Beige', hex: '#D7C5A8' }, note: 'A muted rose accent balanced by navy and soft beige.' },
-  { id: 'charcoal-white-grey', upper: { name: 'Charcoal', hex: '#3C4146' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Light grey', hex: '#B7B8B3' }, note: 'A monochromatic combination with subtle tonal separation.' },
-  { id: 'charcoal-blue-stone', upper: { name: 'Charcoal', hex: '#3C4146' }, shirt: { name: 'Pale blue', hex: '#B8CAD8' }, trousers: { name: 'Stone', hex: '#C8BDAA' }, note: 'Soft blue lightens the charcoal while stone keeps the outfit balanced.' },
-  { id: 'olive-ivory-beige', upper: { name: 'Olive', hex: '#69745A' }, shirt: { name: 'Ivory', hex: '#EEE7D8' }, trousers: { name: 'Beige', hex: '#D7C5A8' }, note: 'A natural, warm combination built around earthy neutrals.' },
-  { id: 'olive-white-navy', upper: { name: 'Olive', hex: '#69745A' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Navy', hex: '#263B55' }, note: 'A crisp white shirt connects muted olive with deep navy.' },
-  { id: 'camel-white-navy', upper: { name: 'Camel', hex: '#B68B61' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Navy', hex: '#263B55' }, note: 'A classic warm-and-cool pairing with a clean white centre.' },
-  { id: 'camel-blue-brown', upper: { name: 'Camel', hex: '#B68B61' }, shirt: { name: 'Pale blue', hex: '#B8CAD8' }, trousers: { name: 'Dark brown', hex: '#514035' }, note: 'Pale blue offsets the warmth of camel and dark brown.' },
-  { id: 'beige-white-olive', upper: { name: 'Beige', hex: '#D7C5A8' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Olive', hex: '#69745A' }, note: 'Quiet natural colours with enough contrast to define each piece.' },
-  { id: 'beige-blue-navy', upper: { name: 'Beige', hex: '#D7C5A8' }, shirt: { name: 'Pale blue', hex: '#B8CAD8' }, trousers: { name: 'Navy', hex: '#263B55' }, note: 'A light upper half balanced by a grounded navy base.' },
-  { id: 'brown-cream-stone', upper: { name: 'Dark brown', hex: '#514035' }, shirt: { name: 'Cream', hex: '#E8DDC8' }, trousers: { name: 'Stone', hex: '#C8BDAA' }, note: 'A tonal earth palette with gentle contrast.' },
-  { id: 'burgundy-white-charcoal', upper: { name: 'Burgundy', hex: '#713F4B' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Charcoal', hex: '#3C4146' }, note: 'A restrained accent colour framed by two dependable neutrals.' },
-  { id: 'forest-cream-beige', upper: { name: 'Forest green', hex: '#365747' }, shirt: { name: 'Cream', hex: '#E8DDC8' }, trousers: { name: 'Beige', hex: '#D7C5A8' }, note: 'Deep green and warm cream create a composed, natural palette.' },
-  { id: 'slate-white-taupe', upper: { name: 'Slate blue', hex: '#647C91' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Taupe', hex: '#93877A' }, note: 'A cool blue layer grounded by a soft, warm neutral.' },
-  { id: 'grey-blue-olive', upper: { name: 'Olive', hex: '#69745A' }, shirt: { name: 'Pale blue', hex: '#B8CAD8' }, trousers: { name: 'Mid grey', hex: '#858783' }, note: 'Muted blue and olive sit comfortably against mid grey.' },
-  { id: 'charcoal-white-olive', upper: { name: 'Olive', hex: '#69745A' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Charcoal', hex: '#3C4146' }, note: 'Olive and charcoal are connected by a clean neutral shirt.' },
-  { id: 'brown-white-olive', upper: { name: 'Dark brown', hex: '#514035' }, shirt: { name: 'White', hex: '#F5F2EA' }, trousers: { name: 'Olive', hex: '#69745A' }, note: 'A grounded earth combination with a bright neutral shirt.' },
-];
+const colours = {
+  navy: { name: 'Navy', hex: '#263B55' },
+  charcoal: { name: 'Charcoal', hex: '#3C4146' },
+  slateBlue: { name: 'Slate blue', hex: '#647C91' },
+  camel: { name: 'Camel', hex: '#B68B61' },
+  olive: { name: 'Olive', hex: '#69745A' },
+  forestGreen: { name: 'Forest green', hex: '#365747' },
+  darkBrown: { name: 'Dark brown', hex: '#514035' },
+  burgundy: { name: 'Burgundy', hex: '#713F4B' },
+  beige: { name: 'Beige', hex: '#D7C5A8' },
+  white: { name: 'White', hex: '#F5F2EA' },
+  ivory: { name: 'Ivory', hex: '#EEE7D8' },
+  cream: { name: 'Cream', hex: '#E8DDC8' },
+  paleBlue: { name: 'Pale blue', hex: '#B8CAD8' },
+  dustyRose: { name: 'Dusty rose', hex: '#C58F91' },
+  stone: { name: 'Stone', hex: '#C8BDAA' },
+  midGrey: { name: 'Mid grey', hex: '#858783' },
+  lightGrey: { name: 'Light grey', hex: '#B7B8B3' },
+  taupe: { name: 'Taupe', hex: '#93877A' },
+  lightBlueJeans: { name: 'Light blue jeans', hex: '#A9C7DF' },
+  midBlueJeans: { name: 'Mid-blue jeans', hex: '#52799B' },
+  darkBlueJeans: { name: 'Dark blue jeans', hex: '#243F5B' },
+} satisfies Record<string, GarmentColour>;
 
-function uniqueColours(colours: GarmentColour[]): GarmentColour[] {
-  return colours.filter((colour, index) =>
-    colours.findIndex((candidate) => candidate.hex === colour.hex) === index,
+const palettes = [
+  {
+    id: 'classic',
+    note: 'A classic, versatile palette with clean neutrals and balanced blue tones.',
+    uppers: [colours.navy, colours.charcoal, colours.slateBlue, colours.camel],
+    shirts: [colours.white, colours.paleBlue, colours.cream, colours.dustyRose],
+    trousers: [colours.stone, colours.midGrey, colours.beige, colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans],
+  },
+  {
+    id: 'earth',
+    note: 'A natural palette built around earthy greens, warm browns and soft neutrals.',
+    uppers: [colours.olive, colours.forestGreen, colours.camel, colours.darkBrown],
+    shirts: [colours.ivory, colours.cream, colours.white, colours.paleBlue],
+    trousers: [colours.beige, colours.stone, colours.olive, colours.darkBrown, colours.lightBlueJeans, colours.midBlueJeans],
+  },
+  {
+    id: 'refined',
+    note: 'A refined mix of understated accent colours, cool neutrals and denim.',
+    uppers: [colours.burgundy, colours.charcoal, colours.beige, colours.slateBlue],
+    shirts: [colours.white, colours.ivory, colours.paleBlue, colours.dustyRose],
+    trousers: [colours.charcoal, colours.navy, colours.taupe, colours.midGrey, colours.midBlueJeans, colours.darkBlueJeans],
+  },
+] as const;
+
+/**
+ * The catalogue expands curated palette families into individual outfit
+ * combinations. Every entry remains a complete upper + shirt + trousers set.
+ * The three denim washes are explicit trouser colours and can be selected
+ * either as the first garment or as the final garment.
+ */
+function buildCuratedCombinations(): CuratedColourCombination[] {
+  const combinations: CuratedColourCombination[] = [];
+  const seen = new Set<string>();
+
+  for (const palette of palettes) {
+    for (const upper of palette.uppers) {
+      for (const shirt of palette.shirts) {
+        for (const trousers of palette.trousers) {
+          const id = [upper.name, shirt.name, trousers.name]
+            .map((name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
+            .join('-');
+          if (seen.has(id)) continue;
+          seen.add(id);
+          combinations.push({ id, upper, shirt, trousers, note: palette.note });
+        }
+      }
+    }
+  }
+
+  return combinations;
+}
+
+export const CURATED_COLOUR_COMBINATIONS = buildCuratedCombinations();
+
+function uniqueColours(colourList: GarmentColour[]): GarmentColour[] {
+  return colourList.filter((colour, index) =>
+    colourList.findIndex((candidate) => candidate.hex === colour.hex) === index,
   );
 }
 
