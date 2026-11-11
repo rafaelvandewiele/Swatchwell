@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
     const { error: saveError } = await admin.from("billing_customers").upsert({ user_id: user.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
     if (saveError) return json({ error: "Could not save the billing customer." }, 500, origin);
   }
+  if (!customerId) return json({ error: "Could not resolve the billing customer." }, 500, origin);
 
   const form = new URLSearchParams();
   form.set("mode", "subscription");
