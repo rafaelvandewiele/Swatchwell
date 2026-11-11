@@ -89,7 +89,7 @@ export const SEASONAL_QUESTIONS = [
     key: "contrast",
     title: "Your natural contrast",
     description:
-      "Look at the differences in lightness and darkness between your natural hair, eyes and skin colouring. Are those differences subtle, moderate or strong? For example, very dark hair with much lighter eyes often creates stronger contrast.",
+      "Look at the natural features of your face — your hair, eyes and skin colouring. How much difference is there between their lightness and darkness? Are those differences subtle, moderate or strong? For example, very dark hair with much lighter eyes often creates stronger contrast.",
     options: [
       {
         value: "low",
@@ -123,3 +123,9 @@ export const SEASONAL_QUESTIONS = [
     detail: string;
   }[];
 }[];
+
+
+export const COLOUR_CLARITY_SWATCHES = {
+  soft: ["#B8878C", "#9AA58A", "#778A9C"],
+  clear: ["#E83E8C", "#16865B", "#2455D6"],
+} as const;
