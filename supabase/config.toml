@@ -1,2 +1,8 @@
 [functions.account-deletion]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.billing-dunning]
+verify_jwt = false

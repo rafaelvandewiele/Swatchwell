@@ -4,6 +4,7 @@ import "./App.css";
 
 import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
+import ColorCombinations from "./features/color-combinations/ColorCombinations";
 import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
 import SettingsPage from "./features/settings/SettingsPage";
@@ -26,6 +27,7 @@ type Page =
   | "My wardrobe"
   | "Color analysis"
   | "Outfits"
+  | "Colour combinations"
   | "Settings"
   | "Privacy policy"
   | "Terms and conditions"
@@ -37,6 +39,7 @@ const navigation: { name: Page; icon: string }[] = [
   { name: "My wardrobe", icon: "▤" },
   { name: "Color analysis", icon: "◉" },
   { name: "Outfits", icon: "◇" },
+  { name: "Colour combinations", icon: "◈" },
 ];
 
 type WardrobeCategory =
@@ -62,7 +65,7 @@ interface DashboardWardrobeItem {
 function App() {
   const { t, language, setLanguage } = useI18n();
   const pageFromPath = (): Page => {
-    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
     return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
   };
   const [page, setPage] = useState<Page>(pageFromPath);
@@ -74,8 +77,24 @@ function App() {
     () => new URLSearchParams(window.location.search).get("type") === "recovery",
   );
   const [profileInitial, setProfileInitial] = useState("S");
+  const [isPremium, setIsPremium] = useState(false);
 
   const [authReady, setAuthReady] = useState(!supabase);
+
+  useEffect(() => {
+    if (!supabase) { setIsPremium(false); return; }
+    let active = true;
+    const refreshPremium = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!active) return;
+      if (!user) { setIsPremium(false); return; }
+      const { data } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
+      if (active) setIsPremium(data?.role === 'admin' || Boolean(data?.is_premium));
+    };
+    void refreshPremium();
+    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void refreshPremium(); }); });
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, [page]);
 
   useEffect(() => {
     if (!supabase) {
@@ -164,15 +183,15 @@ function App() {
   const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
-    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
     window.history.pushState({}, "", paths[name]);
     setPage(name);
-    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(name) ? name : "Overview");
+    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Colour combinations"].includes(name) ? name : "Overview");
     setShowProfile(false);
   }
 
   useEffect(() => {
-    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits"].includes(next) ? next : "Overview"); setShowProfile(false); };
+    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Colour combinations"].includes(next) ? next : "Overview"); setShowProfile(false); };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -321,6 +340,7 @@ function App() {
               type="button"
             >
               <span className="nav-icon">{item.icon}</span>
+              {item.name === "Colour combinations" && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
               {t(item.name)}
             </button>
           ))}
@@ -643,6 +663,7 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
+        {page === "Colour combinations" && <ColorCombinations />}
         {page === "Color analysis" && <ColorProfile />}
         {page === "Settings" && <SettingsPage /> }
         {page === "Privacy policy" && <LegalPage kind="privacy" /> }
