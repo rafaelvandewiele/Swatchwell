@@ -325,14 +325,14 @@ function App() {
 
   if (!authReady) {
     return (
-      <div className="app-shell" key={authenticatedUserId ?? 'signed-out'}>
+      <div className="app-shell">
         <div className="loading-state">{t("Checking your session...")}</div>
       </div>
     );
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" key={authenticatedUserId ?? 'signed-out'}>
       <aside className="sidebar">
         <a
           className="brand"
