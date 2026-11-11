@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import "./App.css";
 
@@ -80,21 +80,44 @@ function App() {
   const [isPremium, setIsPremium] = useState(false);
 
   const [authReady, setAuthReady] = useState(!supabase);
+  const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+  const authenticatedUserIdRef = useRef<string | null>(null);
+  const [accountViewVersion, setAccountViewVersion] = useState(0);
+  const accountViewVersionRef = useRef(0);
+
+  const [dashboardItems, setDashboardItems] = useState<
+    DashboardWardrobeItem[]
+  >([]);
+
+  const [dashboardPhotos, setDashboardPhotos] = useState<
+    Record<string, string>
+  >({});
+  const [savedOutfitCount, setSavedOutfitCount] = useState(0);
+  const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   useEffect(() => {
-    if (!supabase) { setIsPremium(false); return; }
+    if (!supabase || !authenticatedUserId) {
+      setIsPremium(false);
+      return;
+    }
+
     let active = true;
-    const refreshPremium = async () => {
-      const { data: { user } } = await supabase!.auth.getUser();
-      if (!active) return;
-      if (!user) { setIsPremium(false); return; }
-      const { data } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
-      if (active) setIsPremium(data?.role === 'admin' || Boolean(data?.is_premium));
+    const accountId = authenticatedUserId;
+
+    void supabase
+      .from('profiles')
+      .select('role,is_premium')
+      .eq('id', accountId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        setIsPremium(!error && (data?.role === 'admin' || Boolean(data?.is_premium)));
+      });
+
+    return () => {
+      active = false;
     };
-    void refreshPremium();
-    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void refreshPremium(); }); });
-    return () => { active = false; data.subscription.unsubscribe(); };
-  }, [page]);
+  }, [authenticatedUserId]);
 
   useEffect(() => {
     if (!supabase) {
@@ -124,6 +147,19 @@ function App() {
       event?: string,
     ) => {
       if (!active) return;
+
+      const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
+      if (authenticatedUserIdRef.current !== nextUserId || event === 'SIGNED_OUT') {
+        authenticatedUserIdRef.current = nextUserId;
+        accountViewVersionRef.current += 1;
+        setAccountViewVersion(accountViewVersionRef.current);
+        setAuthenticatedUserId(nextUserId);
+        setIsPremium(false);
+        setDashboardItems([]);
+        setDashboardPhotos({});
+        setSavedOutfitCount(0);
+        setColorProfile(null);
+      }
 
       if (session && !session.user.email_confirmed_at) {
         setProfileInitial('S');
@@ -172,15 +208,6 @@ function App() {
   }, []);
 
 
-  const [dashboardItems, setDashboardItems] = useState<
-    DashboardWardrobeItem[]
-  >([]);
-
-  const [dashboardPhotos, setDashboardPhotos] = useState<
-    Record<string, string>
-  >({});
-  const [savedOutfitCount, setSavedOutfitCount] = useState(0);
-  const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
     const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
@@ -310,7 +337,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" key={(authenticatedUserId ?? 'signed-out') + ':' + accountViewVersion}>
       <aside className="sidebar">
         <a
           className="brand"
