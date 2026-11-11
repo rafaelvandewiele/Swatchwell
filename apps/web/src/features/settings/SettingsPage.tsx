@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useI18n, type Language } from '../../lib/i18n'
 import './SettingsPage.css'
+import BillingSettings from './BillingSettings'
 
 const copy = {
   en: { title:'Settings', intro:'Manage your personal details and account.', profile:'Personal details', first:'First name', last:'Surname', language:'Preferred language', save:'Save changes', saving:'Saving…', saved:'Your settings have been saved.', deleteTitle:'Delete account', deleteText:'Request a confirmation email to permanently delete your account and associated personal data. This cannot be undone.', deleteButton:'Send confirmation email', sent:'If your account is eligible, a confirmation email has been sent to your account address.', confirmTitle:'Confirm account deletion', confirmText:'This will permanently delete your account and its associated data.', confirmButton:'Permanently delete my account', done:'Your account has been deleted.', error:'Something went wrong. Please try again.', signIn:'Sign in to manage your settings.' },
@@ -79,6 +80,7 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
         <label>{c.language}<select value={language} onChange={e=>setLanguage(e.target.value as Language)}><option value="nl">Nederlands</option><option value="en">English</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
         <button className="settings-primary" disabled={busy}>{busy ? c.saving : c.save}</button>
       </form>
+      <BillingSettings />
       <section className="settings-card settings-danger">
         <h2>{c.deleteTitle}</h2><p>{c.deleteText}</p><p className="settings-email">{email}</p>
         <button type="button" className="settings-danger-button" disabled={busy} onClick={requestDeletion}>{busy ? '…' : c.deleteButton}</button>

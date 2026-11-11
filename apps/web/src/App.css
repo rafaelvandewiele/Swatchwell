@@ -367,3 +367,5 @@ h1 em { color: #a48a6b; font-weight: 400; }
   .sidebar-bottom { display:none; }
   .footer-links { width:100%; }
 }
+
+.nav-lock { margin-left:auto; font-size:11px; opacity:.72; }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
+import { supabase } from '../../lib/supabase';
 import {
   getFirstColourOptions,
   getMatchingShirtColours,
@@ -66,13 +67,29 @@ function ColourChoice({ colour, label, selected, onSelect }: { colour: GarmentCo
 }
 
 export default function ColorCombinations() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [access, setAccess] = useState<'loading' | 'signedout' | 'locked' | 'allowed'>('loading');
   const [step, setStep] = useState(0);
   const [firstGarment, setFirstGarment] = useState<FirstGarment | null>(null);
   const [firstColour, setFirstColour] = useState<GarmentColour | null>(null);
   const [shirtColour, setShirtColour] = useState<GarmentColour | null>(null);
   const [thirdColour, setThirdColour] = useState<GarmentColour | null>(null);
   const [vectors, setVectors] = useState<GarmentSvgs>({});
+
+  useEffect(() => {
+    if (!supabase) { setAccess('signedout'); return; }
+    let active = true;
+    const checkAccess = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!active) return;
+      if (!user) { setAccess('signedout'); return; }
+      const { data: profile } = await supabase!.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle();
+      if (active) setAccess(profile?.role === 'admin' || profile?.is_premium ? 'allowed' : 'locked');
+    };
+    void checkAccess();
+    const { data } = supabase.auth.onAuthStateChange(() => { queueMicrotask(() => { void checkAccess(); }); });
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -151,6 +168,33 @@ export default function ColorCombinations() {
   const completeOutfit = firstGarment && firstColour && shirtColour && thirdColour
     ? getCompleteOutfitColours(firstGarment, firstColour, shirtColour, thirdColour)
     : null;
+
+  if (access === 'loading') return <div className="page-content colour-combinations-page"><p>Checking your Premium access…</p></div>;
+  if (access !== 'allowed') {
+    const copy = {
+      en: { title: 'Swatchwell Premium', text: 'Guided colour combinations are part of Swatchwell Premium.', price: '€2.99 per month', action: 'Subscribe to Premium', signIn: 'Sign in to subscribe to Premium.' },
+      nl: { title: 'Swatchwell Premium', text: 'Begeleide kleurencombinaties zijn onderdeel van Swatchwell Premium.', price: '€2,99 per maand', action: 'Abonneer op Premium', signIn: 'Meld je aan om Premium te nemen.' },
+      fr: { title: 'Swatchwell Premium', text: 'Les combinaisons de couleurs guidées font partie de Swatchwell Premium.', price: '2,99 € par mois', action: 'S’abonner à Premium', signIn: 'Connectez-vous pour vous abonner à Premium.' },
+      de: { title: 'Swatchwell Premium', text: 'Geführte Farbkombinationen sind Teil von Swatchwell Premium.', price: '2,99 € pro Monat', action: 'Premium abonnieren', signIn: 'Melde dich an, um Premium zu abonnieren.' },
+    } as const;
+    const c = copy[language];
+    async function subscribe() {
+      if (!supabase) return;
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', { body: {} });
+      if (error || !data?.url) return;
+      window.location.assign(data.url);
+    }
+    return <div className="page-content colour-combinations-page premium-required">
+      <div className="premium-required-card">
+        <span className="premium-required-lock">🔒</span>
+        <div className="eyebrow">SWATCHWELL PREMIUM</div>
+        <h1>{c.title}</h1>
+        <p>{c.text}</p>
+        <strong>{c.price}</strong>
+        {access === 'signedout' ? <p>{c.signIn}</p> : <button type="button" className="primary-button" onClick={() => void subscribe()}>{c.action} <span>→</span></button>}
+      </div>
+    </div>;
+  }
 
   return (
     <div className="page-content colour-combinations-page">
