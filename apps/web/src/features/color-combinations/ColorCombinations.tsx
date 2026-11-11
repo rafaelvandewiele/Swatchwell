@@ -30,24 +30,25 @@ async function loadVector(path: string): Promise<string> {
 
 function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour: string; vectors: GarmentSvgs }) {
   const svg = vectors[garment];
-  // Keep the supplied garment geometry intact. Only recolour white garment
-  // fills; currentColor is scoped to this SVG instance so each garment keeps
-  // its own selected colour.
+  // Render each supplied vector as its own image document. This isolates its
+  // viewBox and intrinsic dimensions from the other garment previews.
   const markup = svg
     ?.replace(
-      /(<path d=")([\s\S]*)(m-?[\d.e+-]+-?[\d.e+-]+h[\d.e+-]+v[\d.e+-]+h-[\d.e+-]+z)(" fill="#fff")/,
+      /(<path d=")([\\s\\S]*)(m-?[\\d.e+-]+-?[\\d.e+-]+h[\\d.e+-]+v[\\d.e+-]+h-[\\d.e+-]+z)(" fill="#fff")/,
       '$1$2$4',
     )
-    .replace(/fill=(["'])#fff\1/gi, 'fill="currentColor"')
-    .replace(/fill:\s*#fff/gi, 'fill:currentColor')
-    .replace(
-      /<svg\b([^>]*)>/,
-      `<svg$1 width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="color:${colour};">`,
-    );
+    .replace(/fill=(["'])#fff\\1/gi, `fill="${colour}"`)
+    .replace(/fill:\\s*#fff/gi, `fill:${colour}`);
+  const imageSource = markup
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
+    : undefined;
+
   return (
     <div className={`colour-combination-garment colour-combination-garment--${garment}`}>
-      {markup ? (
-        <div className="colour-combination-vector" dangerouslySetInnerHTML={{ __html: markup }} />
+      {imageSource ? (
+        <div className="colour-combination-vector">
+          <img src={imageSource} alt={garment === 'upper' ? 'Upper layer' : garment === 'shirt' ? 'Shirt' : 'Trousers'} />
+        </div>
       ) : (
         <div className="colour-combination-vector-loading" aria-label="Loading garment illustration" />
       )}
