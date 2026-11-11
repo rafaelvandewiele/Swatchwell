@@ -27,3 +27,6 @@
 .billing-user small { color:#77776f; font-size:11px; }
 .settings-primary:disabled,.settings-secondary:disabled { opacity:.55; cursor:wait; }
 @media(max-width:600px) { .billing-user { align-items:flex-start; flex-direction:column; } }
+
+.billing-user-actions { display:flex; flex-wrap:wrap; gap:7px; }
+.billing-user-actions .settings-danger-button { padding:10px 12px; font-size:12px; }
