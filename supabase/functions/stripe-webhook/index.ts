@@ -69,8 +69,8 @@ Deno.serve(async (req) => {
     if (subscriptionId) {
       const { data: sub } = await admin.from("billing_subscriptions").select("user_id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
       if (sub?.user_id) {
-        const { data: previous } = await admin.from("billing_subscriptions").select("failed_at").eq("user_id", sub.user_id).maybeSingle();
-        await admin.from("billing_subscriptions").update({ status: "past_due", failed_at: previous?.failed_at ?? new Date().toISOString(), last_dunning_email_at: null, updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
+        const { data: previous } = await admin.from("billing_subscriptions").select("failed_at,last_dunning_email_at").eq("user_id", sub.user_id).maybeSingle();
+        await admin.from("billing_subscriptions").update({ status: "past_due", failed_at: previous?.failed_at ?? new Date().toISOString(), last_dunning_email_at: previous?.last_dunning_email_at ?? null, updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
       }
     }
   }
