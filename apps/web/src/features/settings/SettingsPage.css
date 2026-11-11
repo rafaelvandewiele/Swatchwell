@@ -30,3 +30,5 @@
 
 .billing-user-actions { display:flex; flex-wrap:wrap; gap:7px; }
 .billing-user-actions .settings-danger-button { padding:10px 12px; font-size:12px; }
+
+.billing-settings .settings-success { margin:0; color:#28734b; font-size:13px; line-height:1.5; }
