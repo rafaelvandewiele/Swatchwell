@@ -29,7 +29,7 @@ async function loadVector(path: string): Promise<string> {
 
 function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour: string; vectors: GarmentSvgs }) {
   const svg = vectors[garment];
-  const markup = svg?.replaceAll('__GARMENT_COLOR__', colour);
+  const markup = svg?.replaceAll('__GARMENT_COLOR__', colour).replaceAll('#fff', colour);
   return (
     <div className={`colour-combination-garment colour-combination-garment--${garment}`} style={{ '--garment-colour': colour } as CSSProperties}>
       {markup ? (
