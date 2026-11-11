@@ -169,6 +169,33 @@ export default function ColorCombinations() {
     ? getCompleteOutfitColours(firstGarment, firstColour, shirtColour, thirdColour)
     : null;
 
+  if (access === 'loading') return <div className="page-content colour-combinations-page"><p>Checking your Premium access…</p></div>;
+  if (access !== 'allowed') {
+    const copy = {
+      en: { title: 'Swatchwell Premium', text: 'Guided colour combinations are part of Swatchwell Premium.', price: '€2.99 per month', action: 'Subscribe to Premium', signIn: 'Sign in to subscribe to Premium.' },
+      nl: { title: 'Swatchwell Premium', text: 'Begeleide kleurencombinaties zijn onderdeel van Swatchwell Premium.', price: '€2,99 per maand', action: 'Abonneer op Premium', signIn: 'Meld je aan om Premium te nemen.' },
+      fr: { title: 'Swatchwell Premium', text: 'Les combinaisons de couleurs guidées font partie de Swatchwell Premium.', price: '2,99 € par mois', action: 'S’abonner à Premium', signIn: 'Connectez-vous pour vous abonner à Premium.' },
+      de: { title: 'Swatchwell Premium', text: 'Geführte Farbkombinationen sind Teil von Swatchwell Premium.', price: '2,99 € pro Monat', action: 'Premium abonnieren', signIn: 'Melde dich an, um Premium zu abonnieren.' },
+    } as const;
+    const c = copy[language];
+    async function subscribe() {
+      if (!supabase) return;
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', { body: {} });
+      if (error || !data?.url) return;
+      window.location.assign(data.url);
+    }
+    return <div className="page-content colour-combinations-page premium-required">
+      <div className="premium-required-card">
+        <span className="premium-required-lock">🔒</span>
+        <div className="eyebrow">SWATCHWELL PREMIUM</div>
+        <h1>{c.title}</h1>
+        <p>{c.text}</p>
+        <strong>{c.price}</strong>
+        {access === 'signedout' ? <p>{c.signIn}</p> : <button type="button" className="primary-button" onClick={() => void subscribe()}>{c.action} <span>→</span></button>}
+      </div>
+    </div>;
+  }
+
   return (
     <div className="page-content colour-combinations-page">
       <header className="colour-combinations-heading">
