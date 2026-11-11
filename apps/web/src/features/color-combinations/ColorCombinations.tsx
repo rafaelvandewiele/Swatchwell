@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useI18n } from '../../lib/i18n';
 import {
   getFirstColourOptions,
@@ -31,7 +31,7 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   const svg = vectors[garment];
   const markup = svg?.replaceAll('__GARMENT_COLOR__', colour);
   return (
-    <div className={`colour-combination-garment colour-combination-garment--${garment}`} style={{ '--garment-colour': colour } as React.CSSProperties}>
+    <div className={`colour-combination-garment colour-combination-garment--${garment}`} style={{ '--garment-colour': colour } as CSSProperties}>
       {markup ? (
         <div className="colour-combination-vector" dangerouslySetInnerHTML={{ __html: markup }} />
       ) : (
