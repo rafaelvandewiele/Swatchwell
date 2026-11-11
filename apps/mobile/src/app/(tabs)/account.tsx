@@ -37,13 +37,25 @@ export default function AccountScreen() {
   useEffect(() => {
     if (!supabase) return
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
       if (data.session && recovery !== '1') setMode('account')
+      if (data.session) {
+        const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', data.session.user.id).maybeSingle()
+        setProfile(accountProfile)
+      }
     })
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
+      if (nextSession) {
+        queueMicrotask(async () => {
+          const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', nextSession.user.id).maybeSingle()
+          setProfile(accountProfile)
+        })
+      } else {
+        setProfile(null)
+      }
 
       if (event === 'PASSWORD_RECOVERY') {
         setMode('update')
@@ -125,6 +137,22 @@ export default function AccountScreen() {
     }
   }
 
+  async function openSubscriptionAction() {
+    if (!supabase) return
+    setBusy(true)
+    setError('')
+    try {
+      const functionName = profile?.is_premium ? 'create-billing-portal' : 'create-checkout-session'
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, { body: {} })
+      if (invokeError || !data?.url) throw invokeError ?? new Error('Billing could not be opened.')
+      await Linking.openURL(data.url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Billing could not be opened.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function signOut() {
     if (!supabase) return
 
@@ -184,11 +212,19 @@ export default function AccountScreen() {
             {profile?.is_premium ? 'Premium' : 'Free'}
           </Text>
 
+          {profile?.role !== 'admin' && (
+            <Pressable style={styles.secondaryButton} onPress={() => void openSubscriptionAction()} disabled={busy}>
+              <Text style={styles.secondaryText}>{profile?.is_premium ? 'Manage subscription and invoices' : 'Subscribe to Premium · €2.99/month'}</Text>
+            </Pressable>
+          )}
+
           {profile?.role === 'admin' && (
             <Text style={styles.success}>
               Administrator access is active.
             </Text>
           )}
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
             style={styles.primaryButton}
