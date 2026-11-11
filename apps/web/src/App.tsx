@@ -82,6 +82,8 @@ function App() {
   const [authReady, setAuthReady] = useState(!supabase);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
   const authenticatedUserIdRef = useRef<string | null>(null);
+  const [accountViewVersion, setAccountViewVersion] = useState(0);
+  const accountViewVersionRef = useRef(0);
 
   const [dashboardItems, setDashboardItems] = useState<
     DashboardWardrobeItem[]
@@ -147,8 +149,10 @@ function App() {
       if (!active) return;
 
       const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
-      if (authenticatedUserIdRef.current !== nextUserId) {
+      if (authenticatedUserIdRef.current !== nextUserId || event === 'SIGNED_OUT') {
         authenticatedUserIdRef.current = nextUserId;
+        accountViewVersionRef.current += 1;
+        setAccountViewVersion(accountViewVersionRef.current);
         setAuthenticatedUserId(nextUserId);
         setIsPremium(false);
         setDashboardItems([]);
@@ -333,7 +337,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell" key={authenticatedUserId ?? 'signed-out'}>
+    <div className="app-shell" key={(authenticatedUserId ?? 'signed-out') + ':' + accountViewVersion}>
       <aside className="sidebar">
         <a
           className="brand"
