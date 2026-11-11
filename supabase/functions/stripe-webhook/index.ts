@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
     const customerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
     const { data: customer } = await admin.from("billing_customers").select("user_id").eq("stripe_customer_id", customerId).maybeSingle();
     if (customer?.user_id) {
-      const failedAt = object.status === "past_due" || object.status === "unpaid" ? new Date().toISOString() : null;
+      const { data: previous } = await admin.from("billing_subscriptions").select("failed_at,last_dunning_email_at").eq("user_id", customer.user_id).maybeSingle();
+      const failedAt = object.status === "past_due" || object.status === "unpaid" ? (previous?.failed_at ?? new Date().toISOString()) : null;
       const { error: saveError } = await admin.from("billing_subscriptions").upsert({
         user_id: customer.user_id,
         stripe_subscription_id: object.id,
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
         current_period_end: object.current_period_end ? new Date(object.current_period_end * 1000).toISOString() : null,
         cancel_at_period_end: Boolean(object.cancel_at_period_end),
         failed_at: failedAt,
-        last_dunning_email_at: null,
+        last_dunning_email_at: failedAt ? previous?.last_dunning_email_at ?? null : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       if (!saveError) {
@@ -67,7 +68,10 @@ Deno.serve(async (req) => {
     const subscriptionId = object.subscription ?? object.parent?.subscription_details?.subscription;
     if (subscriptionId) {
       const { data: sub } = await admin.from("billing_subscriptions").select("user_id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
-      if (sub?.user_id) await admin.from("billing_subscriptions").update({ status: "past_due", failed_at: new Date().toISOString(), last_dunning_email_at: null, updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
+      if (sub?.user_id) {
+        const { data: previous } = await admin.from("billing_subscriptions").select("failed_at").eq("user_id", sub.user_id).maybeSingle();
+        await admin.from("billing_subscriptions").update({ status: "past_due", failed_at: previous?.failed_at ?? new Date().toISOString(), last_dunning_email_at: null, updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
+      }
     }
   }
 
