@@ -83,6 +83,16 @@ function App() {
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
   const authenticatedUserIdRef = useRef<string | null>(null);
 
+  const [dashboardItems, setDashboardItems] = useState<
+    DashboardWardrobeItem[]
+  >([]);
+
+  const [dashboardPhotos, setDashboardPhotos] = useState<
+    Record<string, string>
+  >({});
+  const [savedOutfitCount, setSavedOutfitCount] = useState(0);
+  const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
+
   useEffect(() => {
     if (!supabase || !authenticatedUserId) {
       setIsPremium(false);
@@ -194,15 +204,6 @@ function App() {
   }, []);
 
 
-  const [dashboardItems, setDashboardItems] = useState<
-    DashboardWardrobeItem[]
-  >([]);
-
-  const [dashboardPhotos, setDashboardPhotos] = useState<
-    Record<string, string>
-  >({});
-  const [savedOutfitCount, setSavedOutfitCount] = useState(0);
-  const [colorProfile, setColorProfile] = useState<StoredColorProfile | null>(null);
 
   function navigate(name: Page) {
     const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
