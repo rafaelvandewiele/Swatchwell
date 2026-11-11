@@ -35,13 +35,13 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   // its own selected colour.
   const markup = svg
     ?.replace(
-      /(<path d=")([\\s\\S]*)(m-?[\\d.e+-]+-?[\\d.e+-]+h[\\d.e+-]+v[\\d.e+-]+h-[\\d.e+-]+z)(" fill="#fff")/,
+      /(<path d=")([\s\S]*)(m-?[\\d.e+-]+-?[\\d.e+-]+h[\\d.e+-]+v[\\d.e+-]+h-[\\d.e+-]+z)(" fill="#fff")/,
       '$1$2$4',
     )
-    .replace(/fill=(["'])#fff\\1/gi, 'fill="currentColor"')
-    .replace(/fill:\\s*#fff/gi, 'fill:currentColor')
+    .replace(/fill=(["'])#fff\1/gi, 'fill="currentColor"')
+    .replace(/fill:\s*#fff/gi, 'fill:currentColor')
     .replace(
-      /<svg\\b([^>]*)>/,
+      /<svg\b([^>]*)>/,
       `<svg$1 width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="color:${colour};">`,
     );
   return (
