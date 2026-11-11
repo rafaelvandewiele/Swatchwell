@@ -5,6 +5,7 @@ import {
   getMatchingShirtColours,
   getMatchingThirdColours,
   getApprovedCombinations,
+  getCompleteOutfitColours,
   type FirstGarment,
   type GarmentColour,
 } from './color-combinations';
@@ -142,8 +143,9 @@ export default function ColorCombinations() {
 
   const firstLabel = firstGarment === 'upper' ? t('Upper layer') : t('Trousers');
   const thirdLabel = firstGarment === 'upper' ? t('Trousers') : t('Upper layer');
-  const completeUpperColour = firstGarment === 'upper' ? firstColour : thirdColour;
-  const completeTrousersColour = firstGarment === 'trousers' ? firstColour : thirdColour;
+  const completeOutfit = firstGarment && firstColour && shirtColour && thirdColour
+    ? getCompleteOutfitColours(firstGarment, firstColour, shirtColour, thirdColour)
+    : null;
 
   return (
     <div className="page-content colour-combinations-page">
@@ -253,18 +255,18 @@ export default function ColorCombinations() {
               <span>SWATCHWELL</span>
               <p>{t('Choose your first garment to begin.')}</p>
             </div>
-          ) : step === 4 && completeUpperColour && completeTrousersColour && shirtColour ? (
+          ) : step === 4 && completeOutfit ? (
             <div className="complete-outfit-preview">
               <div className="complete-outfit-layer">
-                <GarmentPreview garment="upper" colour={completeUpperColour.hex} vectors={vectors} />
+                <GarmentPreview garment="upper" colour={completeOutfit.upper.hex} vectors={vectors} />
                 <span>{t('Upper layer')}</span>
               </div>
               <div className="complete-outfit-layer">
-                <GarmentPreview garment="shirt" colour={shirtColour.hex} vectors={vectors} />
+                <GarmentPreview garment="shirt" colour={completeOutfit.shirt.hex} vectors={vectors} />
                 <span>{t('Shirt')}</span>
               </div>
               <div className="complete-outfit-layer">
-                <GarmentPreview garment="trousers" colour={completeTrousersColour.hex} vectors={vectors} />
+                <GarmentPreview garment="trousers" colour={completeOutfit.trousers.hex} vectors={vectors} />
                 <span>{t('Trousers')}</span>
               </div>
             </div>
