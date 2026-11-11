@@ -10,7 +10,7 @@ import {
   getSubSeasonalPalette,
   getSubSeasonLabel,
 } from "@swatchwell/color-engine";
-import { SEASONAL_QUESTIONS as QUESTIONS } from "@swatchwell/color-engine";
+import { COLOUR_CLARITY_SWATCHES, SEASONAL_QUESTIONS as QUESTIONS } from "@swatchwell/color-engine";
 
 import { createColorProfile } from "./color-profile";
 import { supabase } from "../../lib/supabase";
@@ -362,6 +362,27 @@ export default function ColorProfile() {
 
           <h2>{t(currentQuestion.title)}</h2>
           <p>{t(currentQuestion.description)}</p>
+
+          {currentQuestion.key === "chroma" && (
+            <div className="clarity-comparison" aria-label={t("Your colour clarity")}>
+              <div className="clarity-group">
+                <strong>{t("Soft")}</strong>
+                <div className="clarity-swatches">
+                  {COLOUR_CLARITY_SWATCHES.soft.map((colour, index) => (
+                    <span key={colour} role="img" aria-label={`${t("Soft")} ${index + 1}`} style={{ backgroundColor: colour }} />
+                  ))}
+                </div>
+              </div>
+              <div className="clarity-group">
+                <strong>{t("Clear")}</strong>
+                <div className="clarity-swatches">
+                  {COLOUR_CLARITY_SWATCHES.clear.map((colour, index) => (
+                    <span key={colour} role="img" aria-label={`${t("Clear")} ${index + 1}`} style={{ backgroundColor: colour }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="profile-options">
             {currentQuestion.options.map((option) => (
