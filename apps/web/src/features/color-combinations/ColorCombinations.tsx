@@ -34,11 +34,11 @@ function GarmentPreview({ garment, colour, vectors }: { garment: Garment; colour
   // viewBox and intrinsic dimensions from the other garment previews.
   const markup = svg
     ?.replace(
-      /(<path d=")([\\s\\S]*)(m-?[\\d.e+-]+-?[\\d.e+-]+h[\\d.e+-]+v[\\d.e+-]+h-[\\d.e+-]+z)(" fill="#fff")/,
+      /(<path d=")([\s\\S]*)(m-?[\d.e+-]+-?[\d.e+-]+h[\d.e+-]+v[\d.e+-]+h-[\d.e+-]+z)(" fill="#fff")/,
       '$1$2$4',
     )
-    .replace(/fill=(["'])#fff\\1/gi, `fill="${colour}"`)
-    .replace(/fill:\\s*#fff/gi, `fill:${colour}`);
+    .replace(/fill=(["'])#fff\1/gi, `fill="${colour}"`)
+    .replace(/fill:\s*#fff/gi, `fill:${colour}`);
   const imageSource = markup
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
     : undefined;
