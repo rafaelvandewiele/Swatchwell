@@ -84,6 +84,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     () => toGeneratorWardrobe(wardrobe),
     [wardrobe],
   );
+  const hasPlannerTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
+  const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
     if (!supabase || !userId) throw new Error(t("Sign in to save your weekly plan."));
@@ -257,9 +259,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   };
 
   const generateWeek = async () => {
-    const hasTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
-    const hasTrousers = generatorWardrobe.some((item) => item.category === "pants");
-    if (!hasTop || !hasTrousers) {
+    if (!hasPlannerTop || !hasPlannerTrousers) {
       setError(t("Add at least one top and one pair of trousers to generate complete outfits."));
       return;
     }
@@ -395,13 +395,15 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         <div className="weekly-planner-actions">
           <label className="weekly-planner-repeat">{t("Avoid recent repeats")}<select value={String(repeatAvoidanceWeeks)} onChange={(event) => void changeRepeatAvoidance(event.target.value)} disabled={loading || saving || generating}><option value="0">{t("Off")}</option><option value="2">{t("2 weeks")}</option><option value="4">{t("4 weeks")}</option></select></label>
           <span className="weekly-planner-status">{loading ? t("Loading your week...") : saving ? t("Saving...") : hasSavedPlan ? t("Synced to your account") : t("Not saved yet")}</span>
-          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category)) || !generatorWardrobe.some((item) => item.category === "pants")}>
+          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers}>
             {generating ? t("Creating your week...") : t("Generate my week")}
           </button>
         </div>
       </div>
 
       {error && <div className="weekly-planner-error" role="alert">{error}</div>}
+      {!loading && wardrobe.length > 0 && !hasPlannerTop && <div className="weekly-planner-error" role="status">{t("Add at least one top to your wardrobe.")}</div>}
+      {!loading && wardrobe.length > 0 && !hasPlannerTrousers && <div className="weekly-planner-error" role="status">{t("Add at least one pair of trousers to your wardrobe.")}</div>}
 
       {!loading && wardrobe.length === 0 && (
         <div className="weekly-planner-empty">
