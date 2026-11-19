@@ -693,8 +693,8 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
-        {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onUpgrade={() => navigate("Settings")} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}
-        {page === "Colour combinations" && <ColorCombinations />}
+        {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}
+        {page === "Colour combinations" && <ColorCombinations onSignIn={() => setShowProfile(true)} />}
         {page === "Color analysis" && <ColorProfile />}
         {page === "Settings" && <SettingsPage /> }
         {page === "Privacy policy" && <LegalPage kind="privacy" /> }
