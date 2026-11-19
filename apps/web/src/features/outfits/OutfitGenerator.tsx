@@ -214,7 +214,7 @@ function OutfitCard({
         ))}
       </div>
 
-      <div className="outfit-style-commentary">
+      <div className="outfit-explanation outfit-style-commentary">
         <span>{t("THE STYLE NOTES")}</span>
         <p>{t(outfit.harmony.styleCommentary)}</p>
       </div>
