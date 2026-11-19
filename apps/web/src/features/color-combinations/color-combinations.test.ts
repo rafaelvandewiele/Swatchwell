@@ -55,6 +55,15 @@ describe('curated colour combinations', () => {
     expect(names).toEqual(expect.arrayContaining(['Light blue', 'Light blue jeans', 'Mid-blue jeans', 'Dark blue jeans']));
   });
 
+  it('filters out colour pairs outside the curated hue relationships', () => {
+    const forestGreen = getFirstColourOptions('upper').find((colour) => colour.name === 'Dark green');
+    expect(forestGreen).toBeDefined();
+    const matchingShirts = getMatchingShirtColours('upper', forestGreen!.hex).map((colour) => colour.name);
+    expect(matchingShirts).not.toContain('Light pink');
+    expect(matchingShirts).not.toContain('Light blue');
+    expect(matchingShirts.length).toBeLessThan(8);
+  });
+
   it('assigns selected colours to the correct garment previews', () => {
     const upper = { name: 'Navy blue', hex: '#263B55' };
     const shirt = { name: 'White', hex: '#F8F7F2' };
