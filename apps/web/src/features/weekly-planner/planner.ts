@@ -209,6 +209,10 @@ export function generateWeeklyOutfits(
     }
 
     const selected = selectCandidate(pool, usage, day);
+    if (!selected) {
+      day.itemIds = null;
+      continue;
+    }
 
     day.itemIds = selected.items.map((item) => item.id);
     usedOutfits.add(selected.id);
