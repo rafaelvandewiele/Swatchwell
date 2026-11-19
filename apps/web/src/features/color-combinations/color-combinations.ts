@@ -42,7 +42,7 @@ const colours = {
 const upperColours = [
   colours.offWhite, colours.black, colours.lightGrey, colours.charcoal,
   colours.white, colours.lightPink, colours.darkBrown, colours.navy,
-  colours.charcoal, colours.slateBlue, colours.camel, colours.olive,
+  colours.slateBlue, colours.camel, colours.olive,
   colours.forestGreen, colours.burgundy, colours.beige, colours.cream,
 ];
 
@@ -53,7 +53,7 @@ const shirtColours = [
 ];
 
 const trouserColours = [
-  colours.forestGreen, colours.offWhite, colours.lightGrey, colours.midGrey,
+  colours.forestGreen, colours.offWhite, colours.white, colours.lightGrey, colours.charcoal,
   colours.paleBlue, colours.black, colours.darkBrown, colours.beige,
   colours.stone, colours.olive, colours.navy, colours.charcoal,
   colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans,
