@@ -47,6 +47,7 @@ describe('curated colour combinations', () => {
     expect(upperFirst.some((colour) => colour.hex === '#C8BDAA')).toBe(true);
     expect(trousersFirst.some((colour) => colour.hex === '#263B55')).toBe(true);
   });
+
   it('provides a broad catalogue with all three denim washes', () => {
     expect(CURATED_COLOUR_COMBINATIONS.length).toBeGreaterThan(200);
     const trouserColours = getFirstColourOptions('trousers').map((colour) => colour.name);
@@ -57,9 +58,76 @@ describe('curated colour combinations', () => {
     ]));
   });
 
+  it('makes every requested upper-layer colour selectable in a complete outfit', () => {
+    const options = getFirstColourOptions('upper');
+    const names = options.map((colour) => colour.name);
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Cream white',
+      'Black',
+      'Light grey',
+      'Dark grey',
+      'White',
+      'Light pink',
+      'Brown',
+    ]));
+
+    for (const name of ['Cream white', 'Black', 'Light grey', 'Dark grey', 'White', 'Light pink', 'Brown']) {
+      const colour = options.find((item) => item.name === name)!;
+      expect(getMatchingShirtColours('upper', colour.hex).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('makes every requested trouser colour selectable in a complete outfit', () => {
+    const options = getFirstColourOptions('trousers');
+    const names = options.map((colour) => colour.name);
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Dark green',
+      'White',
+      'Light grey',
+      'Dark grey',
+      'Light blue',
+      'Black',
+      'Brown',
+    ]));
+
+    for (const name of ['Dark green', 'White', 'Light grey', 'Dark grey', 'Light blue', 'Black', 'Brown']) {
+      const colour = options.find((item) => item.name === name)!;
+      expect(getMatchingShirtColours('trousers', colour.hex).length).toBeGreaterThan(0);
+    }
+    expect(names).not.toContain('Mid grey');
+  });
+
+  it('includes every requested shirt colour in at least one approved complete outfit', () => {
+    const requestedShirts = [
+      'Light pink',
+      'Light grey',
+      'Dark grey',
+      'Navy blue',
+      'Light blue',
+      'Black',
+      'Brown',
+    ];
+
+    for (const name of requestedShirts) {
+      expect(CURATED_COLOUR_COMBINATIONS.some((combination) => combination.shirt.name === name)).toBe(true);
+    }
+  });
+
+  it('keeps solid light-blue trousers distinct from all denim washes', () => {
+    const trousers = getFirstColourOptions('trousers');
+    const solidBlue = trousers.find((colour) => colour.name === 'Light blue');
+    const denimBlue = trousers.find((colour) => colour.name === 'Light blue jeans');
+
+    expect(solidBlue).toBeDefined();
+    expect(denimBlue).toBeDefined();
+    expect(solidBlue?.hex).not.toBe(denimBlue?.hex);
+  });
+
   it('assigns the selected colours to the correct final garment vectors', () => {
     const upper = { name: 'Navy', hex: '#263B55' };
-    const shirt = { name: 'White', hex: '#F5F2EA' };
+    const shirt = { name: 'White', hex: '#FFFFFF' };
     const trousers = { name: 'Light blue jeans', hex: '#A9C7DF' };
 
     expect(getCompleteOutfitColours('upper', upper, shirt, trousers)).toEqual({
@@ -73,5 +141,4 @@ describe('curated colour combinations', () => {
       trousers,
     });
   });
-
 });
