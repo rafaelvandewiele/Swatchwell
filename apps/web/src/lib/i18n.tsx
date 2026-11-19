@@ -1047,7 +1047,7 @@ const translations: Record<Language, Dictionary> = {
     "Everyday": "Quotidien",
     "School / work": "École / travail",
     "Smart casual": "Décontracté chic",
-    "Formal": " Formel",
+    "Formal": "Formel",
     "Sport": "Sport",
 
     "Sign in to check your Premium access and sync your week across devices.": "Connectez-vous pour vérifier votre accès Premium et synchroniser votre semaine sur tous vos appareils.",
