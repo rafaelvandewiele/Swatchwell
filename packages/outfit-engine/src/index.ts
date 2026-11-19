@@ -219,7 +219,7 @@ function getStyleCommentary(garments: OutfitGarment[]): string {
     hues.some((other) => distance(hue, other) >= 95 && distance(hue, other) <= 145));
 
   if (chromatic.length === 0) return "A neutral palette of black, white, grey or beige keeps the outfit understated; differences in lightness add definition.";
-  if (hasGreen && hasEarthNeutral) return "Olive and earthy tones sit naturally together. The warm brown-beige notes soften the green and give the outfit a relaxed feel.";
+  if (hasGreen && hasEarthNeutral) return "Earthy olive tones sit naturally together. Warm brown-beige notes soften the green and give the outfit a relaxed feel.";
   if (hasBlue && hasEarthNeutral && neutrals.length > 0) return "Blue and warm brown or beige create a timeless classic contrast: cool and crisp against warm and grounded.";
   if (tonal) return "The shades stay within one colour family. Mixing lighter and darker tones gives the outfit depth without introducing a competing colour.";
   if (triadic) return "Three distinct colour families give the outfit energy. Let the strongest shade lead and keep the other colours quieter.";
