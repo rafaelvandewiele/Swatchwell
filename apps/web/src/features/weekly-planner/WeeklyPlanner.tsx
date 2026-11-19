@@ -229,9 +229,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         table: "user_weekly_plans",
         filter: `user_id=eq.${userId}`,
       }, (payload) => {
-        const row = payload.new as { week_start?: string; days?: unknown };
+        const row = payload.new as { week_start?: string; days?: unknown; repeat_avoidance_weeks?: number };
         if (row.week_start !== weekStart || !Array.isArray(row.days)) return;
         setDays(normalizeWeeklyPlan(weekStart, row.days).days);
+        if (row.repeat_avoidance_weeks === 0 || row.repeat_avoidance_weeks === 2 || row.repeat_avoidance_weeks === 4) setRepeatAvoidanceWeeks(row.repeat_avoidance_weeks);
         setHasSavedPlan(true);
       })
       .subscribe();
@@ -269,7 +270,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       const generated = generateWeeklyOutfits(generatorWardrobe, season, days, history);
       await persist(generated.days);
       setDays(generated.days);
-      if (generated.repeatConflicts.length) setError(t("Not enough unique combinations remain to avoid every recent outfit."));
+      const assignedDays = generated.days.filter((day) => day.itemIds?.length).length;
+      if (assignedDays < 7) setError(t("Your wardrobe has too few distinct combinations for all seven days. Some days have been left empty."));
+      else if (generated.repeatConflicts.length) setError(t("Not enough unique combinations remain to avoid every recent outfit."));
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : t("The weekly plan could not be generated."));
     } finally {
