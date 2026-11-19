@@ -27,6 +27,7 @@ export interface OutfitHarmonyResult {
   averageColorDifference: number;
   seasonalCompatibility?: number;
   recommendations: string[];
+  styleCommentary: string;
   normalizedGarments: OutfitGarment[];
 }
 
@@ -172,6 +173,64 @@ function buildRecommendations(
   ];
 }
 
+
+function getStyleCommentary(garments: OutfitGarment[]): string {
+  const colours = garments.flatMap(getColors).map((hex) => {
+    const red = parseInt(hex.slice(1, 3), 16) / 255;
+    const green = parseInt(hex.slice(3, 5), 16) / 255;
+    const blue = parseInt(hex.slice(5, 7), 16) / 255;
+    const maximum = Math.max(red, green, blue);
+    const minimum = Math.min(red, green, blue);
+    const difference = maximum - minimum;
+    let hue = 0;
+    if (difference > 0) {
+      if (maximum === red) hue = ((green - blue) / difference) % 6;
+      else if (maximum === green) hue = (blue - red) / difference + 2;
+      else hue = (red - green) / difference + 4;
+      hue = (hue * 60 + 360) % 360;
+    }
+    const lightness = (maximum + minimum) / 2;
+    const saturation = difference === 0 ? 0 : difference / (1 - Math.abs(2 * lightness - 1));
+    return { hue, saturation, lightness };
+  });
+
+  const neutralCount = colours.filter((colour) =>
+    colour.saturation < 0.2 || colour.lightness < 0.12 || colour.lightness > 0.9,
+  ).length;
+  const hasBlue = colours.some((colour) => colour.hue >= 190 && colour.hue <= 255);
+  const hasGreen = colours.some((colour) => colour.hue >= 75 && colour.hue <= 165);
+  const hasBurgundy = colours.some((colour) => colour.hue >= 330 || colour.hue <= 12);
+  const hasWarmNeutral = colours.some((colour) =>
+    (colour.hue >= 15 && colour.hue <= 48) && colour.saturation < 0.65,
+  );
+  const chromaticHues = colours
+    .filter((colour) => colour.saturation >= 0.2)
+    .map((colour) => colour.hue);
+  const tonal = chromaticHues.length > 1 && chromaticHues.every((hue) =>
+    chromaticHues.every((other) => {
+      const difference = Math.abs(hue - other);
+      return Math.min(difference, 360 - difference) <= 28;
+    }),
+  );
+
+  if (tonal) {
+    return "A considered tonal look: understated, cohesive and quietly refined.";
+  }
+  if (hasBurgundy && neutralCount > 0) {
+    return "Deep accent tones and calm neutrals give this outfit a polished, rich-looking finish.";
+  }
+  if (hasGreen && hasWarmNeutral) {
+    return "Earthy greens and warm neutrals create a relaxed, natural and effortlessly put-together look.";
+  }
+  if (hasBlue && hasWarmNeutral) {
+    return "The mix of blue and warm neutrals gives this outfit a timeless, smart-casual character.";
+  }
+  if (neutralCount >= Math.max(2, colours.length - 1)) {
+    return "A clean, minimal palette gives this outfit a timeless and quietly elegant character.";
+  }
+  return "The colours create a balanced, contemporary look with enough contrast to feel intentional.";
+}
+
 export function analyzeOutfitHarmony(
   garments: OutfitGarment[],
   season?: ColorSeason,
@@ -215,6 +274,7 @@ export function analyzeOutfitHarmony(
     averageColorDifference: Number(harmony.averageDifference.toFixed(2)),
     ...(seasonalCompatibility !== undefined && { seasonalCompatibility }),
     recommendations: buildRecommendations(harmony.averageDifference),
+    styleCommentary: getStyleCommentary(normalizedGarments),
     normalizedGarments,
   };
 }
