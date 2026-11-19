@@ -14,82 +14,116 @@ export interface CuratedColourCombination {
 }
 
 const colours = {
-  navy: { name: 'Navy', hex: '#263B55' },
-  charcoal: { name: 'Charcoal', hex: '#3C4146' },
+  navy: { name: 'Navy blue', hex: '#263B55' },
+  charcoal: { name: 'Dark grey', hex: '#3C4146' },
   slateBlue: { name: 'Slate blue', hex: '#647C91' },
   camel: { name: 'Camel', hex: '#B68B61' },
   olive: { name: 'Olive', hex: '#69745A' },
-  forestGreen: { name: 'Forest green', hex: '#365747' },
-  darkBrown: { name: 'Dark brown', hex: '#514035' },
+  forestGreen: { name: 'Dark green', hex: '#365747' },
+  darkBrown: { name: 'Brown', hex: '#684B35' },
   burgundy: { name: 'Burgundy', hex: '#713F4B' },
   beige: { name: 'Beige', hex: '#D7C5A8' },
-  white: { name: 'White', hex: '#F5F2EA' },
-  ivory: { name: 'Ivory', hex: '#EEE7D8' },
+  white: { name: 'White', hex: '#F8F7F2' },
+  offWhite: { name: 'Off-white', hex: '#F1EDE3' },
   cream: { name: 'Cream', hex: '#E8DDC8' },
-  paleBlue: { name: 'Pale blue', hex: '#B8CAD8' },
+  paleBlue: { name: 'Light blue', hex: '#B8CAD8' },
+  lightPink: { name: 'Light pink', hex: '#E8BFC5' },
   dustyRose: { name: 'Dusty rose', hex: '#C58F91' },
   stone: { name: 'Stone', hex: '#C8BDAA' },
-  midGrey: { name: 'Mid grey', hex: '#858783' },
-  lightGrey: { name: 'Light grey', hex: '#B7B8B3' },
+  lightGrey: { name: 'Light grey', hex: '#C5C7C5' },
   taupe: { name: 'Taupe', hex: '#93877A' },
+  black: { name: 'Black', hex: '#242424' },
   lightBlueJeans: { name: 'Light blue jeans', hex: '#A9C7DF' },
   midBlueJeans: { name: 'Mid-blue jeans', hex: '#52799B' },
   darkBlueJeans: { name: 'Dark blue jeans', hex: '#243F5B' },
 } satisfies Record<string, GarmentColour>;
 
-const palettes = [
-  {
-    id: 'classic',
-    note: 'A classic, versatile palette with clean neutrals and balanced blue tones.',
-    uppers: [colours.navy, colours.charcoal, colours.slateBlue, colours.camel],
-    shirts: [colours.white, colours.paleBlue, colours.cream, colours.dustyRose],
-    trousers: [colours.stone, colours.midGrey, colours.beige, colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans],
-  },
-  {
-    id: 'earth',
-    note: 'A natural palette built around earthy greens, warm browns and soft neutrals.',
-    uppers: [colours.olive, colours.forestGreen, colours.camel, colours.darkBrown],
-    shirts: [colours.ivory, colours.cream, colours.white, colours.paleBlue],
-    trousers: [colours.beige, colours.stone, colours.olive, colours.darkBrown, colours.lightBlueJeans, colours.midBlueJeans],
-  },
-  {
-    id: 'refined',
-    note: 'A refined mix of understated accent colours, cool neutrals and denim.',
-    uppers: [colours.burgundy, colours.charcoal, colours.beige, colours.slateBlue],
-    shirts: [colours.white, colours.ivory, colours.paleBlue, colours.dustyRose],
-    trousers: [colours.charcoal, colours.navy, colours.taupe, colours.midGrey, colours.midBlueJeans, colours.darkBlueJeans],
-  },
-] as const;
+const upperColours = [
+  colours.offWhite, colours.black, colours.lightGrey, colours.charcoal,
+  colours.white, colours.lightPink, colours.darkBrown, colours.navy,
+  colours.slateBlue, colours.camel, colours.olive,
+  colours.forestGreen, colours.burgundy, colours.beige, colours.cream,
+];
 
-/**
- * The catalogue expands curated palette families into individual outfit
- * combinations. Every entry remains a complete upper + shirt + trousers set.
- * The three denim washes are explicit trouser colours and can be selected
- * either as the first garment or as the final garment.
- */
-function buildCuratedCombinations(): CuratedColourCombination[] {
-  const combinations: CuratedColourCombination[] = [];
-  const seen = new Set<string>();
+const shirtColours = [
+  colours.lightPink, colours.lightGrey, colours.charcoal, colours.navy,
+  colours.paleBlue, colours.black, colours.darkBrown, colours.offWhite,
+  colours.white, colours.cream, colours.dustyRose, colours.slateBlue,
+];
 
-  for (const palette of palettes) {
-    for (const upper of palette.uppers) {
-      for (const shirt of palette.shirts) {
-        for (const trousers of palette.trousers) {
-          const id = [upper.name, shirt.name, trousers.name]
-            .map((name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
-            .join('-');
-          if (seen.has(id)) continue;
-          seen.add(id);
-          combinations.push({ id, upper, shirt, trousers, note: palette.note });
-        }
-      }
-    }
+const trouserColours = [
+  colours.forestGreen, colours.offWhite, colours.white, colours.lightGrey, colours.charcoal,
+  colours.paleBlue, colours.black, colours.darkBrown, colours.beige,
+  colours.stone, colours.olive, colours.navy,
+  colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans,
+];
+
+function toHsl(hex: string): { hue: number; saturation: number; lightness: number } {
+  const value = hex.replace('#', '');
+  const channels = [0, 2, 4].map((offset) => parseInt(value.slice(offset, offset + 2), 16) / 255);
+  const [red, green, blue] = channels;
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  const difference = maximum - minimum;
+  let hue = 0;
+  if (difference !== 0) {
+    if (maximum === red) hue = ((green - blue) / difference) % 6;
+    else if (maximum === green) hue = (blue - red) / difference + 2;
+    else hue = (red - green) / difference + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
   }
-
-  return combinations;
+  const lightness = (maximum + minimum) / 2;
+  const saturation = difference === 0 ? 0 : difference / (1 - Math.abs(2 * lightness - 1));
+  return { hue, saturation, lightness };
 }
 
-export const CURATED_COLOUR_COMBINATIONS = buildCuratedCombinations();
+function coloursWorkTogether(first: GarmentColour, second: GarmentColour): boolean {
+  const a = toHsl(first.hex);
+  const b = toHsl(second.hex);
+  const aNeutral = a.saturation < 0.16;
+  const bNeutral = b.saturation < 0.16;
+  const lightnessContrast = Math.abs(a.lightness - b.lightness);
+
+  // Neutrals are useful anchors, not universal wildcards. Require enough
+  // light/dark separation so adjacent garments do not visually disappear.
+  if (aNeutral && bNeutral) {
+    return lightnessContrast >= 0.08 && lightnessContrast <= 0.68;
+  }
+  if (aNeutral || bNeutral) {
+    return lightnessContrast >= 0.14 && lightnessContrast <= 0.74;
+  }
+
+  const hueDistance = Math.abs(a.hue - b.hue);
+  const shortestDistance = Math.min(hueDistance, 360 - hueDistance);
+  // Keep only close analogous and clear complementary relationships.
+  // Muted colours are not automatically compatible simply because they are muted.
+  return shortestDistance <= 42 || shortestDistance >= 165;
+}
+
+function isBalancedOutfit(upper: GarmentColour, shirt: GarmentColour, trousers: GarmentColour): boolean {
+  return coloursWorkTogether(upper, shirt)
+    && coloursWorkTogether(upper, trousers)
+    && coloursWorkTogether(shirt, trousers);
+}
+
+const combinations: CuratedColourCombination[] = [];
+for (const upper of upperColours) {
+  for (const shirt of shirtColours) {
+    for (const trousers of trouserColours) {
+      if (!isBalancedOutfit(upper, shirt, trousers)) continue;
+      combinations.push({
+        id: [upper, shirt, trousers].map((colour) => colour.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).join('-'),
+        upper,
+        shirt,
+        trousers,
+        note: 'A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.',
+      });
+    }
+  }
+}
+
+export const CURATED_COLOUR_COMBINATIONS = combinations;
 
 function uniqueColours(colourList: GarmentColour[]): GarmentColour[] {
   return colourList.filter((colour, index) =>

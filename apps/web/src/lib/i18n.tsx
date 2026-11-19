@@ -15,6 +15,15 @@ type Dictionary = Record<string, string>
 const translations: Record<Language, Dictionary> = {
   en: {},
   nl: {
+"Choose the final colour": "Kies de laatste kleur",
+"Off-white": "Gebroken wit",
+"Dark grey": "Donkergrijs",
+"Light pink": "Lichtroze",
+"Dark green": "Donkergroen",
+"Light blue": "Lichtblauw",
+"Navy blue": "Marineblauw",
+"Brown": "Bruin",
+"A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.": "Een evenwichtige combinatie met draagbare kleurrelaties, neutrale basiskleuren en een duidelijk contrast.",
     "Light blue jeans": "Lichtblauwe jeans",
     "Mid-blue jeans": "Middenblauwe jeans",
     "Dark blue jeans": "Donkerblauwe jeans",
@@ -460,6 +469,15 @@ const translations: Record<Language, Dictionary> = {
 
   },
   fr: {
+"Choose the final colour": "Choisissez la couleur finale",
+"Off-white": "Blanc cassé",
+"Dark grey": "Gris foncé",
+"Light pink": "Rose clair",
+"Dark green": "Vert foncé",
+"Light blue": "Bleu clair",
+"Navy blue": "Bleu marine",
+"Brown": "Brun",
+"A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.": "Une combinaison équilibrée, fondée sur des associations de couleurs faciles à porter, des tons neutres et un contraste harmonieux.",
     "Light blue jeans": "Jean bleu clair",
     "Mid-blue jeans": "Jean bleu moyen",
     "Dark blue jeans": "Jean bleu foncé",
@@ -903,6 +921,15 @@ const translations: Record<Language, Dictionary> = {
 
   },
   de: {
+"Choose the final colour": "Wähle die letzte Farbe",
+"Off-white": "Cremeweiß",
+"Dark grey": "Dunkelgrau",
+"Light pink": "Hellrosa",
+"Dark green": "Dunkelgrün",
+"Light blue": "Hellblau",
+"Navy blue": "Marineblau",
+"Brown": "Braun",
+"A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.": "Eine ausgewogene Kombination aus gut tragbaren Farbverhältnissen, neutralen Basisfarben und klaren Kontrasten.",
     "Light blue jeans": "Hellblaue Jeans",
     "Mid-blue jeans": "Mittelblaue Jeans",
     "Dark blue jeans": "Dunkelblaue Jeans",
@@ -1435,8 +1462,6 @@ export function useI18n() {
 export function translateCategory(category: string, t: (key: string) => string) {
   const categories: Record<string, string> = {
     Shirts: 'Shirts',
-    'T-shirts': 'T-shirts',
-    'Polo shirts': 'Polo shirts',
     Sweaters: 'Sweaters',
     Knitwear: 'Sweaters',
     Trousers: 'Trousers',
