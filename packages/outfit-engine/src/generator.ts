@@ -14,6 +14,8 @@ export interface OutfitGeneratorOptions {
   limit?: number;
   includeJackets?: boolean;
   includeAccessories?: boolean;
+  /** Requires a complete layered look: sweater, T-shirt, trousers and shoes. */
+  requireCompleteLayers?: boolean;
 }
 
 export interface OutfitRecommendation {
@@ -128,7 +130,7 @@ export function generateOutfits(
   const limit = validateOptions(options);
 
   const baseTops = wardrobe.filter((item) =>
-    BASE_TOP_CATEGORIES.includes(item.category),
+    options.requireCompleteLayers ? item.category === "tshirt" : BASE_TOP_CATEGORIES.includes(item.category),
   );
 
   const sweaters = wardrobe.filter(
@@ -153,21 +155,21 @@ export function generateOutfits(
       ? []
       : wardrobe.filter((item) => item.category === "accessory");
 
-  if (baseTops.length === 0 || pants.length === 0) {
+  if (baseTops.length === 0 || pants.length === 0 || (options.requireCompleteLayers && (sweaters.length === 0 || shoes.length === 0))) {
     return [];
   }
 
   const shoeOptions: Array<ClothingItem | undefined> =
-    shoes.length > 0 ? shoes : [undefined];
+    options.requireCompleteLayers ? shoes : shoes.length > 0 ? shoes : [undefined];
 
   const sweaterOptions: Array<ClothingItem | undefined> =
-    [undefined, ...sweaters];
+    options.requireCompleteLayers ? sweaters : [undefined, ...sweaters];
 
   const jacketOptions: Array<ClothingItem | undefined> =
-    [undefined, ...jackets];
+    options.requireCompleteLayers ? [undefined] : [undefined, ...jackets];
 
   const accessoryOptions: Array<ClothingItem | undefined> =
-    [undefined, ...accessories];
+    options.requireCompleteLayers ? [undefined] : [undefined, ...accessories];
 
   const recommendations: OutfitRecommendation[] = [];
   const seen = new Set<string>();

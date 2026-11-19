@@ -82,15 +82,15 @@ function reconcileSavedOutfits(
       );
 
     const hasTop = items.some((item) =>
-      ["shirt", "tshirt", "polo"].includes(item.category),
+      item.category === "tshirt",
     );
 
-    const hasTrousers = items.some(
-      (item) => item.category === "pants",
-    );
+    const hasTrousers = items.some((item) => item.category === "pants");
+    const hasSweater = items.some((item) => item.category === "sweater");
+    const hasShoes = items.some((item) => item.category === "shoes");
 
     // Keep only favourites that still form a complete outfit.
-    if (!hasTop || !hasTrousers) {
+    if (!hasTop || !hasTrousers || !hasSweater || !hasShoes) {
       return [];
     }
 
@@ -130,14 +130,14 @@ function reconcileSavedOutfits(
 
 function getOutfitDisplayOrder(category: string): number {
   const order: Record<string, number> = {
-    shoes: 0,
-    pants: 1,
-    shirt: 2,
-    tshirt: 2,
-    polo: 2,
-    sweater: 3,
-    jacket: 4,
-    accessory: 5,
+    sweater: 0,
+    tshirt: 1,
+    pants: 2,
+    shoes: 3,
+    shirt: 4,
+    polo: 4,
+    jacket: 5,
+    accessory: 6,
   };
 
   return order[category] ?? 99;
@@ -357,7 +357,8 @@ export default function OutfitGenerator() {
 
       return {
         outfits: generateOutfits(generatorItems, {
-          limit: 12,
+          limit: 50,
+          requireCompleteLayers: true,
           ...(season ? { season } : {}),
         }),
         error: "",

@@ -66,7 +66,7 @@ function ColourChoice({ colour, label, selected, onSelect }: { colour: GarmentCo
   );
 }
 
-export default function ColorCombinations() {
+export default function ColorCombinations({ onSignIn }: { onSignIn: () => void }) {
   const { t, language } = useI18n();
   const [access, setAccess] = useState<'loading' | 'signedout' | 'locked' | 'allowed'>('loading');
   const [step, setStep] = useState(0);
@@ -191,7 +191,7 @@ export default function ColorCombinations() {
         <h1>{c.title}</h1>
         <p>{c.text}</p>
         <strong>{c.price}</strong>
-        {access === 'signedout' ? <p>{c.signIn}</p> : <button type="button" className="primary-button" onClick={() => void subscribe()}>{c.action} <span>→</span></button>}
+        {access === 'signedout' ? <button type="button" className="primary-button" onClick={onSignIn}>{t('Sign in')}</button> : <button type="button" className="primary-button" onClick={() => void subscribe()}>{c.action} <span>→</span></button>}
       </div>
     </div>;
   }
