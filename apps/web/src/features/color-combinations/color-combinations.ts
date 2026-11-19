@@ -110,10 +110,12 @@ function buildCombinationNote(upper: GarmentColour, shirt: GarmentColour, trouse
     const difference = Math.abs(a - b);
     return Math.min(difference, 360 - difference);
   };
-  const pairs = profiles.flatMap((item, index) =>
-    profiles.slice(index + 1).map((other) => ({
+  const pairs = profiles.flatMap((item, firstIndex) =>
+    profiles.slice(firstIndex + 1).map((other, offset) => ({
       first: item.colour,
       second: other.colour,
+      firstIndex,
+      secondIndex: firstIndex + offset + 1,
       distance: hueDistance(item.hue, other.hue),
     })),
   );
@@ -128,10 +130,12 @@ function buildCombinationNote(upper: GarmentColour, shirt: GarmentColour, trouse
     return `${accent.name} is the focal colour, while ${neutral.map((item) => item.colour.name.toLowerCase()).join(" and ")} provide a quiet base. This keeps the accent clear without making the outfit feel busy.`;
   }
   if (complementaryPair) {
-    return `${complementaryPair.first.name} and ${complementaryPair.second.name} create the main colour contrast. ${garments.find((item) => item !== complementaryPair.first && item !== complementaryPair.second)!.name} supports that contrast without competing with it.`;
+    const supportingGarment = garments.find((_, index) => index !== complementaryPair.firstIndex && index !== complementaryPair.secondIndex)!;
+    return `${complementaryPair.first.name} and ${complementaryPair.second.name} create the main colour contrast. ${supportingGarment.name} supports that contrast without competing with it.`;
   }
   if (analogousPair) {
-    return `${analogousPair.first.name} and ${analogousPair.second.name} sit close on the colour wheel, so they blend naturally. ${garments.find((item) => item !== analogousPair.first && item !== analogousPair.second)!.name} adds separation and keeps the palette defined.`;
+    const supportingGarment = garments.find((_, index) => index !== analogousPair.firstIndex && index !== analogousPair.secondIndex)!;
+    return `${analogousPair.first.name} and ${analogousPair.second.name} sit close on the colour wheel, so they blend naturally. ${supportingGarment.name} adds separation and keeps the palette defined.`;
   }
   if (chromatic.length === 1) {
     return `${chromatic[0].colour.name} adds colour to a base of ${neutral.map((item) => item.colour.name.toLowerCase()).join(" and ")}. The neutral pieces let the colour stand out while keeping the outfit easy to wear.`;
