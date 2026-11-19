@@ -110,7 +110,7 @@ export function normalizeWeeklyPlan(weekStart: string, value: unknown): WeeklyPl
 }
 
 
-function getOccasionFit(outfit: OutfitRecommendation, occasion: PlannerOccasion): number {
+export function getOccasionFit(outfit: OutfitRecommendation, occasion: PlannerOccasion): number {
   if (occasion === "Everyday") return 0;
   return outfit.items.reduce((score, item) => {
     const text = item.name.toLowerCase();
@@ -143,7 +143,7 @@ function getOccasionFit(outfit: OutfitRecommendation, occasion: PlannerOccasion)
   }, 0);
 }
 
-function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeather): number {
+export function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeather): number {
   if (weather === "Any weather" || weather === "Mild") return 0;
   const hasLayer = outfit.items.some((item) => item.category === "sweater" || item.category === "jacket");
   if (weather === "Cold") return hasLayer ? 2 : -1;
