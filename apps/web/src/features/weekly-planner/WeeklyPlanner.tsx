@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColorSeason } from "@swatchwell/color-engine";
-import { generateOutfits } from "@swatchwell/outfit-engine";
 import { useI18n, translateCategory } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
@@ -80,14 +79,6 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     () => toGeneratorWardrobe(wardrobe),
     [wardrobe],
   );
-
-  const candidates = useMemo(() => {
-    try {
-      return generateOutfits(generatorWardrobe, { limit: 50, ...(season ? { season } : {}) });
-    } catch {
-      return [];
-    }
-  }, [generatorWardrobe, season]);
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart) => {
     if (!supabase || !userId) throw new Error(t("Sign in to save your weekly plan."));
@@ -355,7 +346,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       <div className="weekly-planner-grid">
         {days.map((day, index) => {
           const label = formatDayLabel(day.date, language);
-          const outfit = getOutfitForDay(day, candidates);
+          const outfitItems = getOutfitForDay(day, generatorWardrobe);
           return (
             <article className={`weekly-planner-day ${day.pinned ? "is-pinned" : ""}`} key={day.date}>
               <div className="weekly-planner-day-header">
@@ -377,7 +368,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
 
               {outfit ? (
                 <div className="weekly-planner-outfit">
-                  {[...outfit.items].sort((a, b) => {
+                  {[...outfitItems].sort((a, b) => {
                     const order: Record<string, number> = { shoes: 0, pants: 1, shirt: 2, tshirt: 2, polo: 2, sweater: 3, jacket: 4, accessory: 5 };
                     return (order[a.category] ?? 99) - (order[b.category] ?? 99);
                   }).map((item) => {
