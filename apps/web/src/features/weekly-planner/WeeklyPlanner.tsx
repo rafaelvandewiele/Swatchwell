@@ -160,7 +160,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       }
       if (!isActive() || request !== loadGeneration.current) return;
       const normalized = normalizeWeeklyPlan(targetWeek, planResult.data?.days);
-      const sanitized = sanitizeWeeklyPlanForWardrobe(normalized, availableIds).days;
+      const sanitized = sanitizeWeeklyPlanForWardrobe(normalized, availableIds, toGeneratorWardrobe(styleData.wardrobe as StoredWardrobeItem[])).days;
       const historical = (historyResult.data ?? []).flatMap((row) => Array.isArray(row.days) ? row.days : []).flatMap((entry) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
         const item = entry as Record<string, unknown>;
