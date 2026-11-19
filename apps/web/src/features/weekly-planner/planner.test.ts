@@ -5,6 +5,8 @@ import {
   getMonday,
   getWeekDates,
   getWeekStartKey,
+  getOccasionFit,
+  getWeatherFit,
   normalizeWeeklyPlan,
   regenerateDayOutfit,
   parseLocalDate,
@@ -81,16 +83,28 @@ describe("weekly outfit selection", () => {
     expect(otherIds.has(refreshed[3].itemIds?.slice().sort().join("-") ?? "")).toBe(false);
   });
 
-  it("uses the selected day context when ranking available outfits", () => {
-    const days = createEmptyWeeklyPlan("2026-11-16").days;
-    days[0].occasion = "Formal";
-    days[0].weather = "Cold";
-    const formal = generateWeeklyOutfits(wardrobe, undefined, days).days[0];
-    expect(formal.itemIds).not.toBeNull();
-    const sportDays = createEmptyWeeklyPlan("2026-11-16").days;
-    sportDays[0].occasion = "Sport";
-    const sport = generateWeeklyOutfits(wardrobe, undefined, sportDays).days[0];
-    expect(sport.itemIds).not.toBeNull();
+  it("ranks clothing differently for formal and sport contexts", () => {
+    const formalLook = {
+      items: [
+        { id: "shirt", name: "Oxford shirt", category: "shirt" },
+        { id: "trousers", name: "Tailored trousers", category: "pants" },
+      ],
+    } as Parameters<typeof getOccasionFit>[0];
+    const sportLook = {
+      items: [
+        { id: "tee", name: "Running tee", category: "tshirt" },
+        { id: "shoes", name: "Running shoes", category: "shoes" },
+      ],
+    } as Parameters<typeof getOccasionFit>[0];
+    expect(getOccasionFit(formalLook, "Formal")).toBeGreaterThan(getOccasionFit(sportLook, "Formal"));
+    expect(getOccasionFit(sportLook, "Sport")).toBeGreaterThan(getOccasionFit(formalLook, "Sport"));
+  });
+
+  it("uses optional temperature preferences to favour or avoid extra layers", () => {
+    const layered = {
+      items: [{ id: "sweater", name: "Sweater", category: "sweater" }],
+    } as Parameters<typeof getWeatherFit>[0];
+    expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
   });
 
   it("returns unassigned days when the wardrobe cannot form any outfit", () => {
