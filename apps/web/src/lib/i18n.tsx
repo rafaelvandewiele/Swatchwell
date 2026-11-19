@@ -541,6 +541,7 @@ const translations: Record<Language, Dictionary> = {
     "Clear day": "Wis dag",
     "Not enough unique combinations remain to avoid every recent outfit.": "Er zijn niet genoeg unieke combinaties om alle recent gedragen outfits te vermijden.",
     "This is the best available outfit, but it was used recently.": "Dit is de beste beschikbare outfit, maar die werd recent al gedragen.",
+    "Your wardrobe has too few distinct combinations for all seven days. Some days have been left empty.": "Je garderobe bevat te weinig verschillende combinaties voor alle zeven dagen. Sommige dagen zijn daarom leeg gelaten.",
     "Open my wardrobe": "Open mijn garderobe",
 
   },
@@ -1068,6 +1069,7 @@ const translations: Record<Language, Dictionary> = {
     "Clear day": "Vider la journée",
     "Not enough unique combinations remain to avoid every recent outfit.": "Il n’y a pas assez de combinaisons uniques pour éviter toutes les tenues récentes.",
     "This is the best available outfit, but it was used recently.": "C’est la meilleure tenue disponible, mais elle a été portée récemment.",
+    "Your wardrobe has too few distinct combinations for all seven days. Some days have been left empty.": "Votre garde-robe ne contient pas assez de combinaisons différentes pour les sept jours. Certaines journées restent donc vides.",
     "Open my wardrobe": "Ouvrir ma garde-robe",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
@@ -1597,6 +1599,7 @@ const translations: Record<Language, Dictionary> = {
     "Clear day": "Tag leeren",
     "Not enough unique combinations remain to avoid every recent outfit.": "Es gibt nicht genügend einzigartige Kombinationen, um alle kürzlich getragenen Outfits zu vermeiden.",
     "This is the best available outfit, but it was used recently.": "Das ist das beste verfügbare Outfit, wurde aber kürzlich getragen.",
+    "Your wardrobe has too few distinct combinations for all seven days. Some days have been left empty.": "Dein Kleiderschrank bietet zu wenige unterschiedliche Kombinationen für alle sieben Tage. Einige Tage bleiben deshalb leer.",
     "Open my wardrobe": "Meinen Kleiderschrank öffnen",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
