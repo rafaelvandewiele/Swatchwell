@@ -4,6 +4,7 @@ create table if not exists public.user_weekly_plans (
   user_id uuid not null references auth.users(id) on delete cascade,
   week_start date not null,
   days jsonb not null default '[]'::jsonb,
+  repeat_avoidance_weeks smallint not null default 4 check (repeat_avoidance_weeks in (0, 2, 4)),
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   constraint user_weekly_plans_unique_week unique (user_id, week_start),
