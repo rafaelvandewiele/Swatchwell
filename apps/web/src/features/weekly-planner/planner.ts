@@ -156,6 +156,11 @@ export function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeat
   return hasLayer ? -2 : 1;
 }
 
+function isCompleteLayeredOutfit(items: ClothingItem[]): boolean {
+  const categories = new Set(items.map((item) => item.category));
+  return categories.has("sweater") && categories.has("tshirt") && categories.has("pants") && categories.has("shoes");
+}
+
 function getOutfitCoreKey(items: OutfitRecommendation["items"]): string {
   return items
     .filter((item) => ["sweater", "tshirt", "pants"].includes(item.category))
@@ -224,7 +229,8 @@ export function generateWeeklyOutfits(
     if ((!day.pinned && !day.wornAt) || !day.itemIds) continue;
     const id = getOutfitCoreKey(day.itemIds.map((itemId) => wardrobe.find((item) => item.id === itemId)).filter((item): item is ClothingItem => Boolean(item)));
     const ownedIds = new Set(wardrobe.map((item) => item.id));
-    if (!day.itemIds.every((itemId) => ownedIds.has(itemId))) {
+    const pinnedItems = day.itemIds.map((itemId) => wardrobe.find((item) => item.id === itemId)).filter((item): item is ClothingItem => Boolean(item));
+    if (!day.itemIds.every((itemId) => ownedIds.has(itemId)) || !isCompleteLayeredOutfit(pinnedItems)) {
       day.pinned = false;
       day.wornAt = null;
       day.itemIds = null;
@@ -262,12 +268,17 @@ export function generateWeeklyOutfits(
   return { days, candidates, repeatConflicts };
 }
 
-export function sanitizeWeeklyPlanForWardrobe(plan: WeeklyPlan, ownedItemIds: Set<string>): WeeklyPlan {
+export function sanitizeWeeklyPlanForWardrobe(plan: WeeklyPlan, ownedItemIds: Set<string>, wardrobe: ClothingItem[] = []): WeeklyPlan {
+  const wardrobeById = new Map(wardrobe.map((item) => [item.id, item]));
   return {
     ...plan,
-    days: plan.days.map((day) => day.itemIds?.length && day.itemIds.every((id) => ownedItemIds.has(id))
-      ? day
-      : day.itemIds ? { ...day, itemIds: null, pinned: false, wornAt: null } : day),
+    days: plan.days.map((day) => {
+      if (!day.itemIds?.length) return day;
+      const items = day.itemIds.map((id) => wardrobeById.get(id));
+      return day.itemIds.every((id) => ownedItemIds.has(id)) && items.every((item): item is ClothingItem => Boolean(item)) && isCompleteLayeredOutfit(items as ClothingItem[])
+        ? day
+        : { ...day, itemIds: null, pinned: false, wornAt: null };
+    }),
   };
 }
 
