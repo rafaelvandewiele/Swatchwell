@@ -193,8 +193,10 @@ function getStyleCommentary(garments: OutfitGarment[]): string {
     const saturation = difference === 0 ? 0 : difference / (1 - Math.abs(2 * lightness - 1));
     return { hue, saturation, lightness };
   });
-  const chromatic = colours.filter((colour) => colour.saturation >= 0.18);
-  const neutrals = colours.filter((colour) => colour.saturation < 0.18 || colour.lightness < 0.12 || colour.lightness > 0.92);
+  const isNeutral = (colour: { saturation: number; lightness: number }) =>
+    colour.saturation < 0.18 || colour.lightness < 0.12 || colour.lightness > 0.92;
+  const chromatic = colours.filter((colour) => !isNeutral(colour));
+  const neutrals = colours.filter(isNeutral);
   const hues = chromatic.map((colour) => colour.hue);
   const distance = (a: number, b: number) => {
     const difference = Math.abs(a - b);
@@ -219,11 +221,11 @@ function getStyleCommentary(garments: OutfitGarment[]): string {
   if (chromatic.length === 0) return "A neutral palette of black, white, grey or beige keeps the outfit understated; differences in lightness add definition.";
   if (tonal) return "The shades stay within one colour family. Mixing lighter and darker tones gives the outfit depth without introducing a competing colour.";
   if (triadic) return "Three distinct colour families give the outfit energy. Let the strongest shade lead and keep the other colours quieter.";
+  if (hasBlue && hasEarthNeutral) return "Blue and warm brown or beige create a timeless classic contrast: cool and crisp against warm and grounded.";
   if (complementary && averageSaturation < 0.62) return "The muted opposing colours create clear contrast without looking overly bright. The neutral pieces help the palette feel grounded.";
   if (complementary) return "Opposing colour families make this a high-contrast outfit. Keep one shade dominant and use the other as a smaller accent.";
   if (analogous) return "Neighbouring colour families blend naturally. The subtle shift between the shades adds interest while keeping the outfit cohesive.";
   if (hasGreen && hasEarthNeutral) return "Olive and earthy tones sit naturally together. The warm brown-beige notes soften the green and give the outfit a relaxed feel.";
-  if (hasBlue && hasEarthNeutral) return "Blue paired with warm brown or beige creates a classic contrast: cool and crisp against warm and grounded.";
   if (hasBurgundy && neutrals.length > 0) return "Burgundy provides a rich focal point, while the neutral and earthy shades keep the outfit balanced.";
   if (neutrals.length > 0 && chromatic.length === 1) return "A single colour accent stands out against the neutral base. This keeps the outfit easy to combine without making it look plain.";
   if (hasWarm && !hasCool) return "The warm palette brings together reds, oranges or yellows. Differences in depth keep the result from feeling too uniform.";
