@@ -4,6 +4,7 @@ import "./App.css";
 
 import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
+import WeeklyPlanner from "./features/weekly-planner/WeeklyPlanner";
 import ColorCombinations from "./features/color-combinations/ColorCombinations";
 import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
@@ -27,6 +28,7 @@ type Page =
   | "My wardrobe"
   | "Color analysis"
   | "Outfits"
+  | "Weekly planner"
   | "Colour combinations"
   | "Settings"
   | "Privacy policy"
@@ -39,6 +41,7 @@ const navigation: { name: Page; icon: string }[] = [
   { name: "My wardrobe", icon: "▤" },
   { name: "Color analysis", icon: "◉" },
   { name: "Outfits", icon: "◇" },
+  { name: "Weekly planner", icon: "▦" },
   { name: "Colour combinations", icon: "◈" },
 ];
 
@@ -65,7 +68,7 @@ interface DashboardWardrobeItem {
 function App() {
   const { t, language, setLanguage } = useI18n();
   const pageFromPath = (): Page => {
-    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/weekly-planner":"Weekly planner", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
     return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
   };
   const [page, setPage] = useState<Page>(pageFromPath);
@@ -210,10 +213,10 @@ function App() {
 
 
   function navigate(name: Page) {
-    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Weekly planner":"/weekly-planner", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
     window.history.pushState({}, "", paths[name]);
     setPage(name);
-    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Colour combinations"].includes(name) ? name : "Overview");
+    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Colour combinations"].includes(name) ? name : "Overview");
     setShowProfile(false);
   }
 
@@ -367,7 +370,7 @@ function App() {
               type="button"
             >
               <span className="nav-icon">{item.icon}</span>
-              {item.name === "Colour combinations" && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
+              {["Colour combinations", "Weekly planner"].includes(item.name) && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
               {t(item.name)}
             </button>
           ))}
@@ -690,6 +693,7 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
+        {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} onUpgrade={() => navigate("Settings")} onSignIn={() => setShowProfile(true)} />}
         {page === "Colour combinations" && <ColorCombinations />}
         {page === "Color analysis" && <ColorProfile />}
         {page === "Settings" && <SettingsPage /> }
