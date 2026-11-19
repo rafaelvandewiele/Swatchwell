@@ -12,6 +12,7 @@ import {
   regenerateDayOutfit,
   sanitizeWeeklyPlanForWardrobe,
   canAccessPremiumPlanner,
+  assignOutfitToDay,
   parseLocalDate,
   toLocalDateKey,
 } from "./planner";
@@ -116,6 +117,17 @@ describe("weekly outfit selection", () => {
     day.itemIds = ["shirt-1", "pants-1", "shoes-1"];
     const items = getOutfitForDay(day, wardrobe);
     expect(items.map((item) => item.id).sort()).toEqual(["pants-1", "shirt-1", "shoes-1"]);
+  });
+
+  it("lets the user assign a chosen complete outfit to one day without changing other days", () => {
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].occasion = "Formal";
+    days[1].itemIds = ["shirt-2", "pants-2"];
+    const assigned = assignOutfitToDay(days, 0, ["shirt-1", "pants-1", "shoes-1"]);
+    expect(assigned[0].itemIds).toEqual(["shirt-1", "pants-1", "shoes-1"]);
+    expect(assigned[0].occasion).toBe("Formal");
+    expect(assigned[1].itemIds).toEqual(["shirt-2", "pants-2"]);
+    expect(() => assignOutfitToDay(days, 0, ["shirt-1"])).toThrow();
   });
 
   it("refreshes one day without changing the other assigned outfits", () => {
