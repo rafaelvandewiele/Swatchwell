@@ -173,7 +173,6 @@ export function generateWeeklyOutfits(
   season: ColorSeason | undefined,
   currentDays: PlannedDay[],
   recentHistory: PlannedDay[] = [],
-  repeatAvoidanceWeeks = 4,
 ): { days: PlannedDay[]; candidates: OutfitRecommendation[]; repeatConflicts: string[] } {
   const candidates = generateOutfits(wardrobe, {
     limit: 50,
@@ -183,7 +182,6 @@ export function generateWeeklyOutfits(
   const validCandidates = candidates.filter((outfit) =>
     outfit.items.length >= 2 && outfit.items.every((item) => availableIds.has(item.id)),
   );
-  const candidateById = new Map(validCandidates.map((outfit) => [outfit.id, outfit]));
   const usage = new Map<string, number>();
   const usedOutfits = new Set<string>();
   const recentOutfits = new Set<string>();
@@ -201,14 +199,15 @@ export function generateWeeklyOutfits(
   for (const day of days) {
     if ((!day.pinned && !day.wornAt) || !day.itemIds) continue;
     const id = [...day.itemIds].sort().join("-");
-    const pinned = candidateById.get(id);
-    if (!pinned) {
+    const ownedIds = new Set(wardrobe.map((item) => item.id));
+    if (!day.itemIds.every((itemId) => ownedIds.has(itemId))) {
       day.pinned = false;
+      day.wornAt = null;
       day.itemIds = null;
       continue;
     }
-    usedOutfits.add(pinned.id);
-    pinned.items.forEach((item) => usage.set(item.id, (usage.get(item.id) ?? 0) + 1));
+    usedOutfits.add(id);
+    day.itemIds.forEach((itemId) => usage.set(itemId, (usage.get(itemId) ?? 0) + 1));
   }
 
   for (const day of days) {
