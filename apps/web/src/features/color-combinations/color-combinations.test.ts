@@ -42,8 +42,8 @@ describe('curated colour combinations', () => {
   });
 
   it('returns the opposite garment as the final selection', () => {
-    const upperFirst = getMatchingThirdColours('upper', '#263B55', '#F5F2EA');
-    const trousersFirst = getMatchingThirdColours('trousers', '#C8BDAA', '#F5F2EA');
+    const upperFirst = getMatchingThirdColours('upper', '#263B55', '#FFFFFF');
+    const trousersFirst = getMatchingThirdColours('trousers', '#C8BDAA', '#FFFFFF');
     expect(upperFirst.some((colour) => colour.hex === '#C8BDAA')).toBe(true);
     expect(trousersFirst.some((colour) => colour.hex === '#263B55')).toBe(true);
   });
