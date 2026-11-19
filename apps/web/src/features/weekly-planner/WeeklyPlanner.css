@@ -276,3 +276,44 @@
     padding: 30px 20px;
   }
 }
+
+
+.weekly-planner-actions {
+  flex-wrap: wrap;
+}
+
+.weekly-planner-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted, #77736d);
+  font-size: 11px;
+}
+
+.weekly-planner-repeat select {
+  border: 1px solid var(--border, #e5e0d8);
+  background: var(--surface, #fffefa);
+  color: var(--text, #292722);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.weekly-planner-worn {
+  display: inline-block;
+  margin-top: 5px;
+  color: var(--text-muted, #77736d);
+  font-size: 10px;
+  letter-spacing: .4px;
+}
+
+.weekly-planner-day-actions {
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+@media (max-width: 760px) {
+  .weekly-planner-actions {
+    align-items: flex-start;
+  }
+}
