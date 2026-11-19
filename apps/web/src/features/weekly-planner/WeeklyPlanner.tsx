@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ClothingItem } from "@swatchwell/shared";
 import type { ColorSeason } from "@swatchwell/color-engine";
 import { useI18n, translateCategory } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
@@ -9,7 +8,6 @@ import { toGeneratorWardrobe, type WardrobeGarment } from "../wardrobe/wardrobe-
 import {
   createEmptyWeeklyPlan,
   generateWeeklyOutfits,
-  getMonday,
   getOutfitForDay,
   getWeekStartKey,
   normalizeWeeklyPlan,
@@ -26,6 +24,7 @@ interface StoredWardrobeItem extends WardrobeGarment {
 
 interface WeeklyPlannerProps {
   isPremium: boolean;
+  isAuthenticated: boolean;
   onUpgrade: () => void;
   onSignIn: () => void;
 }
@@ -58,7 +57,7 @@ function toDbDays(days: PlannedDay[]) {
   }));
 }
 
-export default function WeeklyPlanner({ isPremium, onUpgrade, onSignIn }: WeeklyPlannerProps) {
+export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, onSignIn }: WeeklyPlannerProps) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
@@ -273,8 +272,10 @@ export default function WeeklyPlanner({ isPremium, onUpgrade, onSignIn }: Weekly
         <section className="weekly-planner-gate">
           <div className="eyebrow">{t("SWATCHWELL PREMIUM")}</div>
           <h1>{t("Your week, thoughtfully planned.")}</h1>
-          <p>{t("Plan seven days of outfits from your own wardrobe, keep favourite days in place and avoid repeating the same look unnecessarily.")}</p>
-          <button className="primary-button" type="button" onClick={onUpgrade}>{t("Explore Premium")}</button>
+          <p>{isAuthenticated
+            ? t("Plan seven days of outfits from your own wardrobe, keep favourite days in place and avoid repeating the same look unnecessarily.")
+            : t("Sign in to check your Premium access and sync your week across devices.")}</p>
+          <button className="primary-button" type="button" onClick={isAuthenticated ? onUpgrade : onSignIn}>{isAuthenticated ? t("Explore Premium") : t("Sign in")}</button>
         </section>
       </div>
     );
