@@ -14,6 +14,7 @@ import {
   parseLocalDate,
   regenerateDayOutfit,
   PLANNER_OCCASIONS,
+  PLANNER_WEATHER,
   type PlannedDay,
 } from "./planner";
 import "./WeeklyPlanner.css";
@@ -52,6 +53,7 @@ function toDbDays(days: PlannedDay[]) {
   return days.map((day) => ({
     date: day.date,
     occasion: day.occasion,
+    weather: day.weather,
     pinned: day.pinned,
     item_ids: day.itemIds,
   }));
@@ -351,6 +353,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
               <select value={day.occasion} onChange={(event) => void changeDay(index, { occasion: event.target.value as PlannedDay["occasion"] })} disabled={loading || saving || generating} aria-label={t("Day context")}>
                 {PLANNER_OCCASIONS.map((occasion) => <option key={occasion} value={occasion}>{t(occasion)}</option>)}
               </select>
+              <select value={day.weather} onChange={(event) => void changeDay(index, { weather: event.target.value as PlannedDay["weather"] })} disabled={loading || saving || generating} aria-label={t("Weather preference")}>
+                {PLANNER_WEATHER.map((weather) => <option key={weather} value={weather}>{t(weather)}</option>)}
+              </select>
 
               {outfit ? (
                 <div className="weekly-planner-outfit">
@@ -386,7 +391,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         })}
       </div>
 
-      {hasAnyOutfit && <p className="weekly-planner-notice">{t("Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. The day context is a planning label; outfit selection currently uses wardrobe availability and colour harmony.")}</p>}
+      {hasAnyOutfit && <p className="weekly-planner-notice">{t("Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.")}</p>}
     </div>
   );
 }
