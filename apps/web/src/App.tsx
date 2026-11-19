@@ -693,7 +693,7 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
-        {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onUpgrade={() => navigate("Settings")} onSignIn={() => setShowProfile(true)} />}
+        {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onUpgrade={() => navigate("Settings")} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}
         {page === "Colour combinations" && <ColorCombinations />}
         {page === "Color analysis" && <ColorProfile />}
         {page === "Settings" && <SettingsPage /> }
