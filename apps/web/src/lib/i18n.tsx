@@ -15,6 +15,10 @@ type Dictionary = Record<string, string>
 const translations: Record<Language, Dictionary> = {
   en: {},
   nl: {
+    "STEP": "STAP",
+    "OF": "VAN",
+    "Choose the final colour": "Kies de laatste kleur",
+    "Previous": "Vorige",
     "Off-white": "Gebroken wit",
     "Dark grey": "Donkergrijs",
     "Light pink": "Lichtroze",
@@ -461,6 +465,10 @@ const translations: Record<Language, Dictionary> = {
     "Please choose a different password.": "Kies een ander wachtwoord.",
   },
   fr: {
+    "STEP": "ÉTAPE",
+    "OF": "SUR",
+    "Choose the final colour": "Choisissez la couleur finale",
+    "Previous": "Précédent",
     "Off-white": "Blanc cassé",
     "Dark grey": "Gris foncé",
     "Light pink": "Rose clair",
@@ -905,6 +913,10 @@ const translations: Record<Language, Dictionary> = {
     "Please choose a different password.": "Veuillez choisir un autre mot de passe.",
   },
   de: {
+    "STEP": "SCHRITT",
+    "OF": "VON",
+    "Choose the final colour": "Wähle die letzte Farbe",
+    "Previous": "Zurück",
     "Off-white": "Cremeweiß",
     "Dark grey": "Dunkelgrau",
     "Light pink": "Hellrosa",
