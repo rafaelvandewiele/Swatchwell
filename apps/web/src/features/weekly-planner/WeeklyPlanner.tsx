@@ -75,6 +75,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [refreshingDay, setRefreshingDay] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
   const [repeatAvoidanceWeeks, setRepeatAvoidanceWeeks] = useState<0 | 2 | 4>(4);
@@ -310,6 +311,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const regenerateDay = async (index: number) => {
     if (days[index]?.pinned || days[index]?.wornAt) return;
     setGenerating(true);
+    setRefreshingDay(index);
     setError("");
     try {
       const cutoff = parseLocalDate(weekStart);
@@ -325,6 +327,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       setError(generationError instanceof Error ? generationError.message : t("The outfit could not be regenerated."));
     } finally {
       setGenerating(false);
+      setRefreshingDay(null);
     }
   };
 
@@ -516,7 +519,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
                 {outfitItems.length > 0 && <button type="button" onClick={() => void markWorn(index)} disabled={loading || saving || generating}>{day.wornAt ? t("Undo worn") : t("Mark as worn")}</button>}
                 {outfitItems.length > 0 && <button type="button" onClick={() => void clearDay(index)} disabled={loading || saving || generating}>{t("Clear day")}</button>}
                 <button type="button" onClick={() => void regenerateDay(index)} disabled={loading || saving || generating || day.pinned || Boolean(day.wornAt) || wardrobe.length === 0}>
-                  ↻ {t("Refresh this day")}
+                  {refreshingDay === index ? t("Refreshing...") : `↻ ${t("Refresh this day")}`}
                 </button>
               </div>
             </article>
