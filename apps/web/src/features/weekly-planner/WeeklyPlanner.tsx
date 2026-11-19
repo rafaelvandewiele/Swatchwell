@@ -320,7 +320,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       if (!next[index]?.itemIds) throw new Error(t("Your wardrobe does not contain enough pieces for a complete outfit."));
       setDays(next);
       await persist(next);
-      if (generated.repeatConflict) setError(t("This is the best available outfit, but it was used recently."));
+      if (generated.repeatConflict) setError(t("No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it."));
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : t("The outfit could not be regenerated."));
     } finally {
@@ -387,8 +387,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       <div className="page-content weekly-planner-page premium-required">
         <section className="premium-required-card weekly-planner-premium-card">
           <span className="premium-required-lock">🔒</span>
-          <div className="eyebrow">{t("SWATCHWELL PREMIUM")}</div>
-          <h1>{t("Your week, thoughtfully planned.")}</h1>
+          <div className="eyebrow">{t("PREMIUM MEMBERSHIP")}</div>
+          <h1>{t("Swatchwell Premium")}</h1>
           <p>{t("Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
           <strong>{t("€2.99 per month")}</strong>
           {isAuthenticated
