@@ -1,6 +1,6 @@
 .colour-combinations-page { max-width: 1180px; margin: 0 auto; }
 .colour-combinations-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; margin: 10px 0 30px; }
-.colour-combinations-heading h1 { margin:10px 0 8px; color:var(--navy); font-family:var(--serif); font-size:38px; font-weight:400; letter-spacing:-1px; }
+.colour-combinations-heading h1 { margin:10px 0 8px; color:var(--navy); font-family:var(--serif); font-size:clamp(36px, 4.2vw, 48px); font-weight:400; letter-spacing:-1px; }
 .colour-combinations-heading p { max-width:620px; margin:0; color:var(--muted); font-size:13px; line-height:1.7; }
 .colour-combinations-reset { border:1px solid var(--line); background:transparent; color:var(--navy); padding:11px 16px; font-size:11px; cursor:pointer; }
 .colour-combinations-progress { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:22px; }
@@ -68,3 +68,33 @@
 .premium-required-card > strong { display:block; margin:20px 0; color:var(--navy); font-size:17px; }
 .premium-required-card .primary-button { margin:0 auto; }
 @media(max-width:600px) { .premium-required-card { padding:28px 20px; } }
+
+/* Consistent premium landing treatment across the two premium features. */
+.premium-required {
+  min-height: min(70vh, 760px);
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+.premium-required-card {
+  min-height: 430px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 36px rgba(38, 36, 30, .035);
+}
+.premium-required-card h1 {
+  max-width: 520px;
+  font-size: clamp(34px, 4vw, 42px);
+  letter-spacing: -1px;
+}
+.premium-required-card p {
+  max-width: 470px;
+}
+.premium-required-card .primary-button {
+  min-width: 190px;
+}
+@media(max-width:600px) {
+  .premium-required { min-height: 60vh; }
+  .premium-required-card { min-height: 0; }
+}
