@@ -131,13 +131,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       const historyStart = parseLocalDate(targetWeek);
       historyStart.setDate(historyStart.getDate() - 28);
       const historyStartKey = `${historyStart.getFullYear()}-${String(historyStart.getMonth() + 1).padStart(2, "0")}-${String(historyStart.getDate()).padStart(2, "0")}`;
-      const [planResult, historyResult, styleData] = await Promise.all([
-        supabase.from("user_weekly_plans").select("days,repeat_avoidance_weeks").eq("user_id", id).eq("week_start", targetWeek).maybeSingle(),
-        supabase.from("user_weekly_plans").select("days").eq("user_id", id).gte("week_start", historyStartKey).lt("week_start", targetWeek),
-        loadUserStyleData(),
-      ]);
-      if (planResult.error) throw planResult.error;
-      if (historyResult.error) throw historyResult.error;
+      const styleData = await loadUserStyleData();
       if (!isActive() || request !== loadGeneration.current) return;
       const { data: currentAuth } = await supabase.auth.getUser();
       if (!isActive() || request !== loadGeneration.current || currentAuth.user?.id !== id) return;
@@ -145,6 +139,24 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       setWardrobe(styleData.wardrobe as StoredWardrobeItem[]);
       setSeason(styleData.colorProfile?.analysis?.season);
       const availableIds = new Set((styleData.wardrobe as StoredWardrobeItem[]).map((item) => item.id));
+
+      const [planResult, historyResult] = await Promise.all([
+        supabase.from("user_weekly_plans").select("days,repeat_avoidance_weeks").eq("user_id", id).eq("week_start", targetWeek).maybeSingle(),
+        supabase.from("user_weekly_plans").select("days").eq("user_id", id).gte("week_start", historyStartKey).lt("week_start", targetWeek),
+      ]);
+      if (planResult.error || historyResult.error) {
+        const dbError = planResult.error ?? historyResult.error;
+        const message = dbError?.message ?? "";
+        const migrationMissing = /user_weekly_plans|schema cache|does not exist|42P01|PGRST205/i.test(message);
+        setDays(createEmptyWeeklyPlan(targetWeek).days);
+        setRecentHistory([]);
+        setHasSavedPlan(false);
+        setError(migrationMissing
+          ? t("Your wardrobe is loaded, but cloud sync is unavailable until the weekly planner Supabase migration is applied.")
+          : t("Your wardrobe is loaded, but your saved weekly plan could not be reached."));
+        return;
+      }
+      if (!isActive() || request !== loadGeneration.current) return;
       const normalized = normalizeWeeklyPlan(targetWeek, planResult.data?.days);
       const sanitized = sanitizeWeeklyPlanForWardrobe(normalized, availableIds).days;
       const historical = (historyResult.data ?? []).flatMap((row) => Array.isArray(row.days) ? row.days : []).flatMap((entry) => {
@@ -160,6 +172,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       const savedRepeatWindow = planResult.data?.repeat_avoidance_weeks;
       setRepeatAvoidanceWeeks(savedRepeatWindow === 0 || savedRepeatWindow === 2 ? savedRepeatWindow : 4);
       setDays(sanitized);
+      setHasSavedPlan(Boolean(planResult.data));
       setHasSavedPlan(Boolean(planResult.data));
     } catch (loadError) {
       if (isActive() && request === loadGeneration.current) setError(loadError instanceof Error ? loadError.message : t("The weekly plan could not be loaded."));
@@ -325,22 +338,14 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
 
   const clearDay = async (index: number) => {
     const next = days.map((day, dayIndex) => dayIndex === index ? { ...day, itemIds: null, pinned: false, wornAt: null } : day);
-    try {
-      await persist(next);
-      setDays(next);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be saved."));
-    }
+    setDays(next);
+    await persist(next);
   };
 
   const markWorn = async (index: number) => {
     const next = days.map((day, dayIndex) => dayIndex === index ? { ...day, wornAt: day.wornAt ? null : new Date().toISOString() } : day);
-    try {
-      await persist(next);
-      setDays(next);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be saved."));
-    }
+    setDays(next);
+    await persist(next);
   };
 
   const changeRepeatAvoidance = async (value: string) => {
