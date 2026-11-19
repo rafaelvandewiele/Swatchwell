@@ -193,42 +193,43 @@ function getStyleCommentary(garments: OutfitGarment[]): string {
     const saturation = difference === 0 ? 0 : difference / (1 - Math.abs(2 * lightness - 1));
     return { hue, saturation, lightness };
   });
+  const chromatic = colours.filter((colour) => colour.saturation >= 0.18);
+  const neutrals = colours.filter((colour) => colour.saturation < 0.18 || colour.lightness < 0.12 || colour.lightness > 0.92);
+  const hues = chromatic.map((colour) => colour.hue);
+  const distance = (a: number, b: number) => {
+    const difference = Math.abs(a - b);
+    return Math.min(difference, 360 - difference);
+  };
+  const maxDistance = hues.length > 1 ? Math.max(...hues.flatMap((hue) => hues.map((other) => distance(hue, other)))) : 0;
+  const hasWarm = chromatic.some(({ hue }) => hue < 70 || hue >= 340);
+  const hasCool = chromatic.some(({ hue }) => hue >= 165 && hue < 290);
+  const hasGreen = chromatic.some(({ hue }) => hue >= 75 && hue <= 165);
+  const hasBlue = chromatic.some(({ hue }) => hue >= 190 && hue <= 255);
+  const hasBurgundy = chromatic.some(({ hue }) => hue >= 330 || hue <= 12);
+  const hasEarthNeutral = colours.some(({ hue, saturation, lightness }) =>
+    saturation >= 0.12 && saturation < 0.58 && hue >= 15 && hue <= 55 && lightness >= 0.16 && lightness <= 0.78);
+  const averageSaturation = chromatic.length ? chromatic.reduce((sum, colour) => sum + colour.saturation, 0) / chromatic.length : 0;
+  const lightnessRange = Math.max(...colours.map((colour) => colour.lightness)) - Math.min(...colours.map((colour) => colour.lightness));
+  const tonal = chromatic.length >= 2 && maxDistance <= 34;
+  const analogous = chromatic.length >= 2 && maxDistance > 34 && maxDistance <= 78;
+  const complementary = hues.some((hue, index) => hues.slice(index + 1).some((other) => distance(hue, other) >= 145 && distance(hue, other) <= 180));
+  const triadic = hues.length >= 3 && hues.some((hue) =>
+    hues.some((other) => distance(hue, other) >= 95 && distance(hue, other) <= 145));
 
-  const neutralCount = colours.filter((colour) =>
-    colour.saturation < 0.2 || colour.lightness < 0.12 || colour.lightness > 0.9,
-  ).length;
-  const hasBlue = colours.some((colour) => colour.hue >= 190 && colour.hue <= 255);
-  const hasGreen = colours.some((colour) => colour.hue >= 75 && colour.hue <= 165);
-  const hasBurgundy = colours.some((colour) => colour.hue >= 330 || colour.hue <= 12);
-  const hasWarmNeutral = colours.some((colour) =>
-    (colour.hue >= 15 && colour.hue <= 48) && colour.saturation < 0.65,
-  );
-  const chromaticHues = colours
-    .filter((colour) => colour.saturation >= 0.2)
-    .map((colour) => colour.hue);
-  const tonal = chromaticHues.length > 1 && chromaticHues.every((hue) =>
-    chromaticHues.every((other) => {
-      const difference = Math.abs(hue - other);
-      return Math.min(difference, 360 - difference) <= 28;
-    }),
-  );
-
-  if (tonal) {
-    return "A considered tonal look: understated, cohesive and quietly refined.";
-  }
-  if (hasBurgundy && neutralCount > 0) {
-    return "Deep accent tones and calm neutrals give this outfit a polished, rich-looking finish.";
-  }
-  if (hasGreen && hasWarmNeutral) {
-    return "Earthy greens and warm neutrals create a relaxed, natural and effortlessly put-together look.";
-  }
-  if (hasBlue && hasWarmNeutral) {
-    return "The mix of blue and warm neutrals gives this outfit a timeless, smart-casual character.";
-  }
-  if (neutralCount >= Math.max(2, colours.length - 1)) {
-    return "A clean, minimal palette gives this outfit a timeless and quietly elegant character.";
-  }
-  return "The colours create a balanced, contemporary look with enough contrast to feel intentional.";
+  if (chromatic.length === 0) return "A neutral palette of black, white, grey or beige keeps the outfit understated; differences in lightness add definition.";
+  if (tonal) return "The shades stay within one colour family. Mixing lighter and darker tones gives the outfit depth without introducing a competing colour.";
+  if (triadic) return "Three distinct colour families give the outfit energy. Let the strongest shade lead and keep the other colours quieter.";
+  if (complementary && averageSaturation < 0.62) return "The muted opposing colours create clear contrast without looking overly bright. The neutral pieces help the palette feel grounded.";
+  if (complementary) return "Opposing colour families make this a high-contrast outfit. Keep one shade dominant and use the other as a smaller accent.";
+  if (analogous) return "Neighbouring colour families blend naturally. The subtle shift between the shades adds interest while keeping the outfit cohesive.";
+  if (hasGreen && hasEarthNeutral) return "Olive and earthy tones sit naturally together. The warm brown-beige notes soften the green and give the outfit a relaxed feel.";
+  if (hasBlue && hasEarthNeutral) return "Blue paired with warm brown or beige creates a classic contrast: cool and crisp against warm and grounded.";
+  if (hasBurgundy && neutrals.length > 0) return "Burgundy provides a rich focal point, while the neutral and earthy shades keep the outfit balanced.";
+  if (neutrals.length > 0 && chromatic.length === 1) return "A single colour accent stands out against the neutral base. This keeps the outfit easy to combine without making it look plain.";
+  if (hasWarm && !hasCool) return "The warm palette brings together reds, oranges or yellows. Differences in depth keep the result from feeling too uniform.";
+  if (hasCool && !hasWarm) return "The cool palette brings together blues, greens or purples. A mix of light and dark shades gives it a clear structure.";
+  if (lightnessRange < 0.18) return "The colours have a similar depth, creating a soft, low-contrast result. A lighter or darker piece would make the outfit more defined.";
+  return "The palette mixes different colour families and levels of contrast. Repeating one shade or adding a neutral bridge would make the pieces feel more connected.";
 }
 
 export function analyzeOutfitHarmony(

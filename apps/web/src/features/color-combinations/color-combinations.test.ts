@@ -11,6 +11,7 @@ import {
 describe('curated colour combinations', () => {
   it('documents unique complete outfits with valid hex colours', () => {
     expect(new Set(CURATED_COLOUR_COMBINATIONS.map((item) => item.id)).size).toBe(CURATED_COLOUR_COMBINATIONS.length);
+    expect(new Set(CURATED_COLOUR_COMBINATIONS.map((item) => item.note)).size).toBeGreaterThan(5);
     for (const item of CURATED_COLOUR_COMBINATIONS) {
       expect(item.note.length).toBeGreaterThan(10);
       for (const colour of [item.upper, item.shirt, item.trousers]) {

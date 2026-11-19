@@ -48,6 +48,17 @@ describe("Outfit harmony", () => {
     expect(classic.styleCommentary).not.toBe(earthy.styleCommentary);
   });
 
+
+  it("distinguishes tonal, analogous, complementary and neutral palettes", () => {
+    const analyse = (values: string[]) => analyzeOutfitHarmony(values.map((color, index) => ({
+      id: String(index), name: `Garment ${index}`, color,
+    }))).styleCommentary;
+    expect(analyse(["#183B63", "#4778A8"])).toContain("one colour family");
+    expect(analyse(["#3975A5", "#398B68"])).toContain("Neighbouring");
+    expect(analyse(["#245A9A", "#C17A36"])).toContain("opposing colour");
+    expect(analyse(["#202020", "#F4F0E8"])).toContain("neutral palette");
+  });
+
   it("supports seasonal compatibility", () => {
     const result = analyzeOutfitHarmony(garments.slice(0, 3), "autumn");
 
