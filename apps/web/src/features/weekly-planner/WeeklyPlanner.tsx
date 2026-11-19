@@ -16,6 +16,7 @@ import {
   regenerateDayOutfit,
   sanitizeWeeklyPlanForWardrobe,
   canAccessPremiumPlanner,
+  assignOutfitToDay,
   PLANNER_OCCASIONS,
   PLANNER_WEATHER,
   type PlannedDay,
@@ -329,9 +330,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   const assignOutfit = async (index: number, outfitId: string) => {
     const selected = outfitOptions.find((outfit) => outfit.id === outfitId);
     if (!selected) return;
-    const next = days.map((day, dayIndex) => dayIndex === index
-      ? { ...day, itemIds: selected.items.map((item) => item.id), pinned: false, wornAt: null }
-      : day);
+    const next = assignOutfitToDay(days, index, selected.items.map((item) => item.id));
     setDays(next);
     await persist(next);
   };
