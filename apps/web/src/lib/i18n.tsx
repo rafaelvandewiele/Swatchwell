@@ -17,7 +17,6 @@ const translations: Record<Language, Dictionary> = {
   nl: {
     "Your combination": "Jouw combinatie",
     "colour compatibility": "kleurcompatibiliteit",
-    "THE STYLE NOTES": "STIJLADVIES",
     "THE COLOUR NOTES": "KLEURADVIES",
     "Remove saved outfit": "Opgeslagen outfit verwijderen",
     "Save outfit": "Outfit opslaan",
@@ -490,7 +489,6 @@ const translations: Record<Language, Dictionary> = {
   fr: {
     "Your combination": "Votre combinaison",
     "colour compatibility": "compatibilité des couleurs",
-    "THE STYLE NOTES": "CONSEILS DE STYLE",
     "THE COLOUR NOTES": "CONSEILS COULEUR",
     "Remove saved outfit": "Supprimer la tenue enregistrée",
     "Save outfit": "Enregistrer la tenue",
@@ -961,7 +959,6 @@ const translations: Record<Language, Dictionary> = {
   de: {
     "Your combination": "Dein Outfit",
     "colour compatibility": "Farbharmonie",
-    "THE STYLE NOTES": "STILHINWEISE",
     "THE COLOUR NOTES": "FARBHINWEISE",
     "Remove saved outfit": "Gespeichertes Outfit entfernen",
     "Save outfit": "Outfit speichern",
