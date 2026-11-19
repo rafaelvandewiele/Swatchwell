@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColorSeason } from "@swatchwell/color-engine";
+import { generateOutfits } from "@swatchwell/outfit-engine";
 import { useI18n, translateCategory } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
@@ -74,17 +75,17 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
 
   const generatorWardrobe = useMemo(
-    () => toGeneratorWardrobe(wardrobe as WardrobeGarment[]),
+    () => toGeneratorWardrobe(wardrobe),
     [wardrobe],
   );
 
   const candidates = useMemo(() => {
     try {
-      return generateWeeklyOutfits(generatorWardrobe, season, days).candidates;
+      return generateOutfits(generatorWardrobe, { limit: 50, ...(season ? { season } : {}) });
     } catch {
       return [];
     }
-  }, [generatorWardrobe, season, days]);
+  }, [generatorWardrobe, season]);
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart) => {
     if (!supabase || !userId) throw new Error(t("Sign in to save your weekly plan."));
