@@ -229,7 +229,7 @@ export function generateWeeklyOutfits(
 
     day.itemIds = selected.items.map((item) => item.id);
     day.wornAt = null;
-    if (recentOutfits.has(selected.id)) repeatConflicts.push(day.date);
+    if (recentOutfits.has(selected.id) || usedOutfits.has(selected.id)) repeatConflicts.push(day.date);
     usedOutfits.add(selected.id);
     selected.items.forEach((item) => usage.set(item.id, (usage.get(item.id) ?? 0) + 1));
   }
@@ -265,6 +265,9 @@ export function regenerateDayOutfit(
 ): { days: PlannedDay[]; candidates: OutfitRecommendation[]; repeatConflict: boolean } {
   if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= currentDays.length) {
     throw new RangeError("The target day is outside the weekly plan.");
+  }
+  if (currentDays[targetIndex].wornAt) {
+    return { days: currentDays.map((day) => ({ ...day, itemIds: day.itemIds ? [...day.itemIds] : null })), candidates: [], repeatConflict: false };
   }
   const candidates = generateOutfits(wardrobe, {
     limit: 50,
