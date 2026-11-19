@@ -317,3 +317,19 @@
     align-items: flex-start;
   }
 }
+
+
+/* Keep native select menus readable in dark-mode operating systems. */
+.weekly-planner-day select,
+.weekly-planner-repeat select {
+  color-scheme: light;
+  background-color: #fffefa;
+  color: #292722;
+}
+
+.weekly-planner-day .weekly-planner-outfit-picker {
+  margin-top: 12px;
+  margin-bottom: 0;
+  border-color: var(--border, #e5e0d8);
+  font-size: 11px;
+}
