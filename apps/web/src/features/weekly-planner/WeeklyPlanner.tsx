@@ -284,8 +284,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   };
 
   const generateWeek = async () => {
-    if (!hasPlannerTop || !hasPlannerTrousers) {
-      setError(t("Add at least one top and one pair of trousers to generate complete outfits."));
+    if (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) {
+      setError(t("Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits."));
       return;
     }
     setGenerating(true);
@@ -443,8 +443,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       </div>
 
       {error && <div className="weekly-planner-error" role="alert">{error}</div>}
-      {!loading && wardrobe.length > 0 && !hasPlannerTop && <div className="weekly-planner-error" role="status">{t("Add at least one top to your wardrobe.")}</div>}
-      {!loading && wardrobe.length > 0 && !hasPlannerTrousers && <div className="weekly-planner-error" role="status">{t("Add at least one pair of trousers to your wardrobe.")}</div>}
+      {!loading && wardrobe.length > 0 && (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) && <div className="weekly-planner-error" role="status">{t("The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.")}</div>}
 
       {!loading && wardrobe.length === 0 && (
         <div className="weekly-planner-empty">
