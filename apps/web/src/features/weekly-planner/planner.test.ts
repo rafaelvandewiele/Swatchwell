@@ -36,6 +36,7 @@ describe("weekly planner date helpers", () => {
     });
     expect(plan.days[2].occasion).toBe("Everyday");
     expect(plan.days[2].pinned).toBe(false);
+    expect(plan.days[0].weather).toBe("Any weather");
     expect(createEmptyWeeklyPlan("2026-11-16").days.every((day) => !day.itemIds)).toBe(true);
   });
 });
@@ -82,6 +83,7 @@ describe("weekly outfit selection", () => {
   it("uses the selected day context when ranking available outfits", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     days[0].occasion = "Formal";
+    days[0].weather = "Cold";
     const formal = generateWeeklyOutfits(wardrobe, undefined, days).days[0];
     expect(formal.itemIds).not.toBeNull();
     const sportDays = createEmptyWeeklyPlan("2026-11-16").days;
