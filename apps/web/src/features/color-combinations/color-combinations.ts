@@ -98,7 +98,7 @@ function coloursWorkTogether(first: GarmentColour, second: GarmentColour): boole
   const shortestDistance = Math.min(hueDistance, 360 - hueDistance);
   // Keep only close analogous and clear complementary relationships.
   // Muted colours are not automatically compatible simply because they are muted.
-  return shortestDistance <= 42 || shortestDistance >= 145;
+  return shortestDistance <= 42 || shortestDistance >= 165;
 }
 
 function isBalancedOutfit(upper: GarmentColour, shirt: GarmentColour, trousers: GarmentColour): boolean {
