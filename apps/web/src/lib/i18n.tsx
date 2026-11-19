@@ -533,6 +533,10 @@ const translations: Record<Language, Dictionary> = {
     "Weekly planner": "Weekplanner",
     "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Je planning wordt opgeslagen in je Swatchwell-account en synchroniseert tussen apparaten. Vastgezette outfits blijven behouden wanneer je de week opnieuw plant. Het dagtype en de temperatuurvoorkeur beïnvloeden de outfitkeuze. De temperatuur is een handmatige voorkeur, geen live weersvoorspelling.",
 
+    "Add at least one top and one pair of trousers to generate complete outfits.": "Voeg minstens één bovenstuk en één broek toe om volledige outfits te maken.",
+    "Your wardrobe does not contain enough pieces for a complete outfit.": "Je garderobe bevat niet genoeg kledingstukken voor een volledige outfit.",
+    "Open my wardrobe": "Open mijn garderobe",
+
   },
   fr: {
 "Choose the final colour": "Choisissez la couleur finale",
@@ -1050,6 +1054,10 @@ const translations: Record<Language, Dictionary> = {
     "Weekly planner": "Planning hebdomadaire",
     "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Votre planning est enregistré dans votre compte Swatchwell et synchronisé entre vos appareils. Les tenues épinglées restent en place lors d'une nouvelle génération. Le contexte de la journée et la préférence de température influencent le classement. La température est un choix manuel, pas une prévision météo en direct.",
 
+    "Add at least one top and one pair of trousers to generate complete outfits.": "Ajoutez au moins un haut et un pantalon pour composer des tenues complètes.",
+    "Your wardrobe does not contain enough pieces for a complete outfit.": "Votre garde-robe ne contient pas assez de vêtements pour composer une tenue complète.",
+    "Open my wardrobe": "Ouvrir ma garde-robe",
+
   },
   de: {
 "Choose the final colour": "Wähle die letzte Farbe",
@@ -1566,6 +1574,10 @@ const translations: Record<Language, Dictionary> = {
 
     "Weekly planner": "Wochenplaner",
     "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Dein Plan wird in deinem Swatchwell-Konto gespeichert und geräteübergreifend synchronisiert. Fixierte Outfits bleiben bei einer erneuten Planung erhalten. Tageskontext und Temperaturpräferenz beeinflussen die Outfit-Auswahl. Die Temperatur ist eine manuelle Einstellung und keine aktuelle Wettervorhersage.",
+
+    "Add at least one top and one pair of trousers to generate complete outfits.": "Füge mindestens ein Oberteil und eine Hose hinzu, um vollständige Outfits zu erstellen.",
+    "Your wardrobe does not contain enough pieces for a complete outfit.": "Dein Kleiderschrank enthält nicht genügend Kleidungsstücke für ein vollständiges Outfit.",
+    "Open my wardrobe": "Meinen Kleiderschrank öffnen",
 
   },
 }
