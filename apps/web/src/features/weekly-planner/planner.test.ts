@@ -62,26 +62,34 @@ describe("weekly outfit selection", () => {
     { id: "shirt-1", name: "Oxford shirt", category: "shirt" as const, color: "#FFFFFF" },
     { id: "shirt-2", name: "Blue shirt", category: "shirt" as const, color: "#263B55" },
     { id: "tee-1", name: "White tee", category: "tshirt" as const, color: "#F5F2EA" },
+    { id: "tee-2", name: "Navy tee", category: "tshirt" as const, color: "#263B55" },
+    { id: "sweater-1", name: "Grey sweater", category: "sweater" as const, color: "#888888" },
+    { id: "sweater-2", name: "Navy sweater", category: "sweater" as const, color: "#263B55" },
     { id: "pants-1", name: "Chinos", category: "pants" as const, color: "#C8BDAA" },
     { id: "pants-2", name: "Dark trousers", category: "pants" as const, color: "#252525" },
     { id: "pants-3", name: "Olive trousers", category: "pants" as const, color: "#355444" },
     { id: "shoes-1", name: "Sneakers", category: "shoes" as const, color: "#FFFFFF" },
+    { id: "shoes-2", name: "Brown shoes", category: "shoes" as const, color: "#684B35" },
   ];
 
   it("creates complete outfits, avoids exact repeats when enough combinations exist and preserves pinned days", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     days[0].pinned = true;
-    days[0].itemIds = ["shirt-1", "pants-1", "shoes-1"];
+    days[0].itemIds = ["tee-1", "sweater-1", "pants-1", "shoes-1"];
     const result = generateWeeklyOutfits(wardrobe, undefined, days);
     expect(result.days).toHaveLength(7);
     expect(result.days[0].pinned).toBe(true);
-    expect(result.days[0].itemIds).toEqual(["shirt-1", "pants-1", "shoes-1"]);
+    expect(result.days[0].itemIds).toEqual(["tee-1", "sweater-1", "pants-1", "shoes-1"]);
     const assigned = result.days.map((day) => day.itemIds?.slice().sort().join("-")).filter(Boolean);
     expect(new Set(assigned).size).toBe(assigned.length);
+    const coreLooks = result.days.map((day) => day.itemIds?.filter((id) => !id.startsWith("shoes-")).sort().join("-")).filter(Boolean);
+    expect(new Set(coreLooks).size).toBe(coreLooks.length);
     for (const day of result.days) {
       if (day.itemIds) {
-        expect(day.itemIds).toContain(day.itemIds.find((id) => id.startsWith("shirt") || id.startsWith("tee"))!);
-        expect(day.itemIds.some((id) => id.startsWith("pants"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("tee-"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("sweater-"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("pants-"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("shoes-"))).toBe(true);
       }
     }
   });
