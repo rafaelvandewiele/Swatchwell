@@ -142,10 +142,29 @@ describe("weekly outfit selection", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     const first = generateWeeklyOutfits(wardrobe, undefined, days).days;
     const before = first.filter((_, index) => index !== 3).map((day) => day.itemIds);
+    const originalCore = first[3].itemIds?.filter((id) => !id.startsWith("shoes-")).slice().sort().join("-");
     const refreshed = regenerateDayOutfit(wardrobe, undefined, first, 3).days;
+    const refreshedCore = refreshed[3].itemIds?.filter((id) => !id.startsWith("shoes-")).slice().sort().join("-");
+    expect(refreshedCore).not.toBe(originalCore);
     expect(refreshed.filter((_, index) => index !== 3).map((day) => day.itemIds)).toEqual(before);
     const otherIds = new Set(refreshed.filter((_, index) => index !== 3).map((day) => day.itemIds?.slice().sort().join("-")));
     expect(otherIds.has(refreshed[3].itemIds?.slice().sort().join("-") ?? "")).toBe(false);
+  });
+
+
+  it("keeps the current outfit when refresh has no genuinely different core combination", () => {
+    const minimalWardrobe = [
+      { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
+      { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
+      { id: "pants", name: "Trousers", category: "pants" as const, color: "#252525" },
+      { id: "shoes-1", name: "White shoes", category: "shoes" as const, color: "#FFFFFF" },
+      { id: "shoes-2", name: "Brown shoes", category: "shoes" as const, color: "#684B35" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].itemIds = ["tee", "sweater", "pants", "shoes-1"];
+    const result = regenerateDayOutfit(minimalWardrobe, undefined, days, 0);
+    expect(result.days[0].itemIds).toEqual(["tee", "sweater", "pants", "shoes-1"]);
+    expect(result.repeatConflict).toBe(true);
   });
 
   it("ranks clothing differently for formal and sport contexts", () => {
