@@ -1462,8 +1462,6 @@ export function useI18n() {
 export function translateCategory(category: string, t: (key: string) => string) {
   const categories: Record<string, string> = {
     Shirts: 'Shirts',
-    'T-shirts': 'T-shirts',
-    'Polo shirts': 'Polo shirts',
     Sweaters: 'Sweaters',
     Knitwear: 'Sweaters',
     Trousers: 'Trousers',
