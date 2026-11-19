@@ -295,7 +295,7 @@ export function regenerateDayOutfit(
   const days = currentDays.map((day, index) => index === targetIndex
     ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false, wornAt: null }
     : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
-  return { days, candidates, repeatConflict: Boolean(selected && recentOutfits.has(selected.id)) };
+  return { days, candidates, repeatConflict: Boolean(selected && (recentOutfits.has(selected.id) || reserved.has(selected.id))) };
 }
 
 export function canAccessPremiumPlanner(isAuthenticated: boolean, isPremium: boolean): boolean {
