@@ -101,11 +101,14 @@ export function normalizeWeeklyPlan(weekStart: string, value: unknown): WeeklyPl
         occasion: isPlannerOccasion(entry.occasion) ? entry.occasion : "Everyday",
         weather: isPlannerWeather(entry.weather) ? entry.weather : "Any weather",
         pinned: entry.pinned === true,
-        itemIds: Array.isArray(entry.item_ids)
-          ? entry.item_ids.filter((id): id is string => typeof id === "string")
-          : Array.isArray(entry.itemIds)
-            ? entry.itemIds.filter((id): id is string => typeof id === "string")
-            : null,
+        itemIds: (() => {
+          const ids = Array.isArray(entry.item_ids)
+            ? entry.item_ids.filter((id): id is string => typeof id === "string")
+            : Array.isArray(entry.itemIds)
+              ? entry.itemIds.filter((id): id is string => typeof id === "string")
+              : [];
+          return ids.length ? ids : null;
+        })(),
         wornAt: typeof entry.worn_at === "string" ? entry.worn_at : typeof entry.wornAt === "string" ? entry.wornAt : null,
       };
     }),
@@ -240,7 +243,7 @@ export function generateWeeklyOutfits(
 export function sanitizeWeeklyPlanForWardrobe(plan: WeeklyPlan, ownedItemIds: Set<string>): WeeklyPlan {
   return {
     ...plan,
-    days: plan.days.map((day) => day.itemIds && day.itemIds.every((id) => ownedItemIds.has(id))
+    days: plan.days.map((day) => day.itemIds?.length && day.itemIds.every((id) => ownedItemIds.has(id))
       ? day
       : day.itemIds ? { ...day, itemIds: null, pinned: false, wornAt: null } : day),
   };
