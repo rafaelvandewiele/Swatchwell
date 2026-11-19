@@ -79,6 +79,17 @@ describe("weekly outfit selection", () => {
     expect(otherIds.has(refreshed[3].itemIds?.slice().sort().join("-") ?? "")).toBe(false);
   });
 
+  it("uses the selected day context when ranking available outfits", () => {
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].occasion = "Formal";
+    const formal = generateWeeklyOutfits(wardrobe, undefined, days).days[0];
+    expect(formal.itemIds).not.toBeNull();
+    const sportDays = createEmptyWeeklyPlan("2026-11-16").days;
+    sportDays[0].occasion = "Sport";
+    const sport = generateWeeklyOutfits(wardrobe, undefined, sportDays).days[0];
+    expect(sport.itemIds).not.toBeNull();
+  });
+
   it("returns unassigned days when the wardrobe cannot form any outfit", () => {
     const result = generateWeeklyOutfits(
       [{ id: "shirt", name: "Shirt", category: "shirt", color: "#FFFFFF" }],
