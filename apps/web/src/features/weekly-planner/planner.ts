@@ -330,14 +330,20 @@ export function regenerateDayOutfit(
   });
 
   const available = candidates.filter((candidate) => !reserved.has(getOutfitCoreKey(candidate.items)));
-  const nonRecent = available.filter((candidate) => !recentOutfits.has(candidate.id));
-  const pool = nonRecent;
+  const currentItems = currentDays[targetIndex].itemIds?.map((id) => wardrobe.find((item) => item.id === id)).filter((item): item is ClothingItem => Boolean(item)) ?? [];
+  const currentCoreKey = currentItems.length ? getOutfitCoreKey(currentItems) : null;
+  const pool = available.filter((candidate) => {
+    const coreKey = getOutfitCoreKey(candidate.items);
+    return coreKey !== currentCoreKey && !recentOutfits.has(coreKey);
+  });
   const selected = selectCandidate(pool, usage, currentDays[targetIndex]);
 
   const days = currentDays.map((day, index) => index === targetIndex
-    ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false, wornAt: null }
+    ? selected
+      ? { ...day, itemIds: selected.items.map((item) => item.id), pinned: false, wornAt: null }
+      : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null }
     : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
-  return { days, candidates, repeatConflict: Boolean(selected && (recentOutfits.has(getOutfitCoreKey(selected.items)) || reserved.has(getOutfitCoreKey(selected.items)))) };
+  return { days, candidates, repeatConflict: !selected };
 }
 
 export function canAccessPremiumPlanner(isAuthenticated: boolean, isPremium: boolean): boolean {
