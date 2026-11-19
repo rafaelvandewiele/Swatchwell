@@ -194,7 +194,7 @@ function getStyleCommentary(garments: OutfitGarment[]): string {
     return { hue, saturation, lightness };
   });
   const isNeutral = (colour: { saturation: number; lightness: number }) =>
-    colour.saturation < 0.18 || colour.lightness < 0.12 || colour.lightness > 0.90;
+    colour.saturation < 0.12 || colour.lightness < 0.12 || colour.lightness > 0.90;
   const chromatic = colours.filter((colour) => !isNeutral(colour));
   const neutrals = colours.filter(isNeutral);
   const hues = chromatic.map((colour) => colour.hue);
