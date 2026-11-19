@@ -6,6 +6,7 @@ import {
   getWeekDates,
   getWeekStartKey,
   normalizeWeeklyPlan,
+  regenerateDayOutfit,
   parseLocalDate,
   toLocalDateKey,
 } from "./planner";
@@ -46,6 +47,7 @@ describe("weekly outfit selection", () => {
     { id: "tee-1", name: "White tee", category: "tshirt" as const, color: "#F5F2EA" },
     { id: "pants-1", name: "Chinos", category: "pants" as const, color: "#C8BDAA" },
     { id: "pants-2", name: "Dark trousers", category: "pants" as const, color: "#252525" },
+    { id: "pants-3", name: "Olive trousers", category: "pants" as const, color: "#355444" },
     { id: "shoes-1", name: "Sneakers", category: "shoes" as const, color: "#FFFFFF" },
   ];
 
@@ -65,6 +67,16 @@ describe("weekly outfit selection", () => {
         expect(day.itemIds.some((id) => id.startsWith("pants"))).toBe(true);
       }
     }
+  });
+
+  it("refreshes one day without changing the other assigned outfits", () => {
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    const first = generateWeeklyOutfits(wardrobe, undefined, days).days;
+    const before = first.filter((_, index) => index !== 3).map((day) => day.itemIds);
+    const refreshed = regenerateDayOutfit(wardrobe, undefined, first, 3).days;
+    expect(refreshed.filter((_, index) => index !== 3).map((day) => day.itemIds)).toEqual(before);
+    const otherIds = new Set(refreshed.filter((_, index) => index !== 3).map((day) => day.itemIds?.slice().sort().join("-")));
+    expect(otherIds.has(refreshed[3].itemIds?.slice().sort().join("-") ?? "")).toBe(false);
   });
 
   it("returns unassigned days when the wardrobe cannot form any outfit", () => {
