@@ -550,6 +550,8 @@ const translations: Record<Language, Dictionary> = {
     "Your plan is visible in this session, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Je planning blijft in deze sessie zichtbaar, maar cloudsynchronisatie werkt pas nadat de Supabase-migratie voor de weekplanner is toegepast.",
     "Your plan is visible in this session, but could not sync to Supabase. Check your connection and try again.": "Je planning blijft in deze sessie zichtbaar, maar synchroniseren met Supabase is niet gelukt. Controleer je verbinding en probeer opnieuw.",
     "Your weekly plan could not be updated.": "Je weekplanning kon niet worden bijgewerkt.",
+    "Your wardrobe is loaded, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Je garderobe is geladen, maar cloudsynchronisatie werkt pas nadat de Supabase-migratie voor de weekplanner is toegepast.",
+    "Your wardrobe is loaded, but your saved weekly plan could not be reached.": "Je garderobe is geladen, maar je opgeslagen weekplanning kon niet worden opgehaald.",
     "Open my wardrobe": "Open mijn garderobe",
 
   },
@@ -1086,6 +1088,8 @@ const translations: Record<Language, Dictionary> = {
     "Your plan is visible in this session, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Votre planning reste visible pendant cette session, mais la synchronisation cloud nécessite l’application de la migration Supabase du planificateur.",
     "Your plan is visible in this session, but could not sync to Supabase. Check your connection and try again.": "Votre planning reste visible pendant cette session, mais la synchronisation avec Supabase a échoué. Vérifiez votre connexion et réessayez.",
     "Your weekly plan could not be updated.": "Votre planning hebdomadaire n’a pas pu être mis à jour.",
+    "Your wardrobe is loaded, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Votre garde-robe est chargée, mais la synchronisation cloud nécessite l’application de la migration Supabase du planificateur.",
+    "Your wardrobe is loaded, but your saved weekly plan could not be reached.": "Votre garde-robe est chargée, mais votre planning enregistré est inaccessible.",
     "Open my wardrobe": "Ouvrir ma garde-robe",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
@@ -1624,6 +1628,8 @@ const translations: Record<Language, Dictionary> = {
     "Your plan is visible in this session, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Dein Wochenplan bleibt in dieser Sitzung sichtbar. Die Cloud-Synchronisierung funktioniert erst nach Anwendung der Supabase-Migration für den Wochenplaner.",
     "Your plan is visible in this session, but could not sync to Supabase. Check your connection and try again.": "Dein Wochenplan bleibt in dieser Sitzung sichtbar, konnte aber nicht mit Supabase synchronisiert werden. Überprüfe deine Verbindung und versuche es erneut.",
     "Your weekly plan could not be updated.": "Dein Wochenplan konnte nicht aktualisiert werden.",
+    "Your wardrobe is loaded, but cloud sync is unavailable until the weekly planner Supabase migration is applied.": "Dein Kleiderschrank wurde geladen. Die Cloud-Synchronisierung funktioniert erst nach Anwendung der Supabase-Migration für den Wochenplaner.",
+    "Your wardrobe is loaded, but your saved weekly plan could not be reached.": "Dein Kleiderschrank wurde geladen, aber dein gespeicherter Wochenplan konnte nicht abgerufen werden.",
     "Open my wardrobe": "Meinen Kleiderschrank öffnen",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
