@@ -10,6 +10,7 @@ import {
   getWeatherFit,
   normalizeWeeklyPlan,
   regenerateDayOutfit,
+  sanitizeWeeklyPlanForWardrobe,
   parseLocalDate,
   toLocalDateKey,
 } from "./planner";
@@ -35,10 +36,11 @@ describe("weekly planner date helpers", () => {
     ]);
     expect(plan.days).toHaveLength(7);
     expect(plan.days[1]).toEqual({
-      date: "2026-11-17", occasion: "Formal", weather: "Cold", pinned: true, itemIds: ["a"],
+      date: "2026-11-17", occasion: "Formal", weather: "Cold", pinned: true, itemIds: ["a"], wornAt: null,
     });
     expect(plan.days[2].occasion).toBe("Everyday");
     expect(plan.days[2].pinned).toBe(false);
+    expect(plan.days[2].wornAt).toBeNull();
     expect(plan.days[0].weather).toBe("Any weather");
     expect(plan.days[1].weather).toBe("Cold");
     expect(createEmptyWeeklyPlan("2026-11-16").days.every((day) => !day.itemIds)).toBe(true);
@@ -72,6 +74,32 @@ describe("weekly outfit selection", () => {
         expect(day.itemIds.some((id) => id.startsWith("pants"))).toBe(true);
       }
     }
+  });
+
+  it("clears saved outfit references that do not belong to the signed-in user's wardrobe", () => {
+    const plan = createEmptyWeeklyPlan("2026-11-16");
+    plan.days[0].itemIds = ["shirt-1", "pants-1"];
+    plan.days[0].pinned = true;
+    const sanitized = sanitizeWeeklyPlanForWardrobe(plan, new Set(["shirt-1"]));
+    expect(sanitized.days[0].itemIds).toBeNull();
+    expect(sanitized.days[0].pinned).toBe(false);
+  });
+
+  it("preserves outfits already marked as worn when regenerating the week", () => {
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].itemIds = ["shirt-1", "pants-1"];
+    days[0].wornAt = "2026-11-16T08:00:00.000Z";
+    const result = generateWeeklyOutfits(wardrobe, undefined, days);
+    expect(result.days[0].itemIds).toEqual(["shirt-1", "pants-1"]);
+    expect(result.days[0].wornAt).toBe("2026-11-16T08:00:00.000Z");
+  });
+
+  it("avoids complete outfits used in recent history when alternatives exist", () => {
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["shirt-1", "pants-1", "shoes-1"] }];
+    const result = generateWeeklyOutfits(wardrobe, undefined, days, history);
+    expect(result.days[0].itemIds?.slice().sort().join("-")).not.toBe("pants-1-shirt-1-shoes-1");
+    expect(result.repeatConflicts).toHaveLength(0);
   });
 
   it("renders a saved outfit from owned wardrobe items even when it is not a current top-ranked suggestion", () => {
