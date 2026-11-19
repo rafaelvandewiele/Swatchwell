@@ -221,7 +221,7 @@ function App() {
   }
 
   useEffect(() => {
-    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Colour combinations"].includes(next) ? next : "Overview"); setShowProfile(false); };
+    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Colour combinations"].includes(next) ? next : "Overview"); setShowProfile(false); };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
