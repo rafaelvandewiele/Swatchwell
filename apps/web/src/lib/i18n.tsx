@@ -1058,6 +1058,9 @@ const translations: Record<Language, Dictionary> = {
     "Your wardrobe does not contain enough pieces for a complete outfit.": "Votre garde-robe ne contient pas assez de vêtements pour composer une tenue complète.",
     "Open my wardrobe": "Ouvrir ma garde-robe",
 
+    "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
+    "Account storage is not configured.": "Le stockage du compte n'est pas configuré.",
+
   },
   de: {
 "Choose the final colour": "Wähle die letzte Farbe",
@@ -1578,6 +1581,9 @@ const translations: Record<Language, Dictionary> = {
     "Add at least one top and one pair of trousers to generate complete outfits.": "Füge mindestens ein Oberteil und eine Hose hinzu, um vollständige Outfits zu erstellen.",
     "Your wardrobe does not contain enough pieces for a complete outfit.": "Dein Kleiderschrank enthält nicht genügend Kleidungsstücke für ein vollständiges Outfit.",
     "Open my wardrobe": "Meinen Kleiderschrank öffnen",
+
+    "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
+    "Account storage is not configured.": "Der Kontospeicher ist nicht konfiguriert.",
 
   },
 }
