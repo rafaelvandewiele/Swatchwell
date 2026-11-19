@@ -31,6 +31,23 @@ describe("Outfit harmony", () => {
     expect(result.recommendations.length).toBeGreaterThan(0);
   });
 
+  it("provides context-aware style commentary", () => {
+    const classic = analyzeOutfitHarmony([
+      { id: "shirt", name: "Off-white shirt", color: "#F1EDE3" },
+      { id: "trousers", name: "Navy trousers", color: "#263B55" },
+      { id: "shoes", name: "Brown shoes", color: "#684B35" },
+    ]);
+    const earthy = analyzeOutfitHarmony([
+      { id: "shirt", name: "Cream shirt", color: "#E8DDC8" },
+      { id: "trousers", name: "Olive trousers", color: "#69745A" },
+      { id: "shoes", name: "Brown shoes", color: "#684B35" },
+    ]);
+
+    expect(classic.styleCommentary).toContain("timeless");
+    expect(earthy.styleCommentary).toContain("Earthy");
+    expect(classic.styleCommentary).not.toBe(earthy.styleCommentary);
+  });
+
   it("supports seasonal compatibility", () => {
     const result = analyzeOutfitHarmony(garments.slice(0, 3), "autumn");
 
