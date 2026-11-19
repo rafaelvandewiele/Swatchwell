@@ -226,13 +226,13 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   }, [isPremium, userId, weekStart]);
 
   const changeDay = async (index: number, patch: Partial<PlannedDay>) => {
-    let next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
-    const contextChanged = patch.occasion !== undefined || patch.weather !== undefined;
-    if (contextChanged && !days[index].pinned && days[index].itemIds) {
-      next = regenerateDayOutfit(generatorWardrobe, season, next, index).days;
-    }
-    setDays(next);
     try {
+      let next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
+      const contextChanged = patch.occasion !== undefined || patch.weather !== undefined;
+      if (contextChanged && !days[index].pinned && days[index].itemIds) {
+        next = regenerateDayOutfit(generatorWardrobe, season, next, index).days;
+      }
+      setDays(next);
       await persist(next);
     } catch (saveError) {
       setDays(days);
@@ -251,8 +251,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     setError("");
     try {
       const generated = generateWeeklyOutfits(generatorWardrobe, season, days);
-      setDays(generated.days);
       await persist(generated.days);
+      setDays(generated.days);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : t("The weekly plan could not be generated."));
     } finally {
@@ -268,8 +268,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       const generated = regenerateDayOutfit(generatorWardrobe, season, days, index);
       const next = generated.days;
       if (!next[index]?.itemIds) throw new Error(t("Your wardrobe does not contain enough pieces for a complete outfit."));
-      setDays(next);
       await persist(next);
+      setDays(next);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : t("The outfit could not be regenerated."));
     } finally {
