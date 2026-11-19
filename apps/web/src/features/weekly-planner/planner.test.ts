@@ -172,15 +172,18 @@ describe("weekly outfit selection", () => {
     expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
   });
 
-  it("reports unavoidable repeats when the wardrobe has only one combination", () => {
+  it("does not repeat a recent core look just to fill all seven days", () => {
     const minimalWardrobe = [
-      { id: "shirt", name: "Shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
+      { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
       { id: "pants", name: "Trousers", category: "pants" as const, color: "#252525" },
+      { id: "shoes", name: "Brown shoes", category: "shoes" as const, color: "#684B35" },
     ];
     const days = createEmptyWeeklyPlan("2026-11-16").days;
-    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["pants", "shirt"] }];
+    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["tee", "sweater", "pants", "shoes"] }];
     const result = generateWeeklyOutfits(minimalWardrobe, undefined, days, history);
-    expect(result.repeatConflicts.length).toBeGreaterThan(0);
+    expect(result.days.every((day) => day.itemIds === null)).toBe(true);
+    expect(result.repeatConflicts).toEqual([]);
   });
 
   it("returns unassigned days when the wardrobe cannot form any outfit", () => {
