@@ -54,7 +54,7 @@ const shirtColours = [
 const trouserColours = [
   colours.forestGreen, colours.offWhite, colours.white, colours.lightGrey, colours.charcoal,
   colours.paleBlue, colours.black, colours.darkBrown, colours.beige,
-  colours.stone, colours.olive, colours.navy, colours.charcoal,
+  colours.stone, colours.olive, colours.navy,
   colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans,
 ];
 
