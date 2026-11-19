@@ -27,16 +27,17 @@ describe("weekly planner date helpers", () => {
 
   it("normalizes incomplete or malformed saved plans safely", () => {
     const plan = normalizeWeeklyPlan("2026-11-16", [
-      { date: "2026-11-17", occasion: "Formal", pinned: true, item_ids: ["a", 4] },
+      { date: "2026-11-17", occasion: "Formal", weather: "Cold", pinned: true, item_ids: ["a", 4] },
       { date: "2026-11-18", occasion: "unknown", pinned: "yes", item_ids: null },
     ]);
     expect(plan.days).toHaveLength(7);
     expect(plan.days[1]).toEqual({
-      date: "2026-11-17", occasion: "Formal", pinned: true, itemIds: ["a"],
+      date: "2026-11-17", occasion: "Formal", weather: "Any weather", pinned: true, itemIds: ["a"],
     });
     expect(plan.days[2].occasion).toBe("Everyday");
     expect(plan.days[2].pinned).toBe(false);
     expect(plan.days[0].weather).toBe("Any weather");
+    expect(plan.days[1].weather).toBe("Cold");
     expect(createEmptyWeeklyPlan("2026-11-16").days.every((day) => !day.itemIds)).toBe(true);
   });
 });
