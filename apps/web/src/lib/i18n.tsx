@@ -487,7 +487,6 @@ const translations: Record<Language, Dictionary> = {
     "Explore Premium": "Ontdek Premium",
     "Sign in to sync your week.": "Meld je aan om je week te synchroniseren.",
     "Your weekly plans are saved securely to your account and available on your other devices.": "Je weekplanningen worden veilig opgeslagen in je account en zijn beschikbaar op je andere apparaten.",
-    "Sign in": "Aanmelden",
     "SWATCHWELL PREMIUM · YOUR WEEK": "SWATCHWELL PREMIUM · JOUW WEEK",
     "A week,": "Een week,",
     "well dressed.": "goed gekleed.",
@@ -496,7 +495,6 @@ const translations: Record<Language, Dictionary> = {
     "Next week": "Volgende week",
     "This week": "Deze week",
     "Loading your week...": "Je week wordt geladen...",
-    "Saving...": "Opslaan...",
     "Synced to your account": "Gesynchroniseerd met je account",
     "Not saved yet": "Nog niet opgeslagen",
     "Generate my week": "Plan mijn week",
@@ -525,7 +523,6 @@ const translations: Record<Language, Dictionary> = {
     "Sign in to check your Premium access and sync your week across devices.": "Meld je aan om je Premium-toegang te controleren en je week op al je apparaten te synchroniseren.",
     "Weather preference": "Weersvoorkeur",
     "Any weather": "Alle weersomstandigheden",
-    "Warm": "Warm",
     "Mild": "Gematigd",
     "Cold": "Koud",
 
@@ -1007,7 +1004,6 @@ const translations: Record<Language, Dictionary> = {
     "Explore Premium": "Découvrir Premium",
     "Sign in to sync your week.": "Connectez-vous pour synchroniser votre semaine.",
     "Your weekly plans are saved securely to your account and available on your other devices.": "Vos plannings hebdomadaires sont enregistrés en toute sécurité dans votre compte et disponibles sur vos autres appareils.",
-    "Sign in": "Se connecter",
     "SWATCHWELL PREMIUM · YOUR WEEK": "SWATCHWELL PREMIUM · VOTRE SEMAINE",
     "A week,": "Une semaine,",
     "well dressed.": "bien habillée.",
@@ -1016,7 +1012,6 @@ const translations: Record<Language, Dictionary> = {
     "Next week": "Semaine suivante",
     "This week": "Cette semaine",
     "Loading your week...": "Chargement de votre semaine...",
-    "Saving...": "Enregistrement...",
     "Synced to your account": "Synchronisé avec votre compte",
     "Not saved yet": "Pas encore enregistré",
     "Generate my week": "Planifier ma semaine",
@@ -1045,7 +1040,6 @@ const translations: Record<Language, Dictionary> = {
     "Sign in to check your Premium access and sync your week across devices.": "Connectez-vous pour vérifier votre accès Premium et synchroniser votre semaine sur tous vos appareils.",
     "Weather preference": "Préférence météo",
     "Any weather": "Toutes conditions météo",
-    "Warm": "Chaud",
     "Mild": "Doux",
     "Cold": "Froid",
 
@@ -1057,7 +1051,6 @@ const translations: Record<Language, Dictionary> = {
     "Open my wardrobe": "Ouvrir ma garde-robe",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
-    "Account storage is not configured.": "Le stockage du compte n'est pas configuré.",
 
   },
   de: {
@@ -1530,7 +1523,6 @@ const translations: Record<Language, Dictionary> = {
     "Explore Premium": "Premium entdecken",
     "Sign in to sync your week.": "Melde dich an, um deine Woche zu synchronisieren.",
     "Your weekly plans are saved securely to your account and available on your other devices.": "Deine Wochenpläne werden sicher in deinem Konto gespeichert und sind auf deinen anderen Geräten verfügbar.",
-    "Sign in": "Anmelden",
     "SWATCHWELL PREMIUM · YOUR WEEK": "SWATCHWELL PREMIUM · DEINE WOCHE",
     "A week,": "Eine Woche,",
     "well dressed.": "gut gekleidet.",
@@ -1539,7 +1531,6 @@ const translations: Record<Language, Dictionary> = {
     "Next week": "Nächste Woche",
     "This week": "Diese Woche",
     "Loading your week...": "Deine Woche wird geladen...",
-    "Saving...": "Wird gespeichert...",
     "Synced to your account": "Mit deinem Konto synchronisiert",
     "Not saved yet": "Noch nicht gespeichert",
     "Generate my week": "Meine Woche planen",
@@ -1568,7 +1559,6 @@ const translations: Record<Language, Dictionary> = {
     "Sign in to check your Premium access and sync your week across devices.": "Melde dich an, um deinen Premium-Zugang zu prüfen und deine Woche auf allen Geräten zu synchronisieren.",
     "Weather preference": "Wetterpräferenz",
     "Any weather": "Jedes Wetter",
-    "Warm": "Warm",
     "Mild": "Mild",
     "Cold": "Kalt",
 
@@ -1580,7 +1570,6 @@ const translations: Record<Language, Dictionary> = {
     "Open my wardrobe": "Meinen Kleiderschrank öffnen",
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
-    "Account storage is not configured.": "Der Kontospeicher ist nicht konfiguriert.",
 
   },
 }
