@@ -86,9 +86,11 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     () => toGeneratorWardrobe(wardrobe),
     [wardrobe],
   );
-  const hasPlannerTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
+  const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
   const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
-  const outfitOptions = useMemo(() => generateOutfits(generatorWardrobe, { limit: 50, ...(season ? { season } : {}) }), [generatorWardrobe, season]);
+  const hasPlannerSweater = generatorWardrobe.some((item) => item.category === "sweater");
+  const hasPlannerShoes = generatorWardrobe.some((item) => item.category === "shoes");
+  const outfitOptions = useMemo(() => generateOutfits(generatorWardrobe, { limit: 50, requireCompleteLayers: true, ...(season ? { season } : {}) }), [generatorWardrobe, season]);
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
     if (!supabase || !userId) {
@@ -419,7 +421,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         <div className="weekly-planner-actions">
           <label className="weekly-planner-repeat">{t("Avoid recent repeats")}<select value={String(repeatAvoidanceWeeks)} onChange={(event) => void changeRepeatAvoidance(event.target.value)} disabled={loading || saving || generating}><option value="0">{t("Off")}</option><option value="2">{t("2 weeks")}</option><option value="4">{t("4 weeks")}</option></select></label>
           <span className="weekly-planner-status">{loading ? t("Loading your week...") : saving ? t("Saving...") : hasSavedPlan ? t("Synced to your account") : t("Not saved yet")}</span>
-          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers}>
+          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes}>
             {generating ? t("Creating your week...") : t("Generate my week")}
           </button>
         </div>
@@ -475,7 +477,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
               {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
                   {[...outfitItems].sort((a, b) => {
-                    const order: Record<string, number> = { shoes: 0, pants: 1, shirt: 2, tshirt: 2, polo: 2, sweater: 3, jacket: 4, accessory: 5 };
+                    const order: Record<string, number> = { sweater: 0, tshirt: 1, pants: 2, shoes: 3, shirt: 4, polo: 4, jacket: 5, accessory: 6 };
                     return (order[a.category] ?? 99) - (order[b.category] ?? 99);
                   }).map((item) => {
                     const wardrobeItem = wardrobe.find((entry) => entry.id === item.id);
