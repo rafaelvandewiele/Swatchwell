@@ -105,16 +105,16 @@ describe("weekly outfit selection", () => {
 
   it("preserves outfits already marked as worn when regenerating the week", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
-    days[0].itemIds = ["shirt-1", "pants-1"];
+    days[0].itemIds = ["tee-1", "sweater-1", "pants-1", "shoes-1"];
     days[0].wornAt = "2026-11-16T08:00:00.000Z";
     const result = generateWeeklyOutfits(wardrobe, undefined, days);
-    expect(result.days[0].itemIds).toEqual(["shirt-1", "pants-1"]);
+    expect(result.days[0].itemIds).toEqual(["tee-1", "sweater-1", "pants-1", "shoes-1"]);
     expect(result.days[0].wornAt).toBe("2026-11-16T08:00:00.000Z");
   });
 
   it("avoids complete outfits used in recent history when alternatives exist", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
-    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["shirt-1", "pants-1", "shoes-1"] }];
+    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["tee-1", "sweater-1", "pants-1", "shoes-1"] }];
     const result = generateWeeklyOutfits(wardrobe, undefined, days, history);
     expect(result.days[0].itemIds?.slice().sort().join("-")).not.toBe("pants-1-shirt-1-shoes-1");
     expect(result.repeatConflicts).toHaveLength(0);
@@ -122,17 +122,17 @@ describe("weekly outfit selection", () => {
 
   it("renders a saved outfit from owned wardrobe items even when it is not a current top-ranked suggestion", () => {
     const day = createEmptyWeeklyPlan("2026-11-16").days[0];
-    day.itemIds = ["shirt-1", "pants-1", "shoes-1"];
+    day.itemIds = ["tee-1", "sweater-1", "pants-1", "shoes-1"];
     const items = getOutfitForDay(day, wardrobe);
-    expect(items.map((item) => item.id).sort()).toEqual(["pants-1", "shirt-1", "shoes-1"]);
+    expect(items.map((item) => item.id).sort()).toEqual(["pants-1", "shoes-1", "sweater-1", "tee-1"]);
   });
 
   it("lets the user assign a chosen complete outfit to one day without changing other days", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     days[0].occasion = "Formal";
     days[1].itemIds = ["shirt-2", "pants-2"];
-    const assigned = assignOutfitToDay(days, 0, ["shirt-1", "pants-1", "shoes-1"]);
-    expect(assigned[0].itemIds).toEqual(["shirt-1", "pants-1", "shoes-1"]);
+    const assigned = assignOutfitToDay(days, 0, ["tee-1", "sweater-1", "pants-1", "shoes-1"]);
+    expect(assigned[0].itemIds).toEqual(["tee-1", "sweater-1", "pants-1", "shoes-1"]);
     expect(assigned[0].occasion).toBe("Formal");
     expect(assigned[1].itemIds).toEqual(["shirt-2", "pants-2"]);
     expect(() => assignOutfitToDay(days, 0, ["shirt-1"])).toThrow();
