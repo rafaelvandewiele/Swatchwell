@@ -62,6 +62,12 @@ describe('curated colour combinations', () => {
     expect(matchingShirts).not.toContain('Light pink');
     expect(matchingShirts).not.toContain('Light blue');
     expect(matchingShirts.length).toBeLessThan(8);
+
+    const lightGreyShirt = matchingShirts.find((name) => name === 'Light grey');
+    expect(lightGreyShirt).toBeDefined();
+    const shirt = getMatchingShirtColours('upper', forestGreen!.hex).find((colour) => colour.name === lightGreyShirt);
+    const remainingTrousers = getMatchingThirdColours('upper', forestGreen!.hex, shirt!.hex);
+    expect(remainingTrousers.length).toBeLessThan(getFirstColourOptions('trousers').length);
   });
 
   it('assigns selected colours to the correct garment previews', () => {
