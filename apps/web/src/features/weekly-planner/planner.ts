@@ -301,3 +301,15 @@ export function regenerateDayOutfit(
 export function canAccessPremiumPlanner(isAuthenticated: boolean, isPremium: boolean): boolean {
   return isAuthenticated && isPremium;
 }
+
+export function assignOutfitToDay(days: PlannedDay[], index: number, itemIds: string[]): PlannedDay[] {
+  if (!Number.isInteger(index) || index < 0 || index >= days.length) {
+    throw new RangeError("The target day is outside the weekly plan.");
+  }
+  if (itemIds.length < 2 || new Set(itemIds).size !== itemIds.length) {
+    throw new RangeError("A complete outfit must contain at least two distinct wardrobe items.");
+  }
+  return days.map((day, dayIndex) => dayIndex === index
+    ? { ...day, itemIds: [...itemIds], pinned: false, wornAt: null }
+    : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
+}
