@@ -32,7 +32,7 @@ describe("weekly planner date helpers", () => {
     ]);
     expect(plan.days).toHaveLength(7);
     expect(plan.days[1]).toEqual({
-      date: "2026-11-17", occasion: "Formal", weather: "Any weather", pinned: true, itemIds: ["a"],
+      date: "2026-11-17", occasion: "Formal", weather: "Cold", pinned: true, itemIds: ["a"],
     });
     expect(plan.days[2].occasion).toBe("Everyday");
     expect(plan.days[2].pinned).toBe(false);
