@@ -82,7 +82,7 @@ function reconcileSavedOutfits(
       );
 
     const hasTop = items.some((item) =>
-      ["shirt", "tshirt", "polo"].includes(item.category),
+      item.category === "tshirt",
     );
 
     const hasTrousers = items.some(
@@ -90,7 +90,7 @@ function reconcileSavedOutfits(
     );
 
     // Keep only favourites that still form a complete outfit.
-    if (!hasTop || !hasTrousers) {
+    if (!hasTop || !hasTrousers || !hasSweater || !hasShoes) {
       return [];
     }
 
