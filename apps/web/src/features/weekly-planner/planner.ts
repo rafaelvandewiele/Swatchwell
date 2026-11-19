@@ -294,3 +294,7 @@ export function regenerateDayOutfit(
     : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
   return { days, candidates, repeatConflict: Boolean(selected && recentOutfits.has(selected.id)) };
 }
+
+export function canAccessPremiumPlanner(isAuthenticated: boolean, isPremium: boolean): boolean {
+  return isAuthenticated && isPremium;
+}
