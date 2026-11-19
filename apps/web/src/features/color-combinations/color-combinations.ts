@@ -40,7 +40,7 @@ const colours = {
 } satisfies Record<string, GarmentColour>;
 
 const upperColours = [
-  colours.offWhite, colours.black, colours.lightGrey, colours.midGrey,
+  colours.offWhite, colours.black, colours.lightGrey, colours.charcoal,
   colours.white, colours.lightPink, colours.darkBrown, colours.navy,
   colours.charcoal, colours.slateBlue, colours.camel, colours.olive,
   colours.forestGreen, colours.burgundy, colours.beige, colours.cream,
