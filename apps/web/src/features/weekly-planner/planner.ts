@@ -12,9 +12,13 @@ export const PLANNER_OCCASIONS = [
 
 export type PlannerOccasion = (typeof PLANNER_OCCASIONS)[number];
 
+export const PLANNER_WEATHER = ["Any weather", "Warm", "Mild", "Cold"] as const;
+export type PlannerWeather = (typeof PLANNER_WEATHER)[number];
+
 export interface PlannedDay {
   date: string;
   occasion: PlannerOccasion;
+  weather: PlannerWeather;
   pinned: boolean;
   itemIds: string[] | null;
 }
@@ -63,10 +67,15 @@ export function createEmptyWeeklyPlan(weekStart: string): WeeklyPlan {
     days: getWeekDates(weekStart).map((date) => ({
       date,
       occasion: "Everyday",
+      weather: "Any weather",
       pinned: false,
       itemIds: null,
     })),
   };
+}
+
+export function isPlannerWeather(value: unknown): value is PlannerWeather {
+  return typeof value === "string" && (PLANNER_WEATHER as readonly string[]).includes(value);
 }
 
 export function isPlannerOccasion(value: unknown): value is PlannerOccasion {
@@ -88,6 +97,7 @@ export function normalizeWeeklyPlan(weekStart: string, value: unknown): WeeklyPl
       return {
         date: day.date,
         occasion: isPlannerOccasion(entry.occasion) ? entry.occasion : "Everyday",
+        weather: isPlannerWeather(entry.weather) ? entry.weather : "Any weather",
         pinned: entry.pinned === true,
         itemIds: Array.isArray(entry.item_ids)
           ? entry.item_ids.filter((id): id is string => typeof id === "string")
@@ -133,15 +143,23 @@ function getOccasionFit(outfit: OutfitRecommendation, occasion: PlannerOccasion)
   }, 0);
 }
 
+function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeather): number {
+  if (weather === "Any weather" || weather === "Mild") return 0;
+  const hasLayer = outfit.items.some((item) => item.category === "sweater" || item.category === "jacket");
+  if (weather === "Cold") return hasLayer ? 2 : -1;
+  return hasLayer ? -2 : 1;
+}
+
 function selectCandidate(
   pool: OutfitRecommendation[],
   usage: Map<string, number>,
-  occasion: PlannerOccasion,
+  day: PlannedDay,
 ): OutfitRecommendation | undefined {
   return [...pool].sort((first, second) => {
     const value = (candidate: OutfitRecommendation) =>
       candidate.score
-      + getOccasionFit(candidate, occasion) * 5
+      + getOccasionFit(candidate, day.occasion) * 5
+      + getWeatherFit(candidate, day.weather) * 4
       - candidate.items.reduce((sum, item) => sum + (usage.get(item.id) ?? 0) * 5, 0);
     return value(second) - value(first) || first.id.localeCompare(second.id);
   })[0];
@@ -190,7 +208,7 @@ export function generateWeeklyOutfits(
       continue;
     }
 
-    const selected = selectCandidate(pool, usage, day.occasion);
+    const selected = selectCandidate(pool, usage, day);
 
     day.itemIds = selected.items.map((item) => item.id);
     usedOutfits.add(selected.id);
@@ -233,7 +251,7 @@ export function regenerateDayOutfit(
 
   const available = candidates.filter((candidate) => !reserved.has(candidate.id));
   const pool = available.length > 0 ? available : candidates;
-  const selected = selectCandidate(pool, usage, currentDays[targetIndex].occasion);
+  const selected = selectCandidate(pool, usage, currentDays[targetIndex]);
 
   const days = currentDays.map((day, index) => index === targetIndex
     ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false }
