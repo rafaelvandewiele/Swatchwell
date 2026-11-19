@@ -530,6 +530,9 @@ const translations: Record<Language, Dictionary> = {
     "Cold": "Koud",
     "Formal": "Formeel",
 
+    "Weekly planner": "Weekplanner",
+    "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Je planning wordt opgeslagen in je Swatchwell-account en synchroniseert tussen apparaten. Vastgezette outfits blijven behouden wanneer je de week opnieuw plant. Het dagtype en de temperatuurvoorkeur beïnvloeden de outfitkeuze. De temperatuur is een handmatige voorkeur, geen live weersvoorspelling.",
+
   },
   fr: {
 "Choose the final colour": "Choisissez la couleur finale",
@@ -1044,6 +1047,9 @@ const translations: Record<Language, Dictionary> = {
     "Cold": "Froid",
     "Formal": "Formel",
 
+    "Weekly planner": "Planning hebdomadaire",
+    "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Votre planning est enregistré dans votre compte Swatchwell et synchronisé entre vos appareils. Les tenues épinglées restent en place lors d'une nouvelle génération. Le contexte de la journée et la préférence de température influencent le classement. La température est un choix manuel, pas une prévision météo en direct.",
+
   },
   de: {
 "Choose the final colour": "Wähle die letzte Farbe",
@@ -1557,6 +1563,9 @@ const translations: Record<Language, Dictionary> = {
     "Mild": "Mild",
     "Cold": "Kalt",
     "Formal": "Formell",
+
+    "Weekly planner": "Wochenplaner",
+    "Your plan is stored in your Swatchwell account and syncs across devices. Pinned outfits stay in place when you generate the week again. Day context and temperature preference influence the outfit ranking; temperature is a manual preference, not a live weather forecast.": "Dein Plan wird in deinem Swatchwell-Konto gespeichert und geräteübergreifend synchronisiert. Fixierte Outfits bleiben bei einer erneuten Planung erhalten. Tageskontext und Temperaturpräferenz beeinflussen die Outfit-Auswahl. Die Temperatur ist eine manuelle Einstellung und keine aktuelle Wettervorhersage.",
 
   },
 }
