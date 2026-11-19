@@ -115,6 +115,19 @@ describe("Outfit generator", () => {
     expect(results).toEqual([]);
   });
 
+  it("requires a sweater, T-shirt, trousers and shoes for complete layered outfits", () => {
+    const layered: ClothingItem[] = [
+      { id: "tee", name: "White T-shirt", category: "tshirt", color: "#FFFFFF" },
+      { id: "sweater", name: "Navy sweater", category: "sweater", color: "#26364A" },
+      { id: "pants", name: "Beige trousers", category: "pants", color: "#C6AD8A" },
+      { id: "shoes", name: "Brown shoes", category: "shoes", color: "#684B35" },
+    ];
+    const results = generateOutfits(layered, { requireCompleteLayers: true });
+    expect(results.length).toBe(1);
+    expect(results[0].items.map((item) => item.category)).toEqual(["tshirt", "pants", "shoes", "sweater"]);
+    expect(generateOutfits(layered.filter((item) => item.category !== "sweater"), { requireCompleteLayers: true })).toEqual([]);
+  });
+
   it("does not use a sweater as a replacement for a base top", () => {
     const sweaterOnlyWardrobe: ClothingItem[] = [
       {
