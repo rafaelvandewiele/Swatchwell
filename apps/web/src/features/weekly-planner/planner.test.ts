@@ -11,9 +11,18 @@ import {
   normalizeWeeklyPlan,
   regenerateDayOutfit,
   sanitizeWeeklyPlanForWardrobe,
+  canAccessPremiumPlanner,
   parseLocalDate,
   toLocalDateKey,
 } from "./planner";
+
+describe("weekly planner entitlement", () => {
+  it("requires both a signed-in account and Premium entitlement", () => {
+    expect(canAccessPremiumPlanner(false, true)).toBe(false);
+    expect(canAccessPremiumPlanner(true, false)).toBe(false);
+    expect(canAccessPremiumPlanner(true, true)).toBe(true);
+  });
+});
 
 describe("weekly planner date helpers", () => {
   it("uses Monday as the start of the week", () => {
@@ -141,6 +150,17 @@ describe("weekly outfit selection", () => {
       items: [{ id: "sweater", name: "Sweater", category: "sweater" }],
     } as unknown as Parameters<typeof getWeatherFit>[0];
     expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
+  });
+
+  it("reports unavoidable repeats when the wardrobe has only one combination", () => {
+    const minimalWardrobe = [
+      { id: "shirt", name: "Shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "pants", name: "Trousers", category: "pants" as const, color: "#252525" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    const history = [{ ...days[0], date: "2026-11-09", itemIds: ["pants", "shirt"] }];
+    const result = generateWeeklyOutfits(minimalWardrobe, undefined, days, history);
+    expect(result.repeatConflicts.length).toBeGreaterThan(0);
   });
 
   it("returns unassigned days when the wardrobe cannot form any outfit", () => {
