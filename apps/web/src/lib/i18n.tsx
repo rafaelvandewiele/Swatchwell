@@ -562,6 +562,9 @@ const translations: Record<Language, Dictionary> = {
     "Your wardrobe is loaded, but your saved weekly plan could not be reached.": "Je garderobe is geladen, maar je opgeslagen weekplanning kon niet worden opgehaald.",
     "Open my wardrobe": "Open mijn garderobe",
 
+    "PREMIUM MEMBERSHIP": "PREMIUMLIDMAATSCHAP",
+    "Swatchwell Premium": "Swatchwell Premium",
+    "No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it.": "Er is geen andere volledige outfit beschikbaar voor deze dag. Je huidige outfit blijft behouden. Voeg meer verschillende kledingstukken toe om deze dag te vernieuwen.",
   },
   fr: {
     "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Planifiez sept jours de tenues complètes à partir de votre garde-robe. Conservez vos looks préférés et évitez de répéter les mêmes combinaisons.",
@@ -1110,6 +1113,9 @@ const translations: Record<Language, Dictionary> = {
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
 
+    "PREMIUM MEMBERSHIP": "ABONNEMENT PREMIUM",
+    "Swatchwell Premium": "Swatchwell Premium",
+    "No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it.": "Aucune autre tenue complète n’est disponible pour ce jour. Votre tenue actuelle est conservée. Ajoutez davantage de vêtements différents pour pouvoir la renouveler.",
   },
   de: {
     "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Plane sieben Tage mit vollständigen Outfits aus deinem Kleiderschrank. Behalte Lieblingslooks bei und vermeide gleiche Kombinationen.",
@@ -1658,6 +1664,9 @@ const translations: Record<Language, Dictionary> = {
 
     "SWATCHWELL PREMIUM": "SWATCHWELL PREMIUM",
 
+    "PREMIUM MEMBERSHIP": "PREMIUM-MITGLIEDSCHAFT",
+    "Swatchwell Premium": "Swatchwell Premium",
+    "No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it.": "Für diesen Tag ist kein anderes vollständiges Outfit verfügbar. Dein aktuelles Outfit bleibt erhalten. Füge weitere unterschiedliche Kleidungsstücke hinzu, um es zu erneuern.",
   },
 }
 
