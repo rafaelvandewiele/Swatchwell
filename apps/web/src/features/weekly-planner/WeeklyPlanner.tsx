@@ -11,13 +11,12 @@ import {
   generateWeeklyOutfits,
   getMonday,
   getOutfitForDay,
-  getWeekDates,
   getWeekStartKey,
   normalizeWeeklyPlan,
   parseLocalDate,
+  regenerateDayOutfit,
   PLANNER_OCCASIONS,
   type PlannedDay,
-  type WeeklyPlan,
 } from "./planner";
 import "./WeeklyPlanner.css";
 
@@ -249,13 +248,8 @@ export default function WeeklyPlanner({ isPremium, onUpgrade, onSignIn }: Weekly
     setGenerating(true);
     setError("");
     try {
-      const working = days.map((day, dayIndex) => dayIndex === index ? { ...day, itemIds: null } : day);
-      const generated = generateWeeklyOutfits(generatorWardrobe, season, working);
+      const generated = regenerateDayOutfit(generatorWardrobe, season, days, index);
       const next = generated.days;
-      // Keep all other assigned days exactly as they were.
-      next.forEach((day, dayIndex) => {
-        if (dayIndex !== index) day.itemIds = days[dayIndex].itemIds;
-      });
       setDays(next);
       await persist(next);
     } catch (generationError) {
@@ -271,7 +265,6 @@ export default function WeeklyPlanner({ isPremium, onUpgrade, onSignIn }: Weekly
     setWeekStart(getWeekStartKey(date));
   };
 
-  const dateKeys = getWeekDates(weekStart);
   const hasAnyOutfit = days.some((day) => day.itemIds?.length);
 
   if (!isPremium) {
