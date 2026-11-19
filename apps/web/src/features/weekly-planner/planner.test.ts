@@ -89,7 +89,7 @@ describe("weekly outfit selection", () => {
         { id: "shirt", name: "Oxford shirt", category: "shirt" },
         { id: "trousers", name: "Tailored trousers", category: "pants" },
       ],
-    } as Parameters<typeof getOccasionFit>[0];
+    } as unknown as Parameters<typeof getOccasionFit>[0];
     const sportLook = {
       items: [
         { id: "tee", name: "Running tee", category: "tshirt" },
@@ -103,7 +103,7 @@ describe("weekly outfit selection", () => {
   it("uses optional temperature preferences to favour or avoid extra layers", () => {
     const layered = {
       items: [{ id: "sweater", name: "Sweater", category: "sweater" }],
-    } as Parameters<typeof getWeatherFit>[0];
+    } as unknown as Parameters<typeof getWeatherFit>[0];
     expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
   });
 
