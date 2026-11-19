@@ -14,7 +14,23 @@ type Dictionary = Record<string, string>
 
 const translations: Record<Language, Dictionary> = {
   en: {},
+    "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.",
+    "€2.99 per month": "€2.99 per month",
+    "Subscribe to Premium": "Subscribe to Premium",
+    "Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits.": "Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits.",
+    "The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.": "The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.",
+    "Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.": "Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.",
+    "Premium checkout is currently unavailable. Please try again later.": "Premium checkout is currently unavailable. Please try again later.",
+    "Premium checkout could not be started. Please try again.": "Premium checkout could not be started. Please try again.",
   nl: {
+    "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Plan zeven dagen met volledige outfits uit je eigen garderobe. Zet je favoriete looks vast en vermijd herhaling van dezelfde combinatie.",
+    "€2.99 per month": "€2,99 per maand",
+    "Subscribe to Premium": "Neem Premium",
+    "Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits.": "Voeg minstens één T-shirt, trui, broek en paar schoenen toe om volledige outfits te genereren.",
+    "The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.": "De planner heeft minstens één T-shirt, trui, broek en paar schoenen nodig. Voeg de ontbrekende kledingstukken toe aan je garderobe.",
+    "Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.": "Voeg een T-shirt, trui, broek en paar schoenen toe. Swatchwell heeft alle vier nodig voor een volledige outfit.",
+    "Premium checkout is currently unavailable. Please try again later.": "Premium afrekenen is momenteel niet beschikbaar. Probeer het later opnieuw.",
+    "Premium checkout could not be started. Please try again.": "De Premium-betaling kon niet worden gestart. Probeer het opnieuw.",
 "Choose the final colour": "Kies de laatste kleur",
 "Off-white": "Gebroken wit",
 "Dark grey": "Donkergrijs",
@@ -558,6 +574,14 @@ const translations: Record<Language, Dictionary> = {
 
   },
   fr: {
+    "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Planifiez sept jours de tenues complètes à partir de votre garde-robe. Conservez vos looks préférés et évitez de répéter les mêmes combinaisons.",
+    "€2.99 per month": "2,99 € par mois",
+    "Subscribe to Premium": "Passer à Premium",
+    "Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits.": "Ajoutez au moins un T-shirt, un pull, un pantalon et des chaussures pour créer des tenues complètes.",
+    "The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.": "Le planificateur nécessite au moins un T-shirt, un pull, un pantalon et des chaussures. Ajoutez les pièces manquantes à votre garde-robe.",
+    "Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.": "Ajoutez un T-shirt, un pull, un pantalon et des chaussures. Swatchwell a besoin de ces quatre pièces pour composer une tenue complète.",
+    "Premium checkout is currently unavailable. Please try again later.": "Le paiement Premium est actuellement indisponible. Réessayez plus tard.",
+    "Premium checkout could not be started. Please try again.": "Impossible de démarrer le paiement Premium. Veuillez réessayer.",
 "Choose the final colour": "Choisissez la couleur finale",
 "Off-white": "Blanc cassé",
 "Dark grey": "Gris foncé",
@@ -1100,6 +1124,14 @@ const translations: Record<Language, Dictionary> = {
 
   },
   de: {
+    "Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.": "Plane sieben Tage mit vollständigen Outfits aus deinem Kleiderschrank. Behalte Lieblingslooks bei und vermeide gleiche Kombinationen.",
+    "€2.99 per month": "2,99 € pro Monat",
+    "Subscribe to Premium": "Premium abonnieren",
+    "Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits.": "Füge mindestens ein T-Shirt, einen Pullover, eine Hose und Schuhe hinzu, um vollständige Outfits zu erstellen.",
+    "The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.": "Der Planer benötigt mindestens ein T-Shirt, einen Pullover, eine Hose und Schuhe. Ergänze die fehlenden Kleidungsstücke.",
+    "Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.": "Füge ein T-Shirt, einen Pullover, eine Hose und Schuhe hinzu. Swatchwell benötigt alle vier Teile für ein vollständiges Outfit.",
+    "Premium checkout is currently unavailable. Please try again later.": "Der Premium-Kauf ist derzeit nicht verfügbar. Bitte versuche es später erneut.",
+    "Premium checkout could not be started. Please try again.": "Der Premium-Kauf konnte nicht gestartet werden. Bitte versuche es erneut.",
 "Choose the final colour": "Wähle die letzte Farbe",
 "Off-white": "Cremeweiß",
 "Dark grey": "Dunkelgrau",
