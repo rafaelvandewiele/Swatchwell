@@ -23,15 +23,21 @@ const colours = {
   darkBrown: { name: 'Dark brown', hex: '#514035' },
   burgundy: { name: 'Burgundy', hex: '#713F4B' },
   beige: { name: 'Beige', hex: '#D7C5A8' },
-  white: { name: 'White', hex: '#F5F2EA' },
+  white: { name: 'White', hex: '#FFFFFF' },
   ivory: { name: 'Ivory', hex: '#EEE7D8' },
   cream: { name: 'Cream', hex: '#E8DDC8' },
+  creamWhite: { name: 'Cream white', hex: '#F2EBDD' },
   paleBlue: { name: 'Pale blue', hex: '#B8CAD8' },
+  lightBlue: { name: 'Light blue', hex: '#B9D0E2' },
   dustyRose: { name: 'Dusty rose', hex: '#C58F91' },
+  lightPink: { name: 'Light pink', hex: '#E8C4C7' },
   stone: { name: 'Stone', hex: '#C8BDAA' },
-  midGrey: { name: 'Mid grey', hex: '#858783' },
-  lightGrey: { name: 'Light grey', hex: '#B7B8B3' },
+  lightGrey: { name: 'Light grey', hex: '#C9CBC8' },
+  darkGrey: { name: 'Dark grey', hex: '#62666A' },
   taupe: { name: 'Taupe', hex: '#93877A' },
+  black: { name: 'Black', hex: '#252525' },
+  brown: { name: 'Brown', hex: '#76543F' },
+  darkGreen: { name: 'Dark green', hex: '#355444' },
   lightBlueJeans: { name: 'Light blue jeans', hex: '#A9C7DF' },
   midBlueJeans: { name: 'Mid-blue jeans', hex: '#52799B' },
   darkBlueJeans: { name: 'Dark blue jeans', hex: '#243F5B' },
@@ -43,7 +49,7 @@ const palettes = [
     note: 'A classic, versatile palette with clean neutrals and balanced blue tones.',
     uppers: [colours.navy, colours.charcoal, colours.slateBlue, colours.camel],
     shirts: [colours.white, colours.paleBlue, colours.cream, colours.dustyRose],
-    trousers: [colours.stone, colours.midGrey, colours.beige, colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans],
+    trousers: [colours.stone, colours.lightGrey, colours.darkGrey, colours.beige, colours.lightBlueJeans, colours.midBlueJeans, colours.darkBlueJeans],
   },
   {
     id: 'earth',
@@ -57,15 +63,45 @@ const palettes = [
     note: 'A refined mix of understated accent colours, cool neutrals and denim.',
     uppers: [colours.burgundy, colours.charcoal, colours.beige, colours.slateBlue],
     shirts: [colours.white, colours.ivory, colours.paleBlue, colours.dustyRose],
-    trousers: [colours.charcoal, colours.navy, colours.taupe, colours.midGrey, colours.midBlueJeans, colours.darkBlueJeans],
+    trousers: [colours.charcoal, colours.navy, colours.taupe, colours.lightGrey, colours.darkGrey, colours.midBlueJeans, colours.darkBlueJeans],
+  },
+  {
+    id: 'modern-neutrals',
+    note: 'A modern neutral palette pairing soft pinks, crisp whites, greys and grounded earth tones.',
+    uppers: [
+      colours.creamWhite,
+      colours.black,
+      colours.lightGrey,
+      colours.darkGrey,
+      colours.white,
+      colours.lightPink,
+      colours.brown,
+    ],
+    shirts: [
+      colours.lightPink,
+      colours.lightGrey,
+      colours.darkGrey,
+      { name: 'Navy blue', hex: colours.navy.hex },
+      colours.lightBlue,
+      colours.black,
+      colours.brown,
+    ],
+    trousers: [
+      colours.darkGreen,
+      colours.white,
+      colours.lightGrey,
+      colours.darkGrey,
+      colours.lightBlue,
+      colours.black,
+      colours.brown,
+    ],
   },
 ] as const;
 
 /**
  * The catalogue expands curated palette families into individual outfit
  * combinations. Every entry remains a complete upper + shirt + trousers set.
- * The three denim washes are explicit trouser colours and can be selected
- * either as the first garment or as the final garment.
+ * Denim washes are kept separate from the solid light-blue trouser option.
  */
 function buildCuratedCombinations(): CuratedColourCombination[] {
   const combinations: CuratedColourCombination[] = [];
@@ -75,6 +111,9 @@ function buildCuratedCombinations(): CuratedColourCombination[] {
     for (const upper of palette.uppers) {
       for (const shirt of palette.shirts) {
         for (const trousers of palette.trousers) {
+          // Avoid combinations where two garments have exactly the same colour.
+          if (new Set([upper.hex, shirt.hex, trousers.hex]).size !== 3) continue;
+
           const id = [upper.name, shirt.name, trousers.name]
             .map((name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
             .join('-');
