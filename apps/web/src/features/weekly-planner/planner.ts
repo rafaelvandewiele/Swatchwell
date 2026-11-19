@@ -99,6 +99,54 @@ export function normalizeWeeklyPlan(weekStart: string, value: unknown): WeeklyPl
   };
 }
 
+
+function getOccasionFit(outfit: OutfitRecommendation, occasion: PlannerOccasion): number {
+  if (occasion === "Everyday") return 0;
+  return outfit.items.reduce((score, item) => {
+    const text = item.name.toLowerCase();
+    const sporty = /sport|running|run\b|training|gym|athletic|track|performance/.test(text);
+    const formal = /formal|suit|blazer|oxford|dress|loafer|derby|smart/.test(text);
+    let value = 0;
+
+    if (occasion === "Sport") {
+      if (item.category === "tshirt" || item.category === "shoes" || item.category === "accessory") value += 1;
+      if (item.category === "shirt" || item.category === "polo") value -= 1.5;
+      if (sporty) value += 2;
+      if (formal) value -= 2;
+    } else if (occasion === "Formal") {
+      if (item.category === "shirt" || item.category === "pants" || item.category === "jacket") value += 1;
+      if (item.category === "tshirt") value -= 2;
+      if (formal) value += 2;
+      if (sporty) value -= 2;
+    } else if (occasion === "Smart casual") {
+      if (item.category === "shirt" || item.category === "polo" || item.category === "sweater" || item.category === "pants") value += 1;
+      if (item.category === "tshirt") value -= 0.5;
+      if (formal) value += 1;
+      if (sporty) value -= 1;
+    } else if (occasion === "School / work") {
+      if (item.category === "shirt" || item.category === "polo" || item.category === "sweater" || item.category === "pants") value += 1;
+      if (item.category === "tshirt") value -= 0.75;
+      if (formal) value += 0.5;
+      if (sporty) value -= 1;
+    }
+    return score + value;
+  }, 0);
+}
+
+function selectCandidate(
+  pool: OutfitRecommendation[],
+  usage: Map<string, number>,
+  occasion: PlannerOccasion,
+): OutfitRecommendation | undefined {
+  return [...pool].sort((first, second) => {
+    const value = (candidate: OutfitRecommendation) =>
+      candidate.score
+      + getOccasionFit(candidate, occasion) * 5
+      - candidate.items.reduce((sum, item) => sum + (usage.get(item.id) ?? 0) * 5, 0);
+    return value(second) - value(first) || first.id.localeCompare(second.id);
+  })[0];
+}
+
 export function generateWeeklyOutfits(
   wardrobe: ClothingItem[],
   season: ColorSeason | undefined,
@@ -142,13 +190,7 @@ export function generateWeeklyOutfits(
       continue;
     }
 
-    const selected = [...pool].sort((first, second) => {
-      const cost = (candidate: OutfitRecommendation) => {
-        const reuse = candidate.items.reduce((sum, item) => sum + (usage.get(item.id) ?? 0), 0);
-        return candidate.score - reuse * 5;
-      };
-      return cost(second) - cost(first) || first.id.localeCompare(second.id);
-    })[0];
+    const selected = selectCandidate(pool, usage, day.occasion);
 
     day.itemIds = selected.items.map((item) => item.id);
     usedOutfits.add(selected.id);
@@ -191,11 +233,7 @@ export function regenerateDayOutfit(
 
   const available = candidates.filter((candidate) => !reserved.has(candidate.id));
   const pool = available.length > 0 ? available : candidates;
-  const selected = [...pool].sort((first, second) => {
-    const value = (candidate: OutfitRecommendation) =>
-      candidate.score - candidate.items.reduce((sum, item) => sum + (usage.get(item.id) ?? 0) * 5, 0);
-    return value(second) - value(first) || first.id.localeCompare(second.id);
-  })[0];
+  const selected = selectCandidate(pool, usage, currentDays[targetIndex].occasion);
 
   const days = currentDays.map((day, index) => index === targetIndex
     ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false }
