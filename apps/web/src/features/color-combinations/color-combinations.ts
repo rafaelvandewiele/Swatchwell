@@ -101,6 +101,44 @@ function coloursWorkTogether(first: GarmentColour, second: GarmentColour): boole
   return shortestDistance <= 42 || shortestDistance >= 165;
 }
 
+function buildCombinationNote(upper: GarmentColour, shirt: GarmentColour, trousers: GarmentColour): string {
+  const garments = [upper, shirt, trousers];
+  const profiles = garments.map((colour) => ({ colour, ...toHsl(colour.hex) }));
+  const neutral = profiles.filter((item) => item.saturation < 0.16);
+  const chromatic = profiles.filter((item) => item.saturation >= 0.16);
+  const hueDistance = (a: number, b: number) => {
+    const difference = Math.abs(a - b);
+    return Math.min(difference, 360 - difference);
+  };
+  const pairs = profiles.flatMap((item, index) =>
+    profiles.slice(index + 1).map((other) => ({
+      first: item.colour,
+      second: other.colour,
+      distance: hueDistance(item.hue, other.hue),
+    })),
+  );
+  const complementaryPair = pairs.find((pair) => pair.distance >= 150);
+  const analogousPair = pairs.find((pair) => pair.distance > 8 && pair.distance <= 42);
+
+  if (chromatic.length === 0) {
+    return `${upper.name}, ${shirt.name} and ${trousers.name} form a neutral palette. The differences in lightness separate the pieces while keeping the outfit calm and versatile.`;
+  }
+  if (neutral.length >= 2) {
+    const accent = chromatic[0].colour;
+    return `${accent.name} is the focal colour, while ${neutral.map((item) => item.colour.name.toLowerCase()).join(" and ")} provide a quiet base. This keeps the accent clear without making the outfit feel busy.`;
+  }
+  if (complementaryPair) {
+    return `${complementaryPair.first.name} and ${complementaryPair.second.name} create the main colour contrast. ${garments.find((item) => item !== complementaryPair.first && item !== complementaryPair.second)!.name} supports that contrast without competing with it.`;
+  }
+  if (analogousPair) {
+    return `${analogousPair.first.name} and ${analogousPair.second.name} sit close on the colour wheel, so they blend naturally. ${garments.find((item) => item !== analogousPair.first && item !== analogousPair.second)!.name} adds separation and keeps the palette defined.`;
+  }
+  if (chromatic.length === 1) {
+    return `${chromatic[0].colour.name} adds colour to a base of ${neutral.map((item) => item.colour.name.toLowerCase()).join(" and ")}. The neutral pieces let the colour stand out while keeping the outfit easy to wear.`;
+  }
+  return `${upper.name}, ${shirt.name} and ${trousers.name} combine different levels of warmth and colour depth. The strongest shade should remain the accent, with the other pieces providing balance.`;
+}
+
 function isBalancedOutfit(upper: GarmentColour, shirt: GarmentColour, trousers: GarmentColour): boolean {
   return coloursWorkTogether(upper, shirt)
     && coloursWorkTogether(upper, trousers)
@@ -117,7 +155,7 @@ for (const upper of upperColours) {
         upper,
         shirt,
         trousers,
-        note: 'A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.',
+        note: buildCombinationNote(upper, shirt, trousers),
       });
     }
   }
