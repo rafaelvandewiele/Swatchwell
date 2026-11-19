@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColorSeason } from "@swatchwell/color-engine";
 import { generateOutfits } from "@swatchwell/outfit-engine";
 import { useI18n, translateCategory } from "../../lib/i18n";
@@ -29,6 +29,7 @@ interface WeeklyPlannerProps {
   isAuthenticated: boolean;
   onUpgrade: () => void;
   onSignIn: () => void;
+  onOpenWardrobe: () => void;
 }
 
 function formatWeekLabel(weekStart: string, language: string): string {
@@ -60,7 +61,7 @@ function toDbDays(days: PlannedDay[]) {
   }));
 }
 
-export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, onSignIn }: WeeklyPlannerProps) {
+export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, onSignIn, onOpenWardrobe }: WeeklyPlannerProps) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
@@ -73,6 +74,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
+  const loadGeneration = useRef(0);
 
   const generatorWardrobe = useMemo(
     () => toGeneratorWardrobe(wardrobe),
@@ -109,7 +111,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
 
   const loadWeek = useCallback(async (id: string, targetWeek: string, isActive: () => boolean) => {
     if (!supabase) return;
+    const request = ++loadGeneration.current;
     setLoading(true);
+    setHasSavedPlan(false);
+    setDays(createEmptyWeeklyPlan(targetWeek).days);
     setError("");
     try {
       const [planResult, styleData] = await Promise.all([
@@ -117,7 +122,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         loadUserStyleData(),
       ]);
       if (planResult.error) throw planResult.error;
-      if (!isActive()) return;
+      if (!isActive() || request !== loadGeneration.current) return;
+      const { data: currentAuth } = await supabase.auth.getUser();
+      if (!isActive() || request !== loadGeneration.current || currentAuth.user?.id !== id) return;
       if (styleData?.userId !== id) throw new Error(t("Your wardrobe could not be loaded. Please refresh."));
       setWardrobe(styleData.wardrobe as StoredWardrobeItem[]);
       setSeason(styleData.colorProfile?.analysis?.season);
@@ -130,9 +137,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       setDays(sanitized);
       setHasSavedPlan(Boolean(planResult.data));
     } catch (loadError) {
-      if (isActive()) setError(loadError instanceof Error ? loadError.message : t("The weekly plan could not be loaded."));
+      if (isActive() && request === loadGeneration.current) setError(loadError instanceof Error ? loadError.message : t("The weekly plan could not be loaded."));
     } finally {
-      if (isActive()) setLoading(false);
+      if (isActive() && request === loadGeneration.current) setLoading(false);
     }
   }, [t]);
 
@@ -164,6 +171,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         setUserId(id);
         if (id) void loadWeek(id, weekStart, isActive);
         else {
+          loadGeneration.current++;
           setDays(createEmptyWeeklyPlan(weekStart).days);
           setWardrobe([]);
           setLoading(false);
@@ -173,6 +181,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     return () => {
       active = false;
       generation++;
+      loadGeneration.current++;
       authListener.subscription.unsubscribe();
     };
   }, [isPremium, weekStart, loadWeek]);
@@ -217,7 +226,11 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   }, [isPremium, userId, weekStart]);
 
   const changeDay = async (index: number, patch: Partial<PlannedDay>) => {
-    const next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
+    let next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
+    const contextChanged = patch.occasion !== undefined || patch.weather !== undefined;
+    if (contextChanged && !days[index].pinned && days[index].itemIds) {
+      next = regenerateDayOutfit(generatorWardrobe, season, next, index).days;
+    }
     setDays(next);
     try {
       await persist(next);
@@ -228,8 +241,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   };
 
   const generateWeek = async () => {
-    if (!generatorWardrobe.length) {
-      setError(t("Add clothes to your wardrobe before creating a weekly plan."));
+    const hasTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
+    const hasTrousers = generatorWardrobe.some((item) => item.category === "pants");
+    if (!hasTop || !hasTrousers) {
+      setError(t("Add at least one top and one pair of trousers to generate complete outfits."));
       return;
     }
     setGenerating(true);
@@ -252,6 +267,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     try {
       const generated = regenerateDayOutfit(generatorWardrobe, season, days, index);
       const next = generated.days;
+      if (!next[index]?.itemIds) throw new Error(t("Your wardrobe does not contain enough pieces for a complete outfit."));
       setDays(next);
       await persist(next);
     } catch (generationError) {
@@ -320,7 +336,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         </div>
         <div className="weekly-planner-actions">
           <span className="weekly-planner-status">{loading ? t("Loading your week...") : saving ? t("Saving...") : hasSavedPlan ? t("Synced to your account") : t("Not saved yet")}</span>
-          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || wardrobe.length === 0}>
+          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category)) || !generatorWardrobe.some((item) => item.category === "pants")}>
             {generating ? t("Creating your week...") : t("Generate my week")}
           </button>
         </div>
@@ -332,6 +348,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         <div className="weekly-planner-empty">
           <h2>{t("Your wardrobe comes first.")}</h2>
           <p>{t("Add a few tops and trousers to your wardrobe. Swatchwell will use those pieces to build complete outfits.")}</p>
+          <button className="primary-button" type="button" onClick={onOpenWardrobe}>{t("Open my wardrobe")}</button>
         </div>
       )}
 
