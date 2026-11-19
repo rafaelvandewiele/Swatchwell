@@ -83,7 +83,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     [wardrobe],
   );
 
-  const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart) => {
+  const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
     if (!supabase || !userId) throw new Error(t("Sign in to save your weekly plan."));
     setSaving(true);
     try {
@@ -93,7 +93,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
           user_id: userId,
           week_start: nextWeekStart,
           days: toDbDays(nextDays),
-          repeat_avoidance_weeks: repeatAvoidanceWeeks,
+          repeat_avoidance_weeks: nextRepeatAvoidanceWeeks,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,week_start" });
       if (saveError) throw saveError;
@@ -141,7 +141,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
         if (typeof item.date !== "string" || !Array.isArray(item.item_ids ?? item.itemIds)) return [];
         const ids = (item.item_ids ?? item.itemIds) as unknown[];
         const itemIds = ids.filter((value): value is string => typeof value === "string" && availableIds.has(value));
-        if (itemIds.length < 2) return [];
+        if (itemIds.length < 2 || itemIds.length !== ids.length) return [];
         return [{ date: item.date, occasion: item.occasion === "Formal" || item.occasion === "Sport" || item.occasion === "Smart casual" || item.occasion === "School / work" ? item.occasion : "Everyday", weather: item.weather === "Warm" || item.weather === "Mild" || item.weather === "Cold" ? item.weather : "Any weather", pinned: item.pinned === true, itemIds, wornAt: typeof item.worn_at === "string" ? item.worn_at : null } as PlannedDay];
       });
       setRecentHistory(historical);
@@ -323,7 +323,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
     const previous = repeatAvoidanceWeeks;
     setRepeatAvoidanceWeeks(next);
     try {
-      await persist(days);
+      await persist(days, weekStart, next);
     } catch (saveError) {
       setRepeatAvoidanceWeeks(previous);
       setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be saved."));
