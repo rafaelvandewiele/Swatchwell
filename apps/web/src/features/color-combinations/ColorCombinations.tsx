@@ -242,7 +242,7 @@ export default function ColorCombinations() {
               <p>{t('Your three selected garments are shown together. Each garment keeps its own selected colour.')}</p>
               <div className="approved-combination-note">
                 <strong>{t('A considered combination')}</strong>
-                <p>{approved.find((item) => (thirdGarment === 'upper' ? item.upper.hex : item.trousers.hex) === thirdColour?.hex)?.note}</p>
+                <p>{t(approved.find((item) => (thirdGarment === 'upper' ? item.upper.hex : item.trousers.hex) === thirdColour?.hex)?.note ?? 'A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.')}</p>
               </div>
             </>
           ) : (
@@ -273,7 +273,7 @@ export default function ColorCombinations() {
               {step === 3 && thirdColour ? (
                 <div className="approved-combination-note">
                   <strong>{t('A considered combination')}</strong>
-                  <p>{approved.find((item) => (thirdGarment === 'upper' ? item.upper.hex : item.trousers.hex) === thirdColour.hex)?.note}</p>
+                  <p>{t(approved.find((item) => (thirdGarment === 'upper' ? item.upper.hex : item.trousers.hex) === thirdColour.hex)?.note ?? 'A balanced combination built around wearable colour relationships, neutral anchors and clear contrast.')}</p>
                 </div>
               ) : null}
             </>
