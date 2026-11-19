@@ -81,14 +81,24 @@ function toHsl(hex: string): { hue: number; saturation: number; lightness: numbe
 function coloursWorkTogether(first: GarmentColour, second: GarmentColour): boolean {
   const a = toHsl(first.hex);
   const b = toHsl(second.hex);
-  // Near-neutral wardrobe staples are reliable bridges between colour families.
-  if (a.saturation < 0.16 || b.saturation < 0.16) return true;
+  const aNeutral = a.saturation < 0.16;
+  const bNeutral = b.saturation < 0.16;
+  const lightnessContrast = Math.abs(a.lightness - b.lightness);
+
+  // Neutrals are useful anchors, not universal wildcards. Require enough
+  // light/dark separation so adjacent garments do not visually disappear.
+  if (aNeutral && bNeutral) {
+    return lightnessContrast >= 0.08 && lightnessContrast <= 0.68;
+  }
+  if (aNeutral || bNeutral) {
+    return lightnessContrast >= 0.14 && lightnessContrast <= 0.74;
+  }
 
   const hueDistance = Math.abs(a.hue - b.hue);
   const shortestDistance = Math.min(hueDistance, 360 - hueDistance);
-  const mutedPair = Math.max(a.saturation, b.saturation) < 0.48;
-  // Permit analogous, split-complementary and complementary relationships.
-  return shortestDistance <= 58 || shortestDistance >= 122 || mutedPair;
+  // Keep only close analogous and clear complementary relationships.
+  // Muted colours are not automatically compatible simply because they are muted.
+  return shortestDistance <= 42 || shortestDistance >= 145;
 }
 
 function isBalancedOutfit(upper: GarmentColour, shirt: GarmentColour, trousers: GarmentColour): boolean {
