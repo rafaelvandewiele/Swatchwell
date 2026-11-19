@@ -30,7 +30,6 @@ interface StoredWardrobeItem extends WardrobeGarment {
 interface WeeklyPlannerProps {
   isPremium: boolean;
   isAuthenticated: boolean;
-  onUpgrade: () => void;
   onSignIn: () => void;
   onOpenWardrobe: () => void;
 }
@@ -65,7 +64,7 @@ function toDbDays(days: PlannedDay[]) {
   }));
 }
 
-export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, onSignIn, onOpenWardrobe }: WeeklyPlannerProps) {
+export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, onOpenWardrobe }: WeeklyPlannerProps) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
@@ -369,16 +368,32 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
 
   const hasAnyOutfit = days.some((day) => day.itemIds?.length);
 
+  const subscribeToPremium = async () => {
+    if (!supabase) {
+      setError(t("Premium checkout is currently unavailable. Please try again later."));
+      return;
+    }
+    try {
+      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
+      if (checkoutError || !data?.url) throw checkoutError ?? new Error("Checkout URL was not returned.");
+      window.location.assign(data.url);
+    } catch {
+      setError(t("Premium checkout could not be started. Please try again."));
+    }
+  };
+
   if (!canAccessPremiumPlanner(isAuthenticated, isPremium)) {
     return (
-      <div className="page-content weekly-planner-page">
-        <section className="weekly-planner-gate">
+      <div className="page-content weekly-planner-page premium-required">
+        <section className="premium-required-card weekly-planner-premium-card">
+          <span className="premium-required-lock">🔒</span>
           <div className="eyebrow">{t("SWATCHWELL PREMIUM")}</div>
           <h1>{t("Your week, thoughtfully planned.")}</h1>
-          <p>{isAuthenticated
-            ? t("Plan seven days of outfits from your own wardrobe, keep favourite days in place and avoid repeating the same look unnecessarily.")
-            : t("Sign in to check your Premium access and sync your week across devices.")}</p>
-          <button className="primary-button" type="button" onClick={isAuthenticated ? onUpgrade : onSignIn}>{isAuthenticated ? t("Explore Premium") : t("Sign in")}</button>
+          <p>{t("Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
+          <strong>{t("€2.99 per month")}</strong>
+          {isAuthenticated
+            ? <button className="primary-button" type="button" onClick={() => void subscribeToPremium()}>{t("Subscribe to Premium")} <span>→</span></button>
+            : <button className="primary-button" type="button" onClick={onSignIn}>{t("Sign in")}</button>}
         </section>
       </div>
     );
@@ -434,7 +449,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       {!loading && wardrobe.length === 0 && (
         <div className="weekly-planner-empty">
           <h2>{t("Your wardrobe comes first.")}</h2>
-          <p>{t("Add a few tops and trousers to your wardrobe. Swatchwell will use those pieces to build complete outfits.")}</p>
+          <p>{t("Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.")}</p>
           <button className="primary-button" type="button" onClick={onOpenWardrobe}>{t("Open my wardrobe")}</button>
         </div>
       )}
