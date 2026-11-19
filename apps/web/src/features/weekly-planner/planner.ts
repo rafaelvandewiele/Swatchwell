@@ -238,8 +238,8 @@ export function generateWeeklyOutfits(
     if ((day.pinned || day.wornAt) && day.itemIds) continue;
 
     const unassigned = validCandidates.filter((candidate) => !usedOutfits.has(getOutfitCoreKey(candidate.items)));
-    const noRecentRepeat = unassigned.filter((candidate) => !recentOutfits.has(candidate.id));
-    const pool = noRecentRepeat.length > 0 ? noRecentRepeat : unassigned.length > 0 ? unassigned : validCandidates;
+    const noRecentRepeat = unassigned.filter((candidate) => !recentOutfits.has(getOutfitCoreKey(candidate.items)));
+    const pool = noRecentRepeat.length > 0 ? noRecentRepeat : unassigned;
     if (pool.length === 0) {
       day.itemIds = null;
       continue;
@@ -319,7 +319,7 @@ export function regenerateDayOutfit(
 
   const available = candidates.filter((candidate) => !reserved.has(getOutfitCoreKey(candidate.items)));
   const nonRecent = available.filter((candidate) => !recentOutfits.has(candidate.id));
-  const pool = nonRecent.length > 0 ? nonRecent : available.length > 0 ? available : candidates;
+  const pool = nonRecent.length > 0 ? nonRecent : available;
   const selected = selectCandidate(pool, usage, currentDays[targetIndex]);
 
   const days = currentDays.map((day, index) => index === targetIndex
