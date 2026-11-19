@@ -13,6 +13,8 @@ import {
   normalizeWeeklyPlan,
   parseLocalDate,
   regenerateDayOutfit,
+  sanitizeWeeklyPlanForWardrobe,
+  canAccessPremiumPlanner,
   PLANNER_OCCASIONS,
   PLANNER_WEATHER,
   type PlannedDay,
@@ -131,10 +133,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       setSeason(styleData.colorProfile?.analysis?.season);
       const availableIds = new Set((styleData.wardrobe as StoredWardrobeItem[]).map((item) => item.id));
       const normalized = normalizeWeeklyPlan(targetWeek, planResult.data?.days);
-      const sanitized = normalized.days.map((day) => {
-        if (!day.itemIds || day.itemIds.every((itemId) => availableIds.has(itemId))) return day;
-        return { ...day, itemIds: null, pinned: false, wornAt: null };
-      });
+      const sanitized = sanitizeWeeklyPlanForWardrobe(normalized, availableIds).days;
       const historical = (historyResult.data ?? []).flatMap((row) => Array.isArray(row.days) ? row.days : []).flatMap((entry) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
         const item = entry as Record<string, unknown>;
@@ -244,7 +243,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
       let next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
       const contextChanged = patch.occasion !== undefined || patch.weather !== undefined;
       if (contextChanged && !days[index].pinned && !days[index].wornAt && days[index].itemIds) {
-        next = regenerateDayOutfit(generatorWardrobe, season, next, index).days;
+        const cutoff = parseLocalDate(weekStart);
+        cutoff.setDate(cutoff.getDate() - repeatAvoidanceWeeks * 7);
+        const history = repeatAvoidanceWeeks === 0 ? [] : recentHistory.filter((entry) => parseLocalDate(entry.date) >= cutoff);
+        next = regenerateDayOutfit(generatorWardrobe, season, next, index, history).days;
       }
       setDays(next);
       await persist(next);
@@ -281,7 +283,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
   };
 
   const regenerateDay = async (index: number) => {
-    if (days[index]?.pinned) return;
+    if (days[index]?.pinned || days[index]?.wornAt) return;
     setGenerating(true);
     setError("");
     try {
@@ -341,7 +343,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
 
   const hasAnyOutfit = days.some((day) => day.itemIds?.length);
 
-  if (!isPremium) {
+  if (!canAccessPremiumPlanner(isAuthenticated, isPremium)) {
     return (
       <div className="page-content weekly-planner-page">
         <section className="weekly-planner-gate">
