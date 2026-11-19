@@ -522,6 +522,14 @@ const translations: Record<Language, Dictionary> = {
     "Formal": "Formeel",
     "Sport": "Sport",
 
+    "Sign in to check your Premium access and sync your week across devices.": "Meld je aan om je Premium-toegang te controleren en je week op al je apparaten te synchroniseren.",
+    "Weather preference": "Weersvoorkeur",
+    "Any weather": "Alle weersomstandigheden",
+    "Warm": "Warm",
+    "Mild": "Gematigd",
+    "Cold": "Koud",
+    "Formal": "Formeel",
+
   },
   fr: {
 "Choose the final colour": "Choisissez la couleur finale",
@@ -1028,6 +1036,14 @@ const translations: Record<Language, Dictionary> = {
     "Formal": " Formel",
     "Sport": "Sport",
 
+    "Sign in to check your Premium access and sync your week across devices.": "Connectez-vous pour vérifier votre accès Premium et synchroniser votre semaine sur tous vos appareils.",
+    "Weather preference": "Préférence météo",
+    "Any weather": "Toutes conditions météo",
+    "Warm": "Chaud",
+    "Mild": "Doux",
+    "Cold": "Froid",
+    "Formal": "Formel",
+
   },
   de: {
 "Choose the final colour": "Wähle die letzte Farbe",
@@ -1533,6 +1549,14 @@ const translations: Record<Language, Dictionary> = {
     "Smart casual": "Smart Casual",
     "Formal": "Formell",
     "Sport": "Sport",
+
+    "Sign in to check your Premium access and sync your week across devices.": "Melde dich an, um deinen Premium-Zugang zu prüfen und deine Woche auf allen Geräten zu synchronisieren.",
+    "Weather preference": "Wetterpräferenz",
+    "Any weather": "Jedes Wetter",
+    "Warm": "Warm",
+    "Mild": "Mild",
+    "Cold": "Kalt",
+    "Formal": "Formell",
 
   },
 }
