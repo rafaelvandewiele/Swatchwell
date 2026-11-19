@@ -31,7 +31,6 @@ const colours = {
   dustyRose: { name: 'Dusty rose', hex: '#C58F91' },
   stone: { name: 'Stone', hex: '#C8BDAA' },
   lightGrey: { name: 'Light grey', hex: '#C5C7C5' },
-  midGrey: { name: 'Mid grey', hex: '#858783' },
   taupe: { name: 'Taupe', hex: '#93877A' },
   black: { name: 'Black', hex: '#242424' },
   lightBlueJeans: { name: 'Light blue jeans', hex: '#A9C7DF' },
@@ -47,7 +46,7 @@ const upperColours = [
 ];
 
 const shirtColours = [
-  colours.lightPink, colours.lightGrey, colours.midGrey, colours.navy,
+  colours.lightPink, colours.lightGrey, colours.charcoal, colours.navy,
   colours.paleBlue, colours.black, colours.darkBrown, colours.offWhite,
   colours.white, colours.cream, colours.dustyRose, colours.slateBlue,
 ];
