@@ -156,6 +156,14 @@ export function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeat
   return hasLayer ? -2 : 1;
 }
 
+function getOutfitCoreKey(items: OutfitRecommendation["items"]): string {
+  return items
+    .filter((item) => ["sweater", "tshirt", "pants"].includes(item.category))
+    .map((item) => item.id)
+    .sort()
+    .join("-");
+}
+
 function selectCandidate(
   pool: OutfitRecommendation[],
   usage: Map<string, number>,
@@ -177,20 +185,33 @@ export function generateWeeklyOutfits(
   currentDays: PlannedDay[],
   recentHistory: PlannedDay[] = [],
 ): { days: PlannedDay[]; candidates: OutfitRecommendation[]; repeatConflicts: string[] } {
-  const candidates = generateOutfits(wardrobe, {
+  const rawCandidates = generateOutfits(wardrobe, {
     limit: 50,
+    requireCompleteLayers: true,
     ...(season ? { season } : {}),
+  });
+  // A different pair of shoes does not make an otherwise identical outfit new.
+  const seenCoreOutfits = new Set<string>();
+  const candidates = rawCandidates.filter((outfit) => {
+    const key = getOutfitCoreKey(outfit.items);
+    if (!key || seenCoreOutfits.has(key)) return false;
+    seenCoreOutfits.add(key);
+    return true;
   });
   const availableIds = new Set(wardrobe.map((item) => item.id));
   const validCandidates = candidates.filter((outfit) =>
-    outfit.items.length >= 2 && outfit.items.every((item) => availableIds.has(item.id)),
+    outfit.items.some((item) => item.category === "sweater") &&
+    outfit.items.some((item) => item.category === "tshirt") &&
+    outfit.items.some((item) => item.category === "pants") &&
+    outfit.items.some((item) => item.category === "shoes") &&
+    outfit.items.every((item) => availableIds.has(item.id)),
   );
   const usage = new Map<string, number>();
   const usedOutfits = new Set<string>();
   const recentOutfits = new Set<string>();
   for (const historicalDay of recentHistory) {
     if (!historicalDay.itemIds?.length) continue;
-    const key = [...historicalDay.itemIds].sort().join("-");
+    const key = getOutfitCoreKey(historicalDay.itemIds.map((id) => wardrobe.find((item) => item.id === id)).filter((item): item is ClothingItem => Boolean(item)));
     recentOutfits.add(key);
     historicalDay.itemIds.forEach((id) => usage.set(id, (usage.get(id) ?? 0) + 1));
   }
@@ -201,7 +222,7 @@ export function generateWeeklyOutfits(
   // Pinned days are reserved first so generating the rest never replaces them.
   for (const day of days) {
     if ((!day.pinned && !day.wornAt) || !day.itemIds) continue;
-    const id = [...day.itemIds].sort().join("-");
+    const id = getOutfitCoreKey(day.itemIds.map((itemId) => wardrobe.find((item) => item.id === itemId)).filter((item): item is ClothingItem => Boolean(item)));
     const ownedIds = new Set(wardrobe.map((item) => item.id));
     if (!day.itemIds.every((itemId) => ownedIds.has(itemId))) {
       day.pinned = false;
@@ -216,7 +237,7 @@ export function generateWeeklyOutfits(
   for (const day of days) {
     if ((day.pinned || day.wornAt) && day.itemIds) continue;
 
-    const unassigned = validCandidates.filter((candidate) => !usedOutfits.has(candidate.id));
+    const unassigned = validCandidates.filter((candidate) => !usedOutfits.has(getOutfitCoreKey(candidate.items)));
     const noRecentRepeat = unassigned.filter((candidate) => !recentOutfits.has(candidate.id));
     const pool = noRecentRepeat.length > 0 ? noRecentRepeat : unassigned.length > 0 ? unassigned : validCandidates;
     if (pool.length === 0) {
@@ -232,8 +253,9 @@ export function generateWeeklyOutfits(
 
     day.itemIds = selected.items.map((item) => item.id);
     day.wornAt = null;
-    if (recentOutfits.has(selected.id) || usedOutfits.has(selected.id)) repeatConflicts.push(day.date);
-    usedOutfits.add(selected.id);
+    const selectedCoreKey = getOutfitCoreKey(selected.items);
+    if (recentOutfits.has(selectedCoreKey) || usedOutfits.has(selectedCoreKey)) repeatConflicts.push(day.date);
+    usedOutfits.add(selectedCoreKey);
     selected.items.forEach((item) => usage.set(item.id, (usage.get(item.id) ?? 0) + 1));
   }
 
@@ -272,22 +294,30 @@ export function regenerateDayOutfit(
   if (currentDays[targetIndex].wornAt) {
     return { days: currentDays.map((day) => ({ ...day, itemIds: day.itemIds ? [...day.itemIds] : null })), candidates: [], repeatConflict: false };
   }
-  const candidates = generateOutfits(wardrobe, {
+  const rawCandidates = generateOutfits(wardrobe, {
     limit: 50,
+    requireCompleteLayers: true,
     ...(season ? { season } : {}),
+  });
+  const seenCoreOutfits = new Set<string>();
+  const candidates = rawCandidates.filter((outfit) => {
+    const key = getOutfitCoreKey(outfit.items);
+    if (!key || seenCoreOutfits.has(key)) return false;
+    seenCoreOutfits.add(key);
+    return true;
   });
   const reserved = new Set<string>();
   const usage = new Map<string, number>();
-  const recentOutfits = new Set(recentHistory.filter((day) => day.itemIds?.length).map((day) => [...day.itemIds!].sort().join("-")));
+  const recentOutfits = new Set(recentHistory.filter((day) => day.itemIds?.length).map((day) => getOutfitCoreKey(day.itemIds!.map((id) => wardrobe.find((item) => item.id === id)).filter((item): item is ClothingItem => Boolean(item)))));
   recentHistory.forEach((day) => day.itemIds?.forEach((id) => usage.set(id, (usage.get(id) ?? 0) + 1)));
 
   currentDays.forEach((day, index) => {
     if (index === targetIndex || !day.itemIds?.length) return;
-    reserved.add([...day.itemIds].sort().join("-"));
+    reserved.add(getOutfitCoreKey(day.itemIds.map((id) => wardrobe.find((item) => item.id === id)).filter((item): item is ClothingItem => Boolean(item))));
     day.itemIds.forEach((id) => usage.set(id, (usage.get(id) ?? 0) + 1));
   });
 
-  const available = candidates.filter((candidate) => !reserved.has(candidate.id));
+  const available = candidates.filter((candidate) => !reserved.has(getOutfitCoreKey(candidate.items)));
   const nonRecent = available.filter((candidate) => !recentOutfits.has(candidate.id));
   const pool = nonRecent.length > 0 ? nonRecent : available.length > 0 ? available : candidates;
   const selected = selectCandidate(pool, usage, currentDays[targetIndex]);
@@ -295,7 +325,7 @@ export function regenerateDayOutfit(
   const days = currentDays.map((day, index) => index === targetIndex
     ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false, wornAt: null }
     : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
-  return { days, candidates, repeatConflict: Boolean(selected && (recentOutfits.has(selected.id) || reserved.has(selected.id))) };
+  return { days, candidates, repeatConflict: Boolean(selected && (recentOutfits.has(getOutfitCoreKey(selected.items)) || reserved.has(getOutfitCoreKey(selected.items)))) };
 }
 
 export function canAccessPremiumPlanner(isAuthenticated: boolean, isPremium: boolean): boolean {
