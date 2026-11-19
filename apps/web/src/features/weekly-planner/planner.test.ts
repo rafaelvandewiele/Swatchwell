@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createEmptyWeeklyPlan,
   generateWeeklyOutfits,
+  getOutfitForDay,
   getMonday,
   getWeekDates,
   getWeekStartKey,
@@ -71,6 +72,13 @@ describe("weekly outfit selection", () => {
         expect(day.itemIds.some((id) => id.startsWith("pants"))).toBe(true);
       }
     }
+  });
+
+  it("renders a saved outfit from owned wardrobe items even when it is not a current top-ranked suggestion", () => {
+    const day = createEmptyWeeklyPlan("2026-11-16").days[0];
+    day.itemIds = ["shirt-1", "pants-1", "shoes-1"];
+    const items = getOutfitForDay(day, wardrobe);
+    expect(items.map((item) => item.id).sort()).toEqual(["pants-1", "shirt-1", "shoes-1"]);
   });
 
   it("refreshes one day without changing the other assigned outfits", () => {
