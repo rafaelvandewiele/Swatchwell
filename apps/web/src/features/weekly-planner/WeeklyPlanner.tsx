@@ -366,7 +366,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onUpgrade, o
                 {PLANNER_WEATHER.map((weather) => <option key={weather} value={weather}>{t(weather)}</option>)}
               </select>
 
-              {outfit ? (
+              {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
                   {[...outfitItems].sort((a, b) => {
                     const order: Record<string, number> = { shoes: 0, pants: 1, shirt: 2, tshirt: 2, polo: 2, sweater: 3, jacket: 4, accessory: 5 };
