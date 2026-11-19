@@ -224,11 +224,12 @@ export function generateWeeklyOutfits(
 
 export function getOutfitForDay(
   day: PlannedDay,
-  candidates: OutfitRecommendation[],
-): OutfitRecommendation | null {
-  if (!day.itemIds?.length) return null;
-  const wanted = [...day.itemIds].sort().join("-");
-  return candidates.find((candidate) => [...candidate.items.map((item) => item.id)].sort().join("-") === wanted) ?? null;
+  wardrobe: ClothingItem[],
+): ClothingItem[] {
+  if (!day.itemIds?.length) return [];
+  const byId = new Map(wardrobe.map((item) => [item.id, item]));
+  const items = day.itemIds.map((id) => byId.get(id));
+  return items.every((item): item is ClothingItem => Boolean(item)) ? items : [];
 }
 
 export function regenerateDayOutfit(
