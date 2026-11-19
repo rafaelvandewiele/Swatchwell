@@ -275,7 +275,8 @@ export function sanitizeWeeklyPlanForWardrobe(plan: WeeklyPlan, ownedItemIds: Se
     days: plan.days.map((day) => {
       if (!day.itemIds?.length) return day;
       const items = day.itemIds.map((id) => wardrobeById.get(id));
-      return day.itemIds.every((id) => ownedItemIds.has(id)) && items.every((item): item is ClothingItem => Boolean(item)) && isCompleteLayeredOutfit(items as ClothingItem[])
+      const complete = wardrobe.length === 0 || (items.every((item): item is ClothingItem => Boolean(item)) && isCompleteLayeredOutfit(items as ClothingItem[]));
+      return day.itemIds.every((id) => ownedItemIds.has(id)) && complete
         ? day
         : { ...day, itemIds: null, pinned: false, wornAt: null };
     }),
