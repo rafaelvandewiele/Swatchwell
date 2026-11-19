@@ -166,3 +166,39 @@ export function getOutfitForDay(
   const wanted = [...day.itemIds].sort().join("-");
   return candidates.find((candidate) => [...candidate.items.map((item) => item.id)].sort().join("-") === wanted) ?? null;
 }
+
+export function regenerateDayOutfit(
+  wardrobe: ClothingItem[],
+  season: ColorSeason | undefined,
+  currentDays: PlannedDay[],
+  targetIndex: number,
+): { days: PlannedDay[]; candidates: OutfitRecommendation[] } {
+  if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= currentDays.length) {
+    throw new RangeError("The target day is outside the weekly plan.");
+  }
+  const candidates = generateOutfits(wardrobe, {
+    limit: 50,
+    ...(season ? { season } : {}),
+  });
+  const reserved = new Set<string>();
+  const usage = new Map<string, number>();
+
+  currentDays.forEach((day, index) => {
+    if (index === targetIndex || !day.itemIds?.length) return;
+    reserved.add([...day.itemIds].sort().join("-"));
+    day.itemIds.forEach((id) => usage.set(id, (usage.get(id) ?? 0) + 1));
+  });
+
+  const available = candidates.filter((candidate) => !reserved.has(candidate.id));
+  const pool = available.length > 0 ? available : candidates;
+  const selected = [...pool].sort((first, second) => {
+    const value = (candidate: OutfitRecommendation) =>
+      candidate.score - candidate.items.reduce((sum, item) => sum + (usage.get(item.id) ?? 0) * 5, 0);
+    return value(second) - value(first) || first.id.localeCompare(second.id);
+  })[0];
+
+  const days = currentDays.map((day, index) => index === targetIndex
+    ? { ...day, itemIds: selected ? selected.items.map((item) => item.id) : null, pinned: false }
+    : { ...day, itemIds: day.itemIds ? [...day.itemIds] : null });
+  return { days, candidates };
+}
