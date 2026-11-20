@@ -25,6 +25,7 @@ interface ClothingItem {
   notes: string
   imageKey: string
   createdAt: number
+  purchasePrice?: number
 }
 
 interface Draft {
@@ -34,6 +35,7 @@ interface Draft {
   extraColors: string[]
   brand: string
   notes: string
+  purchasePrice: string
   image: File | null
 }
 
@@ -55,6 +57,7 @@ const emptyDraft: Draft = {
   extraColors: [],
   brand: '',
   notes: '',
+  purchasePrice: '',
   image: null,
 }
 
@@ -180,6 +183,7 @@ export default function Wardrobe() {
       extraColors: item.extraColors ?? [],
       brand: item.brand,
       notes: item.notes,
+      purchasePrice: item.purchasePrice === undefined ? "" : String(item.purchasePrice),
       image: null,
     })
     setError('')
@@ -219,6 +223,7 @@ export default function Wardrobe() {
         notes: draft.notes.trim(),
         imageKey,
         createdAt: existing?.createdAt ?? Date.now(),
+        ...(draft.purchasePrice.trim() !== "" ? { purchasePrice: Number(draft.purchasePrice) } : {}),
       }
 
       const next = existing
@@ -527,6 +532,12 @@ export default function Wardrobe() {
                 + {t('Add another colour')}
               </button>
             </div>
+
+            <label className="wardrobe-field">
+              <span>{t("PURCHASE PRICE (EUR, OPTIONAL)")}</span>
+              <input type="number" min="0" step="0.01" value={draft.purchasePrice} onChange={(event) => setDraft({ ...draft, purchasePrice: event.target.value })} placeholder="0.00" />
+              <small className="wardrobe-field-hint">{t("Used only for your private cost-per-wear insights.")}</small>
+            </label>
 
             <label className="wardrobe-field">
               <span>{t('NOTES')}</span>
