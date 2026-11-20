@@ -10,7 +10,7 @@ export interface ManualEssential { id:string; name:string; packed:boolean; }
 export interface TravelPlan { id:string; input:TripInput; entries:PackingEntry[]; days:TripDay[]; essentials:ManualEssential[]; createdAt:string; updatedAt:string; }
 
 export function inclusiveTripDays(start:string,end:string):string[] {
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(start)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(end))return [];
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end))return [];
  const a=new Date(start+"T12:00:00"),b=new Date(end+"T12:00:00");
  if(!Number.isFinite(a.getTime())||!Number.isFinite(b.getTime())||b<a)return [];
  const result:string[]=[];const d=new Date(a);
