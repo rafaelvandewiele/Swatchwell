@@ -18,6 +18,7 @@ import { getSeasonLabel } from "../color-profile/color-profile";
 
 import {
   toGeneratorWardrobe,
+  sortOutfitLayers,
   type WardrobeGarment,
 } from "../wardrobe/wardrobe-adapter";
 
@@ -128,29 +129,6 @@ function reconcileSavedOutfits(
   });
 }
 
-function getOutfitDisplayOrder(category: string): number {
-  const order: Record<string, number> = {
-    sweater: 0,
-    tshirt: 1,
-    pants: 2,
-    shoes: 3,
-    shirt: 4,
-    polo: 4,
-    jacket: 5,
-    accessory: 6,
-  };
-
-  return order[category] ?? 99;
-}
-
-function sortOutfitItems(items: OutfitRecommendation["items"]) {
-  return [...items].sort(
-    (a, b) =>
-      getOutfitDisplayOrder(a.category) -
-      getOutfitDisplayOrder(b.category),
-  );
-}
-
 function OutfitCard({
   outfit,
   index,
@@ -188,7 +166,7 @@ function OutfitCard({
       </div>
 
       <div className="outfit-items">
-        {sortOutfitItems(outfit.items).map((item) => (
+        {sortOutfitLayers(outfit.items).map((item) => (
           <div className="outfit-item" key={item.id}>
             <div className="outfit-item-visual">
               {photoUrls[item.id] ? (
