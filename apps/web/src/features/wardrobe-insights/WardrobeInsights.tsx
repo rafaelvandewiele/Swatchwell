@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { generateOutfits } from "@swatchwell/outfit-engine";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import { useI18n, translateCategory } from "../../lib/i18n";
 import { loadUserStyleData } from "../../lib/user-style-data";
@@ -60,7 +61,7 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
     }
     let active = true;
     let generation = 0;
-    let channel: ReturnType<NonNullable<typeof supabase>["channel"]> | null = null;
+    let channel: RealtimeChannel | null = null;
 
     const load = async () => {
       const current = ++generation;
