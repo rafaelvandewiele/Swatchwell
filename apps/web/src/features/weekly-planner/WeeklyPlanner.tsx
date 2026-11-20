@@ -70,7 +70,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const [userId, setUserId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
-  const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);\n  const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
+  const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
+  const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
   const [season, setSeason] = useState<ColorSeason | undefined>();
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
