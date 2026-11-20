@@ -36,6 +36,14 @@ describe("wardrobe insights calculations", () => {
     expect(result.find((x) => x.item.id === "shoes")?.lastWorn).toBe("2026-11-08");
   });
 
+  it("keeps garments with no recorded wear visible without inventing a cost per wear", () => {
+    const result = buildGarmentInsights([{ id: "new", name: "New piece", category: "Shirts", color: "#000000", purchasePrice: 45 }], [], new Date("2026-11-20T12:00:00Z"));
+    expect(result[0].wearCount).toBe(0);
+    expect(result[0].lastWorn).toBeNull();
+    expect(result[0].daysSinceWorn).toBeNull();
+    expect(result[0].costPerWear).toBeNull();
+  });
+
   it("groups same-day garment events into actual outfit usage", () => {
     expect(buildOutfitUsage(events)).toEqual([
       { date: "2026-11-08", itemIds: ["shoes", "shirt", "trousers"], count: 3 },
