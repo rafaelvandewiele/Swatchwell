@@ -18,6 +18,7 @@ import { getSeasonLabel } from "../color-profile/color-profile";
 
 import {
   toGeneratorWardrobe,
+  sortOutfitLayers,
   type WardrobeGarment,
 } from "../wardrobe/wardrobe-adapter";
 
