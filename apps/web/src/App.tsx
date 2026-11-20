@@ -702,7 +702,8 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator isPremium={isPremium} />}
-        {page === "Outfit history" && <OutfitHistory isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}\n        {page === "Travel capsule" && <TravelCapsule isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
+        {page === "Outfit history" && <OutfitHistory isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
+        {page === "Travel capsule" && <TravelCapsule isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Wardrobe insights" && <WardrobeInsights isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}
         {page === "Colour combinations" && <ColorCombinations onSignIn={() => setShowProfile(true)} />}
