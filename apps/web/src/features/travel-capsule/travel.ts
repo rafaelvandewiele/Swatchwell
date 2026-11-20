@@ -26,14 +26,14 @@ export function validateTrip(input:TripInput):string|null {
 }
 export function buildTripOutfits(wardrobe:ClothingItem[],input:TripInput,season?:ColorSeason):TripDay[] {
  const dates=inclusiveTripDays(input.startDate,input.endDate);
- const candidates=generateOutfits(wardrobe,{limit:100,...(season?{season}:{})});
+ const candidates=generateOutfits(wardrobe,{limit:50,...(season?{season}:{})});
  const unique=new Map<string,typeof candidates[number]>();
  for(const candidate of candidates){const key=candidate.items.map(x=>x.id).sort().join("|");if(key&&!unique.has(key))unique.set(key,candidate);}
  const pool=[...unique.values()];
  const usage=new Map<string,number>();let cursor=0;
  return dates.map((date,index)=>{
   const activity=input.activities[index%Math.max(1,input.activities.length)]??input.tripType;
-  const ranked=pool.map((outfit)=>({outfit,score:outfit.score-outfit.items.reduce((n,item)=>n+(usage.get(item.id)??0)*7,0)+(input.dressCode==="Formal"&&outfit.items.some(i=>/shirt|blazer|trouser|loafer|derby/i.test(i.name))?5:0)})).sort((a,b)=>b.score-a.score);
+  const ranked=pool.map((outfit)=>{const names=outfit.items.map(item=>item.name.toLowerCase()).join(" ");const categories=new Set(outfit.items.map(item=>item.category));let context=0;if(/Business meetings/.test(activity)||input.tripType==="business"){context+=(categories.has("shirt")||categories.has("polo")?3:0);context+=(/suit|blazer|formal|tailored|loafer|derby|oxford/.test(names)?4:0);}if(/Hiking/.test(activity)||input.tripType==="outdoor"){context+=(/hiking|trail|outdoor|walking|boot|sneaker/.test(names)?4:0);context+=(/formal|loafer|derby/.test(names)?-3:0);}if(/Beach/.test(activity)||input.tripType==="relaxing"){context+=(/linen|short|light|cotton|sandal/.test(names)?2:0);context+=(/wool|heavy|coat/.test(names)?-3:0);}if(input.dressCode==="Formal")context+=(/shirt|blazer|trouser|loafer|derby|oxford/.test(names)?4:-2);if(input.weather.trim()){const cold=/cold|snow|winter|[0-9]{1,2}°/.test(input.weather);const warm=/warm|hot|summer|2[5-9]°|3[0-9]°/.test(input.weather);context+=cold?(categories.has("sweater")?3:0)+(categories.has("jacket")?3:0):warm?(categories.has("sweater")?-2:0)+(categories.has("jacket")?-2:0):0;}return {outfit,score:outfit.score+context-outfit.items.reduce((n,item)=>n+(usage.get(item.id)??0)*7,0)};}).sort((a,b)=>b.score-a.score);
   const selected=ranked.find(x=>!x.outfit.items.every(item=>(usage.get(item.id)??0)>0))?.outfit??ranked[cursor++%Math.max(1,ranked.length)]?.outfit;
   if(!selected)return {date,activity,itemIds:[]};
   selected.items.forEach(item=>usage.set(item.id,(usage.get(item.id)??0)+1));
