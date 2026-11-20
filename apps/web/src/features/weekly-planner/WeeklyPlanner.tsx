@@ -5,7 +5,7 @@ import { useI18n, translateCategory } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
-import { toGeneratorWardrobe, type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
+import { toGeneratorWardrobe, sortOutfitLayers, type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
 import {
   createEmptyWeeklyPlan,
   generateWeeklyOutfits,
@@ -493,10 +493,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
 
               {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
-                  {[...outfitItems].sort((a, b) => {
-                    const order: Record<string, number> = { sweater: 0, tshirt: 1, pants: 2, shoes: 3, shirt: 4, polo: 4, jacket: 5, accessory: 6 };
-                    return (order[a.category] ?? 99) - (order[b.category] ?? 99);
-                  }).map((item) => {
+                  {sortOutfitLayers(outfitItems).map((item) => {
                     const wardrobeItem = wardrobe.find((entry) => entry.id === item.id);
                     return (
                       <div className="weekly-planner-garment" key={item.id}>
