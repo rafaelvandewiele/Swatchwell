@@ -374,7 +374,7 @@ function App() {
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{t(item.name)}</span>
-              {["Colour combinations", "Weekly planner"].includes(item.name) && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
+              {["Colour combinations", "Weekly planner", "Travel capsule"].includes(item.name) && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
             </button>
           ))}
         </nav>
