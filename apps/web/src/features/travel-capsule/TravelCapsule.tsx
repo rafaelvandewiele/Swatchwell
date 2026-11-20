@@ -1,11 +1,12 @@
 import { useCallback,useEffect,useState } from "react";
 import { generateOutfits } from "@swatchwell/outfit-engine";
 import { useI18n,translateCategory } from "../../lib/i18n";
+import type { ColorSeason } from "@swatchwell/color-engine";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
 import { toGeneratorWardrobe,type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
-import { createTravelPlan,inclusiveTripDays,validateTrip,reconcilePacking,type ManualEssential,type PackingEntry,type TripInput,type TravelPlan,type TripType } from "./travel";
+import { createTravelPlan,validateTrip,reconcilePacking,type ManualEssential,type PackingEntry,type TripInput,type TravelPlan,type TripType } from "./travel";
 import "./travel-capsule.css";
 
 interface Props {isPremium:boolean;isAuthenticated:boolean;onSignIn:()=>void;}
@@ -13,7 +14,7 @@ const initial:TripInput={destination:"",startDate:"",endDate:"",tripType:"city",
 const activityOptions=["Sightseeing","Dining","Business meetings","Beach","Hiking","Events","Travel days"];
 const basicEssentials=["Underwear","Socks","Sleepwear","Toiletries","Phone charger","Travel documents"];
 export default function TravelCapsule({isPremium,isAuthenticated,onSignIn}:Props){
- const {t,language}=useI18n();const [userId,setUserId]=useState<string|null>(null);const [wardrobe,setWardrobe]=useState<WardrobeGarment[]>([]);const [season,setSeason]=useState<any>(undefined);const [photos,setPhotos]=useState<Record<string,string>>({});
+ const {t,language}=useI18n();const [userId,setUserId]=useState<string|null>(null);const [wardrobe,setWardrobe]=useState<WardrobeGarment[]>([]);const [season,setSeason]=useState<ColorSeason|undefined>(undefined);const [photos,setPhotos]=useState<Record<string,string>>({});
  const [input,setInput]=useState<TripInput>(initial);const [plans,setPlans]=useState<TravelPlan[]>([]);const [activeId,setActiveId]=useState<string|null>(null);const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [newEssential,setNewEssential]=useState("");const [selectedWardrobeItem,setSelectedWardrobeItem]=useState("");
  const activePlan=plans.find(plan=>plan.id===activeId)??null;
  const savePlan=useCallback(async(plan:TravelPlan)=>{if(!supabase||!userId)throw new Error(t("Sign in to save your travel plans."));const {error:e}=await supabase.from("user_travel_plans").upsert({id:plan.id,user_id:userId,plan,updated_at:new Date().toISOString()},{onConflict:"id"});if(e)throw e;setPlans(current=>[plan,...current.filter(x=>x.id!==plan.id)]);},[userId,t]);
