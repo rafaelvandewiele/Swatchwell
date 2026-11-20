@@ -57,3 +57,5 @@ with check (user_id=(select auth.uid()) and exists(select 1 from public.profiles
 do $$ begin
  if exists(select 1 from pg_publication where pubname='supabase_realtime') and not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='user_outfit_rotation_settings') then alter publication supabase_realtime add table public.user_outfit_rotation_settings; end if;
 end $$;
+
+-- Idempotent migration: safe to apply once through the Supabase SQL Editor.
