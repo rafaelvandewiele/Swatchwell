@@ -48,3 +48,15 @@ export function toGeneratorWardrobe(
 ): ClothingItem[] {
   return items.map(toGeneratorItem);
 }
+
+export function sortOutfitLayers<T extends { category: string }>(items: readonly T[]): T[] {
+  const order: Record<string, number> = {
+    jacket: 0, Outerwear: 0,
+    sweater: 1, Sweaters: 1, Knitwear: 1,
+    shirt: 2, Shirts: 2, tshirt: 2, "T-shirts": 2, polo: 2, "Polo shirts": 2,
+    pants: 3, Trousers: 3,
+    shoes: 4, Shoes: 4,
+    accessory: 5, Accessories: 5,
+  };
+  return [...items].sort((a, b) => (order[a.category] ?? 99) - (order[b.category] ?? 99));
+}
