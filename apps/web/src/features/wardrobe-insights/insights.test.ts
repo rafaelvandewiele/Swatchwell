@@ -46,14 +46,14 @@ describe("wardrobe insights calculations", () => {
 
   it("groups same-day garment events into actual outfit usage", () => {
     expect(buildOutfitUsage(events)).toEqual([
-      { date: "2026-11-08", itemIds: ["shoes", "shirt", "trousers"], count: 3 },
+      { date: "2026-11-08", itemIds: ["shirt", "shoes", "trousers"], count: 3 },
     ]);
   });
 
   it("builds category and colour distributions without inventing values", () => {
     expect(getCategoryDistribution(wardrobe)).toEqual([
-      { category: "Shoes", count: 1 },
       { category: "Shirts", count: 1 },
+      { category: "Shoes", count: 1 },
       { category: "Trousers", count: 1 },
     ]);
     expect(getColourDistribution(wardrobe)).toEqual([
