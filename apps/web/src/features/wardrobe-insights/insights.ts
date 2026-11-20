@@ -3,6 +3,7 @@ export interface InsightGarment {
   name: string;
   category: string;
   color: string;
+  extraColors?: string[];
   purchasePrice?: number;
 }
 
@@ -85,7 +86,7 @@ export function getCategoryDistribution(wardrobe: InsightGarment[]) {
 export function getColourDistribution(wardrobe: InsightGarment[]) {
   const counts = new Map<string, number>();
   for (const item of wardrobe) {
-    for (const colour of [item.color, ...((item as InsightGarment & { extraColors?: string[] }).extraColors ?? [])]) {
+    for (const colour of [item.color, ...(item.extraColors ?? [])]) {
       const key = colour.toUpperCase();
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
