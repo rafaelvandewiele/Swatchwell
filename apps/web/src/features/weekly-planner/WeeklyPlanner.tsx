@@ -5,7 +5,7 @@ import { useI18n, translateCategory } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
-import { toGeneratorWardrobe, sortOutfitLayers, type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
+import { toGeneratorWardrobe, type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
 import {
   createEmptyWeeklyPlan,
   generateWeeklyOutfits,
@@ -346,9 +346,34 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   };
 
   const markWorn = async (index: number) => {
-    const next = days.map((day, dayIndex) => dayIndex === index ? { ...day, wornAt: day.wornAt ? null : new Date().toISOString() } : day);
+    const day = days[index];
+    if (!day?.itemIds?.length || !userId || !supabase) return;
+    const undo = Boolean(day.wornAt);
+    const wornAt = undo ? null : new Date().toISOString();
+    const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
     setDays(next);
     await persist(next);
+    try {
+      if (undo) {
+        const { error: deleteError } = await supabase
+          .from("user_garment_wear_events")
+          .delete()
+          .eq("user_id", userId)
+          .eq("worn_on", day.date)
+          .in("item_id", day.itemIds);
+        if (deleteError) throw deleteError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("user_garment_wear_events")
+          .upsert(day.itemIds.map((itemId) => ({ user_id: userId, item_id: itemId, worn_on: day.date })), {
+            onConflict: "user_id,item_id,worn_on",
+            ignoreDuplicates: true,
+          });
+        if (insertError) throw insertError;
+      }
+    } catch {
+      setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
+    }
   };
 
   const changeRepeatAvoidance = async (value: string) => {
@@ -493,7 +518,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
 
               {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
-                  {sortOutfitLayers(outfitItems).map((item) => {
+                  {[...outfitItems].sort((a, b) => {
+                    const order: Record<string, number> = { sweater: 0, tshirt: 1, pants: 2, shoes: 3, shirt: 4, polo: 4, jacket: 5, accessory: 6 };
+                    return (order[a.category] ?? 99) - (order[b.category] ?? 99);
+                  }).map((item) => {
                     const wardrobeItem = wardrobe.find((entry) => entry.id === item.id);
                     return (
                       <div className="weekly-planner-garment" key={item.id}>
