@@ -71,3 +71,53 @@
  .insights-outfit-list span,.insights-event-list span{flex-basis:calc(100% - 110px);}
  .insights-gate{padding:28px 22px;}
 }
+
+/* Match the shared Premium access gate used by the other locked pages. */
+.wardrobe-insights-page.premium-required {
+  min-height: min(70vh, 760px);
+  padding-top: 32px;
+  padding-bottom: 32px;
+  display: grid;
+  place-items: center;
+}
+.wardrobe-insights-page .premium-required-card {
+  width: min(100%, 650px);
+  min-height: 430px;
+  box-sizing: border-box;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 36px rgba(38, 36, 30, .035);
+  text-align: center;
+}
+.wardrobe-insights-page .premium-required-card h1 {
+  max-width: 520px;
+  margin: 12px 0;
+  color: var(--navy);
+  font: 400 clamp(34px, 4vw, 42px) var(--serif);
+  letter-spacing: -1px;
+}
+.wardrobe-insights-page .premium-required-card p {
+  max-width: 470px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wardrobe-insights-page .premium-required-card > strong {
+  display: block;
+  margin: 20px 0;
+  color: var(--navy);
+  font-size: 17px;
+}
+.wardrobe-insights-page .premium-required-card .primary-button {
+  min-width: 190px;
+  margin: 0 auto;
+}
+@media (max-width: 600px) {
+  .wardrobe-insights-page.premium-required { min-height: 60vh; }
+  .wardrobe-insights-page .premium-required-card { min-height: 0; padding: 28px 20px; }
+}
