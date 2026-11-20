@@ -625,7 +625,6 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
                 onToggleSave={() => toggleSavedOutfit(outfit)}
                 onMarkWorn={() => void markOutfitWorn(outfit)}
                 isPremium={isPremium}
-                onMarkWorn={() => void markOutfitWorn(outfit)}
               />
             ))}
           </div>
