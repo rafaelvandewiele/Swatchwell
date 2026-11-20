@@ -5,6 +5,7 @@ import "./App.css";
 import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
 import WeeklyPlanner from "./features/weekly-planner/WeeklyPlanner";
+import WardrobeInsights from "./features/wardrobe-insights/WardrobeInsights";
 import ColorCombinations from "./features/color-combinations/ColorCombinations";
 import ColorProfile from "./features/color-profile/ColorProfile";
 import AuthPanel from "./features/auth/AuthPanel";
@@ -29,6 +30,7 @@ type Page =
   | "Color analysis"
   | "Outfits"
   | "Weekly planner"
+  | "Wardrobe insights"
   | "Colour combinations"
   | "Settings"
   | "Privacy policy"
@@ -42,6 +44,7 @@ const navigation: { name: Page; icon: string }[] = [
   { name: "Color analysis", icon: "◉" },
   { name: "Outfits", icon: "◇" },
   { name: "Weekly planner", icon: "▦" },
+  { name: "Wardrobe insights", icon: "▥" },
   { name: "Colour combinations", icon: "◈" },
 ];
 
@@ -68,7 +71,7 @@ interface DashboardWardrobeItem {
 function App() {
   const { t, language, setLanguage } = useI18n();
   const pageFromPath = (): Page => {
-    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/weekly-planner":"Weekly planner", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/weekly-planner":"Weekly planner", "/wardrobe-insights":"Wardrobe insights", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
     return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
   };
   const [page, setPage] = useState<Page>(pageFromPath);
@@ -213,15 +216,15 @@ function App() {
 
 
   function navigate(name: Page) {
-    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Weekly planner":"/weekly-planner", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Weekly planner":"/weekly-planner", "Wardrobe insights":"/wardrobe-insights", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
     window.history.pushState({}, "", paths[name]);
     setPage(name);
-    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Colour combinations"].includes(name) ? name : "Overview");
+    setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Wardrobe insights", "Colour combinations"].includes(name) ? name : "Overview");
     setShowProfile(false);
   }
 
   useEffect(() => {
-    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Colour combinations"].includes(next) ? next : "Overview"); setShowProfile(false); };
+    const onPopState = () => { const next = pageFromPath(); setPage(next); setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Wardrobe insights", "Colour combinations"].includes(next) ? next : "Overview"); setShowProfile(false); };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -693,6 +696,7 @@ function App() {
 
         {page === "My wardrobe" && <Wardrobe />}
         {page === "Outfits" && <OutfitGenerator />}
+        {page === "Wardrobe insights" && <WardrobeInsights isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}
         {page === "Colour combinations" && <ColorCombinations onSignIn={() => setShowProfile(true)} />}
         {page === "Color analysis" && <ColorProfile />}
