@@ -24,6 +24,10 @@ import {
 import "./WeeklyPlanner.css";
 import { isGarmentAvailable, type GarmentStatusRecord } from "../outfit-history/rotation";
 
+function isMissingRotationMigration(message: string): boolean {
+  return /user_garment_statuses|user_outfit_wear_events|user_outfit_rotation_settings|schema cache|does not exist|42P01|PGRST205/i.test(message);
+}
+
 interface StoredWardrobeItem extends WardrobeGarment {
   imageKey?: string;
 }
@@ -143,7 +147,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       if (styleData?.userId !== id) throw new Error(t("Your wardrobe could not be loaded. Please refresh."));
       setWardrobe(styleData.wardrobe as StoredWardrobeItem[]);
       const { data: statusRows, error: statusError } = await supabase.from("user_garment_statuses").select("item_id,status").eq("user_id", id);
-      if (statusError) throw statusError;
+      if (statusError && !isMissingRotationMigration(statusError.message)) throw statusError;
       setGarmentStatuses((statusRows ?? []) as GarmentStatusRecord[]);
       setSeason(styleData.colorProfile?.analysis?.season);
       const availableIds = new Set((styleData.wardrobe as StoredWardrobeItem[]).map((item) => item.id));
