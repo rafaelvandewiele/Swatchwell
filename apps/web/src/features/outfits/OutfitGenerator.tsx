@@ -137,6 +137,7 @@ function OutfitCard({
   isSaved,
   onToggleSave,
   onMarkWorn,
+  isPremium,
 }: {
   outfit: OutfitRecommendation;
   index: number;
@@ -144,6 +145,7 @@ function OutfitCard({
   isSaved: boolean;
   onToggleSave: () => void;
   onMarkWorn: () => void;
+  isPremium: boolean;
 }) {
   const { t } = useI18n();
 
@@ -212,7 +214,7 @@ function OutfitCard({
         ))}
       </div>
 
-      <button className="outfit-mark-worn-button" type="button" onClick={onMarkWorn}>Mark as worn</button>
+      {isPremium && <button className="outfit-mark-worn-button" type="button" onClick={onMarkWorn}>{t("Mark as worn")}</button>}
 
       <button
         className={`outfit-save-button ${isSaved ? "is-saved" : ""}`}
@@ -227,7 +229,7 @@ function OutfitCard({
   );
 }
 
-export default function OutfitGenerator() {
+export default function OutfitGenerator({ isPremium = false }: { isPremium?: boolean }) {
   const { t } = useI18n();
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
   const [savedOutfits, setSavedOutfits] = useState<StoredOutfit[]>([]);
@@ -375,8 +377,8 @@ export default function OutfitGenerator() {
 
     // Reconcile saved outfits with the current wardrobe.
     const reconciledSavedOutfits = useMemo(
-      () => reconcileSavedOutfits(savedOutfits, wardrobe, season),
-      [savedOutfits, wardrobe, season],
+      () => reconcileSavedOutfits(savedOutfits, wardrobe.filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status, includeUnavailable)), season),
+      [savedOutfits, wardrobe, season, garmentStatuses, includeUnavailable],
     );
 
     // Keep reconciled favourites in the active account.
@@ -491,7 +493,7 @@ export default function OutfitGenerator() {
         </p>
       </section>
 
-      <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> Include unavailable garments</label><label>Avoid recent repeats <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>Off</option><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option></select></label></section>
+      <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>
 
       <section className="outfit-overview">
         <div>
@@ -556,7 +558,7 @@ export default function OutfitGenerator() {
                 onToggleSave={() =>
                   toggleSavedOutfit(saved.outfit)
                 }
-                onMarkWorn={() => void markOutfitWorn(saved.outfit)}
+                onMarkWorn={() => void markOutfitWorn(saved.outfit)}\n                isPremium={isPremium}
               />
             ))}
           </div>
@@ -612,7 +614,7 @@ export default function OutfitGenerator() {
                 photoUrls={photoUrls}
                 isSaved={isOutfitSaved(outfit.id)}
                 onToggleSave={() => toggleSavedOutfit(outfit)}
-                onMarkWorn={() => void markOutfitWorn(outfit)}
+                onMarkWorn={() => void markOutfitWorn(outfit)}\n                isPremium={isPremium}
                 onMarkWorn={() => void markOutfitWorn(outfit)}
               />
             ))}
