@@ -561,7 +561,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
                 onToggleSave={() =>
                   toggleSavedOutfit(saved.outfit)
                 }
-                onMarkWorn={() => void markOutfitWorn(saved.outfit)}\n                isPremium={isPremium}
+                onMarkWorn={() => void markOutfitWorn(saved.outfit)}
+                isPremium={isPremium}
               />
             ))}
           </div>
@@ -617,7 +618,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
                 photoUrls={photoUrls}
                 isSaved={isOutfitSaved(outfit.id)}
                 onToggleSave={() => toggleSavedOutfit(outfit)}
-                onMarkWorn={() => void markOutfitWorn(outfit)}\n                isPremium={isPremium}
+                onMarkWorn={() => void markOutfitWorn(outfit)}
+                isPremium={isPremium}
                 onMarkWorn={() => void markOutfitWorn(outfit)}
               />
             ))}
