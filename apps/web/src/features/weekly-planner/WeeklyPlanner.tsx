@@ -362,6 +362,13 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
           .eq("worn_on", day.date)
           .in("item_id", day.itemIds);
         if (deleteError) throw deleteError;
+        const { error: outfitDeleteError } = await supabase
+          .from("user_outfit_wear_events")
+          .delete()
+          .eq("user_id", userId)
+          .eq("worn_on", day.date)
+          .eq("item_ids", day.itemIds);
+        if (outfitDeleteError) throw outfitDeleteError;
       } else {
         const { error: insertError } = await supabase
           .from("user_garment_wear_events")
@@ -370,6 +377,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
             ignoreDuplicates: true,
           });
         if (insertError) throw insertError;
+        const { error: outfitInsertError } = await supabase
+          .from("user_outfit_wear_events")
+          .insert({ user_id: userId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
+        if (outfitInsertError) throw outfitInsertError;
       }
     } catch {
       setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
