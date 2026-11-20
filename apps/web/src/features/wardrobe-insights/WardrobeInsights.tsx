@@ -211,7 +211,20 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
   };
 
   if (!isPremium) {
-    return <main className="page-content subpage wardrobe-insights-page"><section className="insights-gate"><span className="eyebrow">SWATCHWELL PREMIUM</span><h1>{t("Wardrobe")} <em>{t("insights.")}</em></h1><p>{t("Understand what you wear, rediscover underused pieces and see the value of your wardrobe over time.")}</p>{isAuthenticated ? <button className="primary-button" onClick={() => void checkout()}>{t("Subscribe to Premium")} →</button> : <button className="primary-button" onClick={onSignIn}>{t("Sign in")}</button>}</section></main>;
+    return (
+      <main className="page-content wardrobe-insights-page premium-required">
+        <section className="premium-required-card">
+          <span className="premium-required-lock" aria-hidden="true">🔒</span>
+          <span className="eyebrow">SWATCHWELL PREMIUM</span>
+          <h1>{t("Swatchwell Premium")}</h1>
+          <p>{t("Understand what you wear, rediscover underused pieces and see the value of your wardrobe over time.")}</p>
+          <strong>{language === "nl" ? "€2,99 per maand" : language === "fr" || language === "de" ? "2,99 € per month" : "€2.99 per month"}</strong>
+          {isAuthenticated
+            ? <button type="button" className="primary-button" onClick={() => void checkout()}>{t("Subscribe to Premium")} <span>→</span></button>
+            : <button type="button" className="primary-button" onClick={onSignIn}>{t("Sign in")}</button>}
+        </section>
+      </main>
+    );
   }
 
   if (!userId && !loading) {
