@@ -16,3 +16,10 @@ create policy "Premium users manage their travel plans" on public.user_travel_pl
 for all to authenticated
 using (user_id=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.is_premium or p.role='admin')))
 with check (user_id=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.is_premium or p.role='admin')));
+
+-- Enable cross-device updates for open travel plans.
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'user_travel_plans') then
+    alter publication supabase_realtime add table public.user_travel_plans;
+  end if;
+end $$;
