@@ -331,3 +331,8 @@
   font-size: 11px;
   line-height: 1.7;
 }
+
+.outfit-rotation-controls{display:flex;justify-content:flex-end;align-items:center;gap:20px;flex-wrap:wrap;padding:14px 0;margin:0 0 20px;border-bottom:1px solid var(--border,#e5e0d8);font-size:12px;color:var(--text-muted,#77736d)}
+.outfit-rotation-controls label{display:flex;align-items:center;gap:8px}
+.outfit-rotation-controls select{padding:8px 10px;border:1px solid var(--border,#e5e0d8);border-radius:7px;background:transparent;color:inherit}
+.outfit-card>.outfit-save-button:first-of-type{margin-top:14px}
