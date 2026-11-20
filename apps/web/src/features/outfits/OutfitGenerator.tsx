@@ -264,6 +264,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       setWardrobe([]);
       setSavedOutfits([]);
       setSeason(undefined);
+      setGarmentStatuses([]);
+      setWearHistory([]);
+      setRepeatDays(7);
       setSaveError("");
       setLoading(Boolean(id));
 
