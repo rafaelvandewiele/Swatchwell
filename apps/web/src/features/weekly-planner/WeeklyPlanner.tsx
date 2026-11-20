@@ -22,6 +22,7 @@ import {
   type PlannedDay,
 } from "./planner";
 import "./WeeklyPlanner.css";
+import { isGarmentAvailable, type GarmentStatusRecord } from "../outfit-history/rotation";
 
 interface StoredWardrobeItem extends WardrobeGarment {
   imageKey?: string;
@@ -69,7 +70,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const [userId, setUserId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
-  const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
+  const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);\n  const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
   const [season, setSeason] = useState<ColorSeason | undefined>();
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -83,7 +84,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const loadGeneration = useRef(0);
 
   const generatorWardrobe = useMemo(
-    () => toGeneratorWardrobe(wardrobe),
+    () => toGeneratorWardrobe(wardrobe).filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status)),
     [wardrobe],
   );
   const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
@@ -140,6 +141,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       if (!isActive() || request !== loadGeneration.current || currentAuth.user?.id !== id) return;
       if (styleData?.userId !== id) throw new Error(t("Your wardrobe could not be loaded. Please refresh."));
       setWardrobe(styleData.wardrobe as StoredWardrobeItem[]);
+      const { data: statusRows, error: statusError } = await supabase.from("user_garment_statuses").select("item_id,status").eq("user_id", id);
+      if (statusError) throw statusError;
+      setGarmentStatuses((statusRows ?? []) as GarmentStatusRecord[]);
       setSeason(styleData.colorProfile?.analysis?.season);
       const availableIds = new Set((styleData.wardrobe as StoredWardrobeItem[]).map((item) => item.id));
 
