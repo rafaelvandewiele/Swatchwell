@@ -41,3 +41,11 @@ do $$ begin
   if not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='user_garment_statuses') then alter publication supabase_realtime add table public.user_garment_statuses; end if;
  end if;
 end $$;
+
+alter table public.profiles
+  add column if not exists outfit_repeat_days integer not null default 7;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conname='profiles_outfit_repeat_days_check') then
+    alter table public.profiles add constraint profiles_outfit_repeat_days_check check (outfit_repeat_days in (0,7,14,30));
+  end if;
+end $$;
