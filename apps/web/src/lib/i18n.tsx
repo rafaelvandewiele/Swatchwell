@@ -15,6 +15,10 @@ type Dictionary = Record<string, string>
 const translations: Record<Language, Dictionary> = {
   en: {},
   nl: {
+    "Least worn pieces": "Minst gedragen kledingstukken",
+    "Sorted by recorded wear count": "Gesorteerd op geregistreerde draagmomenten",
+    "Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again.": "Je weekplanning is opgeslagen, maar de draaginzichten konden niet worden bijgewerkt. Voer de Supabase-migratie voor Kledingkastinzichten uit en probeer opnieuw.",
+
     "Wardrobe insights": "Kledingkastinzichten",
     "Wardrobe": "Kledingkast",
     "insights.": "inzichten.",
@@ -633,6 +637,10 @@ const translations: Record<Language, Dictionary> = {
     "No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it.": "Er is geen andere volledige outfit beschikbaar voor deze dag. Je huidige outfit blijft behouden. Voeg meer verschillende kledingstukken toe om deze dag te vernieuwen.",
   },
   fr: {
+    "Least worn pieces": "Pièces les moins portées",
+    "Sorted by recorded wear count": "Triées selon les ports enregistrés",
+    "Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again.": "Votre planning hebdomadaire a été enregistré, mais les analyses de port n'ont pas été actualisées. Appliquez la migration Supabase des analyses de garde-robe et réessayez.",
+
     "Wardrobe insights": "Analyses de garde-robe",
     "Wardrobe": "Garde-robe",
     "insights.": "analyses.",
@@ -1250,6 +1258,10 @@ const translations: Record<Language, Dictionary> = {
     "No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it.": "Aucune autre tenue complète n’est disponible pour ce jour. Votre tenue actuelle est conservée. Ajoutez davantage de vêtements différents pour pouvoir la renouveler.",
   },
   de: {
+    "Least worn pieces": "Am seltensten getragene Stücke",
+    "Sorted by recorded wear count": "Nach erfassten Tragevorgängen sortiert",
+    "Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again.": "Dein Wochenplan wurde gespeichert, aber die Trage-Einblicke konnten nicht aktualisiert werden. Führe die Supabase-Migration aus und versuche es erneut.",
+
     "Wardrobe insights": "Kleiderschrank-Einblicke",
     "Wardrobe": "Kleiderschrank",
     "insights.": "Einblicke.",
