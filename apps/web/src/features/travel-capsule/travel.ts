@@ -11,8 +11,9 @@ export interface TravelPlan { id:string; input:TripInput; entries:PackingEntry[]
 
 export function inclusiveTripDays(start:string,end:string):string[] {
  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end))return [];
- const a=new Date(start+"T12:00:00"),b=new Date(end+"T12:00:00");
- if(!Number.isFinite(a.getTime())||!Number.isFinite(b.getTime())||b<a)return [];
+ const [sy,sm,sd]=start.split("-").map(Number);const [ey,em,ed]=end.split("-").map(Number);
+ const a=new Date(sy,sm-1,sd,12),b=new Date(ey,em-1,ed,12);
+ if(a.getFullYear()!==sy||a.getMonth()!==sm-1||a.getDate()!==sd||b.getFullYear()!==ey||b.getMonth()!==em-1||b.getDate()!==ed||!Number.isFinite(a.getTime())||!Number.isFinite(b.getTime())||b<a)return [];
  const result:string[]=[];const d=new Date(a);
  while(d<=b&&result.length<=31){result.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);d.setDate(d.getDate()+1);}
  return result;
