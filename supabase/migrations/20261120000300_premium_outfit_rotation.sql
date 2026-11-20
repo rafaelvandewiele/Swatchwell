@@ -42,10 +42,18 @@ do $$ begin
  end if;
 end $$;
 
-alter table public.profiles
-  add column if not exists outfit_repeat_days integer not null default 7;
+create table if not exists public.user_outfit_rotation_settings (
+ user_id uuid primary key references auth.users(id) on delete cascade,
+ repeat_days integer not null default 7 check (repeat_days in (0,7,14,30)),
+ updated_at timestamptz not null default now()
+);
+alter table public.user_outfit_rotation_settings enable row level security;
+revoke all on public.user_outfit_rotation_settings from anon, authenticated;
+grant select, insert, update on public.user_outfit_rotation_settings to authenticated;
+drop policy if exists "Premium users manage own rotation settings" on public.user_outfit_rotation_settings;
+create policy "Premium users manage own rotation settings" on public.user_outfit_rotation_settings for all to authenticated
+using (user_id=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.is_premium or p.role='admin')))
+with check (user_id=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.is_premium or p.role='admin')));
 do $$ begin
-  if not exists(select 1 from pg_constraint where conname='profiles_outfit_repeat_days_check') then
-    alter table public.profiles add constraint profiles_outfit_repeat_days_check check (outfit_repeat_days in (0,7,14,30));
-  end if;
+ if exists(select 1 from pg_publication where pubname='supabase_realtime') and not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='user_outfit_rotation_settings') then alter publication supabase_realtime add table public.user_outfit_rotation_settings; end if;
 end $$;
