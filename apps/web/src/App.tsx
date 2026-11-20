@@ -34,6 +34,7 @@ type Page =
   | "Weekly planner"
   | "Wardrobe insights"
   | "Travel capsule"
+  | "Outfit history"
   | "Colour combinations"
   | "Settings"
   | "Privacy policy"
@@ -48,7 +49,8 @@ const navigation: { name: Page; icon: string }[] = [
   { name: "Outfits", icon: "◇" },
   { name: "Weekly planner", icon: "▦" },
   { name: "Wardrobe insights", icon: "▥" },
-  { name: "Travel capsule", icon: "✈" },\n  { name: "Outfit history", icon: "◷" },
+  { name: "Travel capsule", icon: "✈" },
+  { name: "Outfit history", icon: "◷" },
   { name: "Colour combinations", icon: "◈" },
 ];
 
