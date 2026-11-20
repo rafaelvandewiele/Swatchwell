@@ -37,6 +37,10 @@ interface StoredOutfit {
 }
 
 
+function isMissingRotationMigration(message: string): boolean {
+  return /user_garment_statuses|user_outfit_wear_events|user_outfit_rotation_settings|schema cache|does not exist|42P01|PGRST205/i.test(message);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
@@ -291,8 +295,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
           supabase.from("user_outfit_wear_events").select("id,item_ids,outfit_name,worn_on").eq("user_id", id).order("worn_on", { ascending: false }),
           supabase.from("user_outfit_rotation_settings").select("repeat_days").eq("user_id", id).maybeSingle(),
         ]);
-        if (statusResult.error) throw statusResult.error;
-        if (historyResult.error) throw historyResult.error;
+        if (statusResult.error && !isMissingRotationMigration(statusResult.error.message)) throw statusResult.error;
+        if (historyResult.error && !isMissingRotationMigration(historyResult.error.message)) throw historyResult.error;
+        if (profileResult.error && !isMissingRotationMigration(profileResult.error.message)) throw profileResult.error;
         setGarmentStatuses((statusResult.data ?? []) as GarmentStatusRecord[]);
         setWearHistory((historyResult.data ?? []) as OutfitWearRecord[]);
         setRepeatDays([0,7,14,30].includes(profileResult.data?.repeat_days) ? profileResult.data!.repeat_days : 7);
