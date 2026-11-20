@@ -83,10 +83,7 @@ const translations: Record<Language, Dictionary> = {
   },
   nl: {
     "Outfit history": "Draaggeschiedenis",
-    "Mark as worn": "Markeer als gedragen",
     "Include unavailable garments": "Niet-beschikbare kledingstukken opnemen",
-    "Avoid recent repeats": "Recente herhalingen vermijden",
-    "Off": "Uit",
     "7 days": "7 dagen",
     "14 days": "14 dagen",
     "30 days": "30 dagen",
@@ -766,10 +763,7 @@ const translations: Record<Language, Dictionary> = {
   },
   fr: {
     "Outfit history": "Historique des tenues",
-    "Mark as worn": "Marquer comme portée",
     "Include unavailable garments": "Inclure les vêtements indisponibles",
-    "Avoid recent repeats": "Éviter les répétitions récentes",
-    "Off": "Désactivé",
     "7 days": "7 jours",
     "14 days": "14 jours",
     "30 days": "30 jours",
@@ -1448,10 +1442,7 @@ const translations: Record<Language, Dictionary> = {
   },
   de: {
     "Outfit history": "Outfit-Verlauf",
-    "Mark as worn": "Als getragen markieren",
     "Include unavailable garments": "Nicht verfügbare Kleidung einbeziehen",
-    "Avoid recent repeats": "Kürzliche Wiederholungen vermeiden",
-    "Off": "Aus",
     "7 days": "7 Tage",
     "14 days": "14 Tage",
     "30 days": "30 Tage",
