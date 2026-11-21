@@ -14,6 +14,14 @@ type Dictionary = Record<string, string>
 
 const translations: Record<Language, Dictionary> = {
   en: {
+    "Outfit history": "Outfit history",
+    "Mark as worn": "Mark as worn",
+    "Include unavailable garments": "Include unavailable garments",
+    "Avoid recent repeats": "Avoid recent repeats",
+    "Off": "Off",
+    "7 days": "7 days",
+    "14 days": "14 days",
+    "30 days": "30 days",
     "Add a wardrobe piece": "Add a wardrobe piece",
     "Remove from packing list": "Remove from packing list",
     "Refresh day": "Refresh day",
@@ -74,6 +82,11 @@ const translations: Record<Language, Dictionary> = {
     "Trips can be planned for up to 31 days.": "Trips can be planned for up to 31 days.",
   },
   nl: {
+    "Outfit history": "Draaggeschiedenis",
+    "Include unavailable garments": "Niet-beschikbare kledingstukken opnemen",
+    "7 days": "7 dagen",
+    "14 days": "14 dagen",
+    "30 days": "30 dagen",
     "Add a wardrobe piece": "Kledingstuk toevoegen",
     "Remove from packing list": "Van paklijst verwijderen",
     "Refresh day": "Dag vernieuwen",
@@ -749,6 +762,11 @@ const translations: Record<Language, Dictionary> = {
     "Used only for your private cost-per-wear insights.": "Wordt alleen gebruikt voor je persoonlijke inzichten over kostprijs per draagbeurt.",
   },
   fr: {
+    "Outfit history": "Historique des tenues",
+    "Include unavailable garments": "Inclure les vêtements indisponibles",
+    "7 days": "7 jours",
+    "14 days": "14 jours",
+    "30 days": "30 jours",
     "Add a wardrobe piece": "Ajouter un vêtement",
     "Remove from packing list": "Retirer de la liste",
     "Refresh day": "Changer la tenue du jour",
@@ -1423,6 +1441,11 @@ const translations: Record<Language, Dictionary> = {
     "Used only for your private cost-per-wear insights.": "Utilisé uniquement pour vos analyses privées du coût par port.",
   },
   de: {
+    "Outfit history": "Outfit-Verlauf",
+    "Include unavailable garments": "Nicht verfügbare Kleidung einbeziehen",
+    "7 days": "7 Tage",
+    "14 days": "14 Tage",
+    "30 days": "30 Tage",
     "Add a wardrobe piece": "Kleidungsstück hinzufügen",
     "Remove from packing list": "Von der Packliste entfernen",
     "Refresh day": "Outfit für diesen Tag ändern",

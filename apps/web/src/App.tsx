@@ -6,6 +6,7 @@ import Wardrobe from "./features/wardrobe/Wardrobe";
 import OutfitGenerator from "./features/outfits/OutfitGenerator";
 import WeeklyPlanner from "./features/weekly-planner/WeeklyPlanner";
 import WardrobeInsights from "./features/wardrobe-insights/WardrobeInsights";
+import OutfitHistory from "./features/outfit-history/OutfitHistory";
 import TravelCapsule from "./features/travel-capsule/TravelCapsule";
 import ColorCombinations from "./features/color-combinations/ColorCombinations";
 import ColorProfile from "./features/color-profile/ColorProfile";
@@ -33,6 +34,7 @@ type Page =
   | "Weekly planner"
   | "Wardrobe insights"
   | "Travel capsule"
+  | "Outfit history"
   | "Colour combinations"
   | "Settings"
   | "Privacy policy"
@@ -48,6 +50,7 @@ const navigation: { name: Page; icon: string }[] = [
   { name: "Weekly planner", icon: "▦" },
   { name: "Wardrobe insights", icon: "▥" },
   { name: "Travel capsule", icon: "✈" },
+  { name: "Outfit history", icon: "◷" },
   { name: "Colour combinations", icon: "◈" },
 ];
 
@@ -74,7 +77,7 @@ interface DashboardWardrobeItem {
 function App() {
   const { t, language, setLanguage } = useI18n();
   const pageFromPath = (): Page => {
-    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/weekly-planner":"Weekly planner", "/wardrobe-insights":"Wardrobe insights", "/travel-capsule":"Travel capsule", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
+    const routes: Record<string, Page> = { "/":"Overview", "/wardrobe":"My wardrobe", "/color-analysis":"Color analysis", "/outfits":"Outfits", "/weekly-planner":"Weekly planner", "/wardrobe-insights":"Wardrobe insights", "/travel-capsule":"Travel capsule", "/outfit-history":"Outfit history", "/colour-combinations":"Colour combinations", "/settings":"Settings", "/privacy":"Privacy policy", "/terms":"Terms and conditions", "/cookies":"Cookie policy", "/account-deletion/confirm":"Confirm account deletion" };
     return routes[window.location.pathname.replace(/\/$/, "") || "/"] ?? "Overview";
   };
   const [page, setPage] = useState<Page>(pageFromPath);
@@ -219,7 +222,7 @@ function App() {
 
 
   function navigate(name: Page) {
-    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Weekly planner":"/weekly-planner", "Wardrobe insights":"/wardrobe-insights", "Travel capsule":"/travel-capsule", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
+    const paths: Record<Page, string> = { "Overview":"/", "My wardrobe":"/wardrobe", "Color analysis":"/color-analysis", "Outfits":"/outfits", "Weekly planner":"/weekly-planner", "Wardrobe insights":"/wardrobe-insights", "Travel capsule":"/travel-capsule", "Outfit history":"/outfit-history", "Colour combinations":"/colour-combinations", "Settings":"/settings", "Privacy policy":"/privacy", "Terms and conditions":"/terms", "Cookie policy":"/cookies", "Confirm account deletion":"/account-deletion/confirm" };
     window.history.pushState({}, "", paths[name]);
     setPage(name);
     setActiveNav(["Overview", "My wardrobe", "Color analysis", "Outfits", "Weekly planner", "Wardrobe insights", "Colour combinations", "Travel capsule"].includes(name) ? name : "Overview");
@@ -377,7 +380,7 @@ function App() {
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{t(item.name)}</span>
-              {["Colour combinations", "Weekly planner", "Wardrobe insights", "Travel capsule"].includes(item.name) && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
+              {["Colour combinations", "Weekly planner", "Wardrobe insights", "Travel capsule", "Outfit history"].includes(item.name) && !isPremium ? <span className="nav-lock" aria-label={t("Premium subscription required")}>🔒</span> : null}
             </button>
           ))}
         </nav>
@@ -698,7 +701,8 @@ function App() {
         )}
 
         {page === "My wardrobe" && <Wardrobe />}
-        {page === "Outfits" && <OutfitGenerator />}
+        {page === "Outfits" && <OutfitGenerator isPremium={isPremium} />}
+        {page === "Outfit history" && <OutfitHistory isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Travel capsule" && <TravelCapsule isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Wardrobe insights" && <WardrobeInsights isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} />}
         {page === "Weekly planner" && <WeeklyPlanner isPremium={isPremium} isAuthenticated={Boolean(authenticatedUserId)} onSignIn={() => setShowProfile(true)} onOpenWardrobe={() => navigate("My wardrobe")} />}

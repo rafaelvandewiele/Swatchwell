@@ -22,6 +22,11 @@ import {
   type PlannedDay,
 } from "./planner";
 import "./WeeklyPlanner.css";
+import { isGarmentAvailable, type GarmentStatusRecord } from "../outfit-history/rotation";
+
+function isMissingRotationMigration(message: string): boolean {
+  return /user_garment_statuses|user_outfit_wear_events|user_outfit_rotation_settings|schema cache|does not exist|42P01|PGRST205/i.test(message);
+}
 
 interface StoredWardrobeItem extends WardrobeGarment {
   imageKey?: string;
@@ -70,6 +75,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
+  const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
   const [season, setSeason] = useState<ColorSeason | undefined>();
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -83,7 +89,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const loadGeneration = useRef(0);
 
   const generatorWardrobe = useMemo(
-    () => toGeneratorWardrobe(wardrobe),
+    () => toGeneratorWardrobe(wardrobe).filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status)),
     [wardrobe],
   );
   const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
@@ -140,6 +146,9 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       if (!isActive() || request !== loadGeneration.current || currentAuth.user?.id !== id) return;
       if (styleData?.userId !== id) throw new Error(t("Your wardrobe could not be loaded. Please refresh."));
       setWardrobe(styleData.wardrobe as StoredWardrobeItem[]);
+      const { data: statusRows, error: statusError } = await supabase.from("user_garment_statuses").select("item_id,status").eq("user_id", id);
+      if (statusError && !isMissingRotationMigration(statusError.message)) throw statusError;
+      setGarmentStatuses((statusRows ?? []) as GarmentStatusRecord[]);
       setSeason(styleData.colorProfile?.analysis?.season);
       const availableIds = new Set((styleData.wardrobe as StoredWardrobeItem[]).map((item) => item.id));
 
@@ -362,6 +371,13 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
           .eq("worn_on", day.date)
           .in("item_id", day.itemIds);
         if (deleteError) throw deleteError;
+        const { error: outfitDeleteError } = await supabase
+          .from("user_outfit_wear_events")
+          .delete()
+          .eq("user_id", userId)
+          .eq("worn_on", day.date)
+          .eq("item_ids", day.itemIds);
+        if (outfitDeleteError) throw outfitDeleteError;
       } else {
         const { error: insertError } = await supabase
           .from("user_garment_wear_events")
@@ -370,6 +386,10 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
             ignoreDuplicates: true,
           });
         if (insertError) throw insertError;
+        const { error: outfitInsertError } = await supabase
+          .from("user_outfit_wear_events")
+          .insert({ user_id: userId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
+        if (outfitInsertError) throw outfitInsertError;
       }
     } catch {
       setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
