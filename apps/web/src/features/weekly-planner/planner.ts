@@ -1,6 +1,7 @@
 import type { ClothingItem } from "@swatchwell/shared";
 import type { ColorSeason } from "@swatchwell/color-engine";
 import { generateOutfits, type OutfitRecommendation } from "@swatchwell/outfit-engine";
+import { applyStyleProfile, type StyleProfile } from "../style-profiles/profiles";
 
 export const PLANNER_OCCASIONS = [
   "Everyday",
@@ -189,12 +190,14 @@ export function generateWeeklyOutfits(
   season: ColorSeason | undefined,
   currentDays: PlannedDay[],
   recentHistory: PlannedDay[] = [],
+  styleProfile?: StyleProfile | null,
 ): { days: PlannedDay[]; candidates: OutfitRecommendation[]; repeatConflicts: string[] } {
-  const rawCandidates = generateOutfits(wardrobe, {
+  const generatedCandidates = generateOutfits(wardrobe, {
     limit: 50,
     requireCompleteLayers: true,
     ...(season ? { season } : {}),
   });
+  const rawCandidates = styleProfile ? applyStyleProfile(generatedCandidates, styleProfile) : generatedCandidates;
   // A different pair of shoes does not make an otherwise identical outfit new.
   const seenCoreOutfits = new Set<string>();
   const candidates = rawCandidates.filter((outfit) => {
@@ -299,6 +302,7 @@ export function regenerateDayOutfit(
   currentDays: PlannedDay[],
   targetIndex: number,
   recentHistory: PlannedDay[] = [],
+  styleProfile?: StyleProfile | null,
 ): { days: PlannedDay[]; candidates: OutfitRecommendation[]; repeatConflict: boolean } {
   if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= currentDays.length) {
     throw new RangeError("The target day is outside the weekly plan.");
