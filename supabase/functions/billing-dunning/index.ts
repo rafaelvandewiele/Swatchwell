@@ -23,25 +23,46 @@ Deno.serve(async (req) => {
   for (const row of rows ?? []) {
     const failedAt = new Date(row.failed_at).getTime();
     const daysOverdue = Math.floor((now - failedAt) / 86400000);
-    const { data: profile } = await admin.from("profiles").select("email,language,role").eq("id", row.user_id).maybeSingle();
-    if (!profile || profile.role === "admin") continue;
+    if (!Number.isFinite(failedAt)) {
+      console.error("Invalid failed_at timestamp for subscription", row.stripe_subscription_id);
+      return new Response("Invalid subscription failure timestamp.", { status: 500 });
+    }
+    const { data: profile, error: profileError } = await admin.from("profiles").select("email,language,role").eq("id", row.user_id).maybeSingle();
+    if (profileError) return new Response("Could not load an overdue subscription profile.", { status: 500 });
+    if (!profile || profile.role === "admin" || !profile.email) continue;
     const language = profile.language in messages ? profile.language as keyof typeof messages : "en";
     const copy = messages[language];
     if (daysOverdue >= 5) {
       const cancelResponse = await fetch("https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(row.stripe_subscription_id), { method: "DELETE", headers: { Authorization: "Bearer " + stripeKey } });
       if (!cancelResponse.ok) continue;
-      await admin.from("billing_subscriptions").update({ status: "canceled", cancel_at_period_end: false, updated_at: new Date().toISOString() }).eq("user_id", row.user_id);
-      await admin.from("profiles").update({ premium_source: "none", updated_at: new Date().toISOString() }).eq("id", row.user_id);
+      // Revoke access first. If the subscription-row update then fails, the
+      // overdue row remains eligible for retry and this update is idempotent.
+      const { error: profileUpdateError } = await admin.from("profiles")
+        .update({ premium_source: "none", updated_at: new Date().toISOString() })
+        .eq("id", row.user_id);
+      if (profileUpdateError) return new Response("Could not revoke overdue Premium access.", { status: 500 });
+
+      const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
+        .update({ status: "canceled", cancel_at_period_end: false, updated_at: new Date().toISOString() })
+        .eq("user_id", row.user_id);
+      if (subscriptionUpdateError) return new Response("Could not persist the cancelled subscription.", { status: 500 });
+
       const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.cancelledSubject, text: copy.cancelled }) });
       if (response.ok) cancelled++;
+      else console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
       continue;
     }
     const lastSent = row.last_dunning_email_at ? new Date(row.last_dunning_email_at).getTime() : 0;
     if (lastSent && now - lastSent < 23 * 3600000) continue;
     const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.reminderSubject, text: copy.reminder + "\n\nhttps://swatchwell.veyca.dev/settings" }) });
     if (response.ok) {
-      await admin.from("billing_subscriptions").update({ last_dunning_email_at: new Date().toISOString() }).eq("user_id", row.user_id);
+      const { error: reminderUpdateError } = await admin.from("billing_subscriptions")
+        .update({ last_dunning_email_at: new Date().toISOString() })
+        .eq("user_id", row.user_id);
+      if (reminderUpdateError) return new Response("Could not persist the payment reminder timestamp.", { status: 500 });
       reminders++;
+    } else {
+      console.error("Could not send payment reminder", row.stripe_subscription_id);
     }
   }
   return new Response(JSON.stringify({ reminders, cancelled }), { headers: { "Content-Type": "application/json" } });
