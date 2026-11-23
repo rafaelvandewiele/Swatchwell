@@ -1,51 +1,7 @@
 /// <reference lib="deno.ns" />
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const hex = (bytes: Uint8Array) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-function constantTimeHexEqual(left: string, right: string): boolean {
-  if (!/^[a-f0-9]{64}$/i.test(left) || !/^[a-f0-9]{64}$/i.test(right)) return false;
-  let difference = 0;
-  for (let index = 0; index < 64; index++) {
-    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return difference === 0;
-}
-
-async function validSignature(payload: string, header: string, secret: string) {
-  const fields = header.split(",").map((part) => {
-    const separator = part.indexOf("=");
-    return separator < 0
-      ? ["", ""]
-      : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()];
-  });
-  const timestamp = fields.find(([key]) => key === "t")?.[1];
-  const signatures = fields.filter(([key]) => key === "v1").map(([, value]) => value);
-  const timestampNumber = Number(timestamp);
-
-  if (
-    !timestamp ||
-    !Number.isInteger(timestampNumber) ||
-    !signatures.length ||
-    Math.abs(Date.now() / 1000 - timestampNumber) > 300
-  ) return false;
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const expected = hex(new Uint8Array(await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(timestamp + "." + payload),
-  )));
-
-  return signatures.some((signature) => constantTimeHexEqual(expected, signature));
-}
+import { verifyStripeSignature } from "../_shared/stripe-signature.ts";
 
 function throwIfError(error: { message?: string } | null, operation: string): void {
   if (error) throw new Error(operation + ": " + (error.message ?? "database operation failed"));
@@ -63,7 +19,7 @@ Deno.serve(async (req) => {
   }
 
   const payload = await req.text();
-  if (!await validSignature(payload, req.headers.get("Stripe-Signature") ?? "", secret)) {
+  if (!await verifyStripeSignature(payload, req.headers.get("Stripe-Signature") ?? "", secret)) {
     return new Response("Invalid signature", { status: 400 });
   }
 
