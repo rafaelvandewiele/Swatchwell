@@ -244,7 +244,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
   const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
   const [wearHistory, setWearHistory] = useState<OutfitWearRecord[]>([]);
   const [repeatDays, setRepeatDays] = useState(7);
-  const [includeUnavailable, setIncludeUnavailable] = useState(false);\n  const [activeStyleProfile, setActiveStyleProfile] = useState<StyleProfile | null>(null);
+  const [includeUnavailable, setIncludeUnavailable] = useState(false);
+  const [activeStyleProfile, setActiveStyleProfile] = useState<StyleProfile | null>(null);
 
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(
     {},
@@ -503,7 +504,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
         </p>
       </section>
 
-      {isPremium && <StyleProfiles userId={userId} isPremium={isPremium} wardrobe={wardrobe.map((item) => ({ id: item.id, name: item.name, category: item.category }))} onChange={setActiveStyleProfile} />}\n\n      {isPremium && <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>}
+      {isPremium && <StyleProfiles userId={userId} isPremium={isPremium} wardrobe={wardrobe.map((item) => ({ id: item.id, name: item.name, category: item.category }))} onChange={setActiveStyleProfile} />}
+
+      {isPremium && <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>}
 
       <section className="outfit-overview">
         <div>
