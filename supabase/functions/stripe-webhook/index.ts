@@ -57,7 +57,8 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   const url = Deno.env.get("SUPABASE_URL");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!secret || !url || !service) {
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!secret || !url || !service || !stripeKey) {
     return new Response("Billing webhook is not configured.", { status: 503 });
   }
 
@@ -105,52 +106,77 @@ Deno.serve(async (req) => {
 
       const { data: previous, error: previousError } = await admin
         .from("billing_subscriptions")
-        .select("failed_at,last_dunning_email_at")
+        .select("stripe_subscription_id,status,failed_at,last_dunning_email_at")
         .eq("user_id", customer.user_id)
         .maybeSingle();
       throwIfError(previousError, "Could not read the previous subscription state");
 
-      const failedAt = object.status === "past_due" || object.status === "unpaid"
-        ? previous?.failed_at ?? new Date().toISOString()
-        : null;
+      // A customer may replace a cancelled subscription. Ignore delayed events
+      // for an older subscription once a different current subscription exists.
+      if (
+        previous?.stripe_subscription_id &&
+        previous.stripe_subscription_id !== object.id &&
+        !["canceled", "incomplete_expired"].includes(previous.status)
+      ) {
+        console.warn("Ignoring an event for a superseded Stripe subscription", object.id);
+      } else {
+        let currentSubscription = object;
+        if (event.type !== "customer.subscription.deleted") {
+          const stripeResponse = await fetch(
+            "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(object.id),
+            { headers: { Authorization: "Bearer " + stripeKey } },
+          );
+          // This endpoint requires the Stripe API secret, not the webhook
+          // signing secret. Use the configured STRIPE_SECRET_KEY below.
+          const fetchedSubscription = await stripeResponse.json();
+          if (!stripeResponse.ok) throw new Error("Could not verify the current Stripe subscription status.");
+          currentSubscription = fetchedSubscription;
+        } else {
+          currentSubscription = { ...object, status: "canceled" };
+        }
 
-      const { error: saveError } = await admin.from("billing_subscriptions").upsert({
-        user_id: customer.user_id,
-        stripe_subscription_id: object.id,
-        stripe_price_id: object.items?.data?.[0]?.price?.id ?? null,
-        status: object.status,
-        current_period_start: object.current_period_start
-          ? new Date(object.current_period_start * 1000).toISOString()
-          : null,
-        current_period_end: object.current_period_end
-          ? new Date(object.current_period_end * 1000).toISOString()
-          : null,
-        cancel_at_period_end: Boolean(object.cancel_at_period_end),
-        failed_at: failedAt,
-        last_dunning_email_at: failedAt ? previous?.last_dunning_email_at ?? null : null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
-      throwIfError(saveError, "Could not save the subscription state");
+        const failedAt = currentSubscription.status === "past_due" || currentSubscription.status === "unpaid"
+          ? previous?.failed_at ?? new Date().toISOString()
+          : null;
 
-      const { data: profile, error: profileError } = await admin
-        .from("profiles")
-        .select("role")
-        .eq("id", customer.user_id)
-        .maybeSingle();
-      throwIfError(profileError, "Could not read the account role");
-      if (!profile) throw new Error("The subscription account profile does not exist.");
+        const { error: saveError } = await admin.from("billing_subscriptions").upsert({
+          user_id: customer.user_id,
+          stripe_subscription_id: currentSubscription.id,
+          stripe_price_id: currentSubscription.items?.data?.[0]?.price?.id ?? null,
+          status: currentSubscription.status,
+          current_period_start: currentSubscription.current_period_start
+            ? new Date(currentSubscription.current_period_start * 1000).toISOString()
+            : null,
+          current_period_end: currentSubscription.current_period_end
+            ? new Date(currentSubscription.current_period_end * 1000).toISOString()
+            : null,
+          cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
+          failed_at: failedAt,
+          last_dunning_email_at: failedAt ? previous?.last_dunning_email_at ?? null : null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+        throwIfError(saveError, "Could not save the subscription state");
 
-      const entitled = ["active", "trialing", "past_due", "unpaid"].includes(object.status)
-        && (!failedAt || Date.now() - new Date(failedAt).getTime() < 5 * 86400000);
+        const { data: profile, error: profileError } = await admin
+          .from("profiles")
+          .select("role")
+          .eq("id", customer.user_id)
+          .maybeSingle();
+        throwIfError(profileError, "Could not read the account role");
+        if (!profile) throw new Error("The subscription account profile does not exist.");
 
-      if (profile.role !== "admin") {
-        const { error } = await admin.from("profiles")
-          .update({
-            premium_source: entitled ? "subscription" : "none",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", customer.user_id);
-        throwIfError(error, "Could not synchronize Premium access");
+        const entitled = ["active", "trialing", "past_due", "unpaid"].includes(currentSubscription.status)
+          && (!failedAt || Date.now() - new Date(failedAt).getTime() < 5 * 86400000);
+
+        if (profile.role !== "admin") {
+          const { error } = await admin.from("profiles")
+            .update({
+              premium_source: entitled ? "subscription" : "none",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", customer.user_id);
+          throwIfError(error, "Could not synchronize Premium access");
+        }
       }
     }
 
