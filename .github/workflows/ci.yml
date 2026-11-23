@@ -28,5 +28,11 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+      - name: Lint web application
+        run: npm run lint --workspace=@swatchwell/web
+
+      - name: Type-check mobile application
+        run: npx tsc --noEmit -p apps/mobile/tsconfig.json
+
       - name: Build web application
         run: npm run build:web
