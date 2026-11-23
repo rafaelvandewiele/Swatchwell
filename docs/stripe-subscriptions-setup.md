@@ -61,6 +61,16 @@ Supabase already supplies SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_R
 4. Deploy billing-dunning with --no-verify-jwt.
 5. Schedule billing-dunning once per day using Supabase Cron / pg_cron or an external scheduler. Send POST with Authorization: Bearer BILLING_CRON_SECRET. Never expose this secret to the browser.
 
+### GitHub Actions scheduler (included)
+The repository includes `.github/workflows/billing-dunning.yml`, which calls the function daily at 08:17 UTC and can also be run manually.
+
+1. Set `BILLING_CRON_SECRET` in Supabase Edge Function secrets.
+2. Add a GitHub Actions repository secret with the exact same value and the name `BILLING_CRON_SECRET`.
+3. After the workflow is on the default branch, check Actions → Billing dunning and run it manually once to verify the connection.
+4. Use either this workflow or Supabase Cron as the scheduler. Do not configure both.
+
+The secret must be a long random value, must not be committed to Git, and must never be exposed to browser or mobile code.
+
 ## 6. Test before live mode
 
 Use Stripe test cards and verify:
