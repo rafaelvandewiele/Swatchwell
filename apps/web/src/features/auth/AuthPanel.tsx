@@ -129,7 +129,7 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
       active = false
       data.subscription.unsubscribe()
     }
-  }, [])
+  }, [t, setLanguage])
 
   useEffect(() => {
     if (!supabase || !session) {
@@ -151,7 +151,7 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
           setLanguage((data.language ?? 'en') as Language)
         }
       })
-  }, [session])
+  }, [session, setLanguage])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
