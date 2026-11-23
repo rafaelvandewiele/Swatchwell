@@ -66,6 +66,21 @@ Deno.serve(async (req) => {
   }
   if (!customerId) return json({ error: "Could not resolve the billing customer." }, 500, origin);
 
+  // The local webhook projection can briefly lag behind Stripe. Check Stripe
+  // directly as well so a delayed webhook cannot open a duplicate subscription.
+  const subscriptionsResponse = await fetch(
+    "https://api.stripe.com/v1/subscriptions?customer=" + encodeURIComponent(customerId) + "&status=all&limit=100",
+    { headers: { Authorization: "Bearer " + stripeKey } },
+  );
+  const subscriptionsResult = await subscriptionsResponse.json();
+  if (!subscriptionsResponse.ok) return json({ error: "Could not verify existing Stripe subscriptions." }, 502, origin);
+  const existingStripeSubscription = (subscriptionsResult.data ?? []).find((subscription: { status?: string }) =>
+    ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(subscription.status ?? "")
+  );
+  if (existingStripeSubscription) {
+    return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
+  }
+
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("customer", customerId);
