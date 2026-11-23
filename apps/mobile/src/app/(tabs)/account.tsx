@@ -37,22 +37,23 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!supabase) return
+    const client = supabase
+    if (!client) return
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    client.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
       if (data.session && recovery !== '1') setMode('account')
       if (data.session) {
-        const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', data.session.user.id).maybeSingle()
+        const { data: accountProfile } = await client.from('profiles').select('role,is_premium').eq('id', data.session.user.id).maybeSingle()
         setProfile(accountProfile)
       }
     })
 
-    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
       if (nextSession) {
         queueMicrotask(async () => {
-          const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', nextSession.user.id).maybeSingle()
+          const { data: accountProfile } = await client.from('profiles').select('role,is_premium').eq('id', nextSession.user.id).maybeSingle()
           setProfile(accountProfile)
         })
       } else {
