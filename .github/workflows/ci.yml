@@ -25,6 +25,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Type-check Supabase Edge Functions
+        run: deno check supabase/functions/*/index.ts
+
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
