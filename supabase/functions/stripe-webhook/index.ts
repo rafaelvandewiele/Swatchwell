@@ -189,7 +189,32 @@ Deno.serve(async (req) => {
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the paid subscription");
-        if (!sub?.user_id) throw new Error("Paid subscription mapping is not available yet.");
+        if (!sub?.user_id) {
+          const invoiceCustomerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
+          if (invoiceCustomerId) {
+            const { data: customer, error: customerError } = await admin
+              .from("billing_customers")
+              .select("user_id")
+              .eq("stripe_customer_id", invoiceCustomerId)
+              .maybeSingle();
+            throwIfError(customerError, "Could not resolve the invoice customer");
+            if (customer?.user_id) {
+              const { data: current, error: currentError } = await admin
+                .from("billing_subscriptions")
+                .select("stripe_subscription_id")
+                .eq("user_id", customer.user_id)
+                .maybeSingle();
+              throwIfError(currentError, "Could not verify the current customer subscription");
+              if (current?.stripe_subscription_id && current.stripe_subscription_id !== subscriptionId) {
+                console.warn("Ignoring an invoice event for a superseded subscription", subscriptionId);
+                return new Response(JSON.stringify({ received: true }), {
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+            }
+          }
+          throw new Error("Paid subscription mapping is not available yet.");
+        }
 
         // Invoice events can be delayed or delivered out of order. Retrieve the
         // current Stripe subscription instead of assuming that a paid invoice
@@ -248,7 +273,32 @@ Deno.serve(async (req) => {
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the failed subscription");
-        if (!sub?.user_id) throw new Error("Failed subscription mapping is not available yet.");
+        if (!sub?.user_id) {
+          const invoiceCustomerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
+          if (invoiceCustomerId) {
+            const { data: customer, error: customerError } = await admin
+              .from("billing_customers")
+              .select("user_id")
+              .eq("stripe_customer_id", invoiceCustomerId)
+              .maybeSingle();
+            throwIfError(customerError, "Could not resolve the invoice customer");
+            if (customer?.user_id) {
+              const { data: current, error: currentError } = await admin
+                .from("billing_subscriptions")
+                .select("stripe_subscription_id")
+                .eq("user_id", customer.user_id)
+                .maybeSingle();
+              throwIfError(currentError, "Could not verify the current customer subscription");
+              if (current?.stripe_subscription_id && current.stripe_subscription_id !== subscriptionId) {
+                console.warn("Ignoring a failed-invoice event for a superseded subscription", subscriptionId);
+                return new Response(JSON.stringify({ received: true }), {
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+            }
+          }
+          throw new Error("Failed subscription mapping is not available yet.");
+        }
 
         // A delayed failed-invoice event must not resurrect a cancelled
         // subscription or override a later successful payment.
