@@ -98,7 +98,17 @@ Deno.serve(async (req) => {
   form.set("billing_address_collection", "auto");
   form.set("allow_promotion_codes", "true");
 
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: stripeHeaders, body: form });
+  // Repeated clicks or network retries in the same short window must
+  // resolve to one Checkout Session rather than create parallel sessions.
+  const checkoutAttempt = Math.floor(Date.now() / (10 * 60 * 1000));
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      ...stripeHeaders,
+      "Idempotency-Key": "swatchwell-checkout-" + user.id + "-" + checkoutAttempt,
+    },
+    body: form,
+  });
   const session = await response.json();
   if (!response.ok || !session.url) return json({ error: "Could not start checkout." }, 502, origin);
   return json({ url: session.url }, 200, origin);
