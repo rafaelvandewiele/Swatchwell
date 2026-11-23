@@ -61,7 +61,10 @@ Deno.serve(async (req) => {
         html:`<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#243247"><h1>Swatchwell</h1><p>${copy.body}</p><p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#243247;color:white;text-decoration:none">${copy.button}</a></p><p style="font-size:12px;color:#777">30 minutes</p></div>`,
       }),
     });
-    if(!response.ok) return json({error:"Could not send confirmation email"},502);
+    if(!response.ok) {
+      await admin.from("account_deletion_requests").delete().eq("token_hash",tokenHash);
+      return json({error:"Could not send confirmation email"},502);
+    }
     return json({success:true});
   }
 
@@ -72,8 +75,29 @@ Deno.serve(async (req) => {
       .select("id,user_id,expires_at").eq("token_hash",tokenHash).maybeSingle();
     if(requestError || !request || new Date(request.expires_at).getTime()<Date.now()) return json({error:"Invalid or expired token"},400);
     const targetUserId=request.user_id;
-    const {data:files}=await admin.storage.from("wardrobe-photos").list(targetUserId,{limit:1000});
-    if(files?.length) await admin.storage.from("wardrobe-photos").remove(files.map((file)=>targetUserId+"/"+file.name));
+
+    // Remove every page of private wardrobe photos before deleting the auth
+    // user. Storage objects do not cascade with auth.users, so a failed list
+    // or removal must stop deletion rather than silently orphan personal data.
+    while (true) {
+      const {data:files,error:listError}=await admin.storage
+        .from("wardrobe-photos")
+        .list(targetUserId,{limit:1000,offset:0});
+      if(listError) return json({error:"Could not enumerate wardrobe photos"},500);
+
+      const paths=(files??[]).map((file)=>targetUserId+"/"+file.name);
+      if(paths.length===0) break;
+
+      const {error:removeError}=await admin.storage
+        .from("wardrobe-photos")
+        .remove(paths);
+      if(removeError) return json({error:"Could not remove wardrobe photos"},500);
+
+      // Always read from offset zero because deleting a page shifts the
+      // remaining objects forward.
+      if(paths.length<1000) break;
+    }
+
     const {error:deleteError}=await admin.auth.admin.deleteUser(targetUserId);
     if(deleteError) return json({error:"Could not delete account"},500);
     return json({success:true});
