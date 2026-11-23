@@ -24,6 +24,8 @@ import {
 
 import "./OutfitGenerator.css";
 import { filterRecentOutfits, isGarmentAvailable, outfitSignature, type GarmentStatusRecord, type OutfitWearRecord } from "../outfit-history/rotation";
+import StyleProfiles from "../style-profiles/StyleProfiles";
+import { applyStyleProfile, type StyleProfile } from "../style-profiles/profiles";
 
 interface StoredWardrobeItem extends WardrobeGarment {
   brand: string;
@@ -243,6 +245,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
   const [wearHistory, setWearHistory] = useState<OutfitWearRecord[]>([]);
   const [repeatDays, setRepeatDays] = useState(7);
   const [includeUnavailable, setIncludeUnavailable] = useState(false);
+  const [activeStyleProfile, setActiveStyleProfile] = useState<StyleProfile | null>(null);
 
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(
     {},
@@ -370,8 +373,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       const today = new Date().toISOString().slice(0, 10);
       const recent = filterRecentOutfits(wearHistory, today, repeatDays);
       const recentSignatures = new Set(recent.map((entry) => outfitSignature(entry.item_ids)));
+      const rotationFiltered = generated.filter((outfit) => !recentSignatures.has(outfitSignature(outfit.items.map((item) => item.id))));
       return {
-        outfits: generated.filter((outfit) => !recentSignatures.has(outfitSignature(outfit.items.map((item) => item.id)))),
+        outfits: activeStyleProfile ? applyStyleProfile(rotationFiltered, activeStyleProfile) : rotationFiltered,
         error: "",
       };
     } catch {
@@ -381,7 +385,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
           t("Some wardrobe items have invalid data. Please review your wardrobe."),
       };
     }
-  }, [wardrobe, season, garmentStatuses, includeUnavailable, wearHistory, repeatDays]);
+  }, [wardrobe, season, garmentStatuses, includeUnavailable, wearHistory, repeatDays, activeStyleProfile]);
 
     // Reconcile saved outfits with the current wardrobe.
     const reconciledSavedOutfits = useMemo(
@@ -500,6 +504,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
             : t("Create a colour profile to personalise your outfit suggestions.")}
         </p>
       </section>
+
+      {isPremium && <StyleProfiles userId={userId} isPremium={isPremium} wardrobe={wardrobe.map((item) => ({ id: item.id, name: item.name, category: item.category }))} onChange={setActiveStyleProfile} />}
 
       {isPremium && <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>}
 

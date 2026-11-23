@@ -23,6 +23,8 @@ import {
 } from "./planner";
 import "./WeeklyPlanner.css";
 import { isGarmentAvailable, type GarmentStatusRecord } from "../outfit-history/rotation";
+import StyleProfiles from "../style-profiles/StyleProfiles";
+import { applyStyleProfile, type StyleProfile } from "../style-profiles/profiles";
 
 function isMissingRotationMigration(message: string): boolean {
   return /user_garment_statuses|user_outfit_wear_events|user_outfit_rotation_settings|schema cache|does not exist|42P01|PGRST205/i.test(message);
@@ -77,6 +79,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
   const [garmentStatuses, setGarmentStatuses] = useState<GarmentStatusRecord[]>([]);
   const [season, setSeason] = useState<ColorSeason | undefined>();
+  const [activeStyleProfile, setActiveStyleProfile] = useState<StyleProfile | null>(null);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,7 +99,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
   const hasPlannerSweater = generatorWardrobe.some((item) => item.category === "sweater");
   const hasPlannerShoes = generatorWardrobe.some((item) => item.category === "shoes");
-  const outfitOptions = useMemo(() => generateOutfits(generatorWardrobe, { limit: 50, requireCompleteLayers: true, ...(season ? { season } : {}) }), [generatorWardrobe, season]);
+  const outfitOptions = useMemo(() => { const generated = generateOutfits(generatorWardrobe, { limit: 50, requireCompleteLayers: true, ...(season ? { season } : {}) }); return activeStyleProfile ? applyStyleProfile(generated, activeStyleProfile) : generated; }, [generatorWardrobe, season, activeStyleProfile]);
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
     if (!supabase || !userId) {
@@ -284,7 +287,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
         const cutoff = parseLocalDate(weekStart);
         cutoff.setDate(cutoff.getDate() - repeatAvoidanceWeeks * 7);
         const history = repeatAvoidanceWeeks === 0 ? [] : recentHistory.filter((entry) => parseLocalDate(entry.date) >= cutoff);
-        next = regenerateDayOutfit(generatorWardrobe, season, next, index, history).days;
+        next = regenerateDayOutfit(generatorWardrobe, season, next, index, history, activeStyleProfile).days;
       }
       setDays(next);
       await persist(next);
@@ -304,7 +307,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       const cutoff = parseLocalDate(weekStart);
       cutoff.setDate(cutoff.getDate() - repeatAvoidanceWeeks * 7);
       const history = repeatAvoidanceWeeks === 0 ? [] : recentHistory.filter((entry) => parseLocalDate(entry.date) >= cutoff);
-      const generated = generateWeeklyOutfits(generatorWardrobe, season, days, history);
+      const generated = generateWeeklyOutfits(generatorWardrobe, season, days, history, activeStyleProfile);
       setDays(generated.days);
       await persist(generated.days);
       const assignedDays = generated.days.filter((day) => day.itemIds?.length).length;
@@ -473,6 +476,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
           <p>{t("Seven days of considered outfits, selected from the pieces you already own. Pin the looks you love and refresh the rest.")}</p>
         </div>
       </header>
+
+      <StyleProfiles userId={userId} isPremium={isPremium} wardrobe={wardrobe.map((item) => ({ id: item.id, name: item.name, category: item.category }))} onChange={setActiveStyleProfile} />
 
       <div className="weekly-planner-toolbar">
         <div className="weekly-planner-week-switch">
