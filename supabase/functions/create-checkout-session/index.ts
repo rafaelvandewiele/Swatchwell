@@ -32,11 +32,23 @@ Deno.serve(async (req) => {
   if (authError || !user || !user.email_confirmed_at) return json({ error: "Authentication required." }, 401, origin);
 
   const admin = createClient(url, serviceKey);
-  const { data: profile } = await admin.from("profiles").select("role, language, premium_source").eq("id", user.id).maybeSingle();
+  const { data: profile, error: profileError } = await admin.from("profiles").select("role, language, premium_source").eq("id", user.id).maybeSingle();
+  if (profileError) return json({ error: "Could not verify the account profile." }, 500, origin);
   if (!profile) return json({ error: "Account profile not found." }, 404, origin);
   if (profile.role === "admin" || profile.premium_source === "admin") return json({ error: "This account already has Premium access." }, 409, origin);
 
-  const { data: existing } = await admin.from("billing_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+  const { data: currentSubscription, error: subscriptionError } = await admin
+    .from("billing_subscriptions")
+    .select("status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (subscriptionError) return json({ error: "Could not verify the existing subscription." }, 500, origin);
+  if (currentSubscription && ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(currentSubscription.status)) {
+    return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
+  }
+
+  const { data: existing, error: customerError } = await admin.from("billing_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+  if (customerError) return json({ error: "Could not load the billing customer." }, 500, origin);
   let customerId = existing?.stripe_customer_id as string | undefined;
   const stripeHeaders = { Authorization: "Bearer " + stripeKey, "Content-Type": "application/x-www-form-urlencoded" };
 
