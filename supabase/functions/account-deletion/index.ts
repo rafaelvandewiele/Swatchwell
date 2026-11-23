@@ -85,6 +85,51 @@ Deno.serve(async (req) => {
     if(requestError || !request || new Date(request.expires_at).getTime()<Date.now()) return json({error:"Invalid or expired token"},400);
     const targetUserId=request.user_id;
 
+    // Resolve billing records before deleting the auth user. A database error
+    // must not silently leave a live Stripe subscription behind.
+    const [{data:subscription,error:subscriptionError},{data:billingCustomer,error:customerError}] = await Promise.all([
+      admin.from("billing_subscriptions")
+        .select("stripe_subscription_id,status")
+        .eq("user_id",targetUserId)
+        .maybeSingle(),
+      admin.from("billing_customers")
+        .select("stripe_customer_id")
+        .eq("user_id",targetUserId)
+        .maybeSingle(),
+    ]);
+    if(subscriptionError || customerError) {
+      return json({error:"Could not verify billing records before account deletion"},500);
+    }
+
+    if(subscription || billingCustomer) {
+      const stripeKey=Deno.env.get("STRIPE_SECRET_KEY");
+      if(!stripeKey) return json({error:"Billing cleanup is not configured"},503);
+
+      const stripeHeaders={Authorization:"Bearer "+stripeKey};
+      if(subscription?.stripe_subscription_id) {
+        const subscriptionUrl="https://api.stripe.com/v1/subscriptions/"+encodeURIComponent(subscription.stripe_subscription_id);
+        const currentResponse=await fetch(subscriptionUrl,{headers:stripeHeaders});
+        if(currentResponse.status!==404) {
+          const current=await currentResponse.json();
+          if(!currentResponse.ok) return json({error:"Could not verify the Stripe subscription"},502);
+          if(current.status!=="canceled" && current.status!=="incomplete_expired") {
+            const cancelResponse=await fetch(subscriptionUrl,{method:"DELETE",headers:stripeHeaders});
+            if(!cancelResponse.ok) return json({error:"Could not cancel the Stripe subscription"},502);
+          }
+        }
+      }
+
+      if(billingCustomer?.stripe_customer_id) {
+        const customerResponse=await fetch(
+          "https://api.stripe.com/v1/customers/"+encodeURIComponent(billingCustomer.stripe_customer_id),
+          {method:"DELETE",headers:stripeHeaders},
+        );
+        if(!customerResponse.ok && customerResponse.status!==404) {
+          return json({error:"Could not remove the Stripe customer"},502);
+        }
+      }
+    }
+
     // Remove every page of private wardrobe photos before deleting the auth
     // user. Storage objects do not cascade with auth.users, so a failed list
     // or removal must stop deletion rather than silently orphan personal data.
