@@ -325,7 +325,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       generation++;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [t]);
 
   // Load photos belonging to the signed-in wardrobe.
   useEffect(() => {
@@ -381,7 +381,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
           t("Some wardrobe items have invalid data. Please review your wardrobe."),
       };
     }
-  }, [wardrobe, season, garmentStatuses, includeUnavailable, wearHistory, repeatDays]);
+  }, [wardrobe, season, garmentStatuses, includeUnavailable, wearHistory, repeatDays, t]);
 
     // Reconcile saved outfits with the current wardrobe.
     const reconciledSavedOutfits = useMemo(
@@ -395,7 +395,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }).catch(() => {
         setSaveError(t("Your saved outfits could not be synchronised."));
       });
-    }, [reconciledSavedOutfits, userId, loading]);
+    }, [reconciledSavedOutfits, userId, loading, t]);
 
   const topCount = wardrobe.filter((item) =>
     ["Shirts", "T-shirts", "Polo shirts"].includes(item.category),
