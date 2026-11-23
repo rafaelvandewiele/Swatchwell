@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(url,anon,{global:{headers:{Authorization:authHeader}}});
     const {data:{user},error:userError}=await userClient.auth.getUser();
-    if(userError || !user) return json({error:"Unauthorized"},401);
+    if(userError || !user || !user.email_confirmed_at || !user.email) return json({error:"Unauthorized"},401);
     const apiKey=Deno.env.get("RESEND_API_KEY");
     if(!apiKey) return json({error:"Email provider is not configured"},503);
     const {data:recent,error:recentError}=await admin.from("account_deletion_requests")
@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
       .delete()
       .eq("user_id",user.id);
     if(cleanupError) return json({error:"Could not prepare a new confirmation request"},500);
-    const {data:profile}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
+    const {data:profile,error:profileError}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
+    if(profileError) return json({error:"Could not load account settings"},500);
     const language = profile && profile.language in messages ? profile.language as keyof typeof messages : "en";
     const copy=messages[language];
     const token = [...crypto.getRandomValues(new Uint8Array(32))].map((b)=>b.toString(16).padStart(2,"0")).join("");
