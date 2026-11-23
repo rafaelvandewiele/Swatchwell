@@ -244,25 +244,37 @@ Deno.serve(async (req) => {
       if (subscriptionId) {
         const { data: sub, error: subError } = await admin
           .from("billing_subscriptions")
-          .select("user_id")
+          .select("user_id,failed_at,last_dunning_email_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the failed subscription");
         if (!sub?.user_id) throw new Error("Failed subscription mapping is not available yet.");
 
-        const { data: previous, error: previousError } = await admin
-          .from("billing_subscriptions")
-          .select("failed_at,last_dunning_email_at")
-          .eq("user_id", sub.user_id)
-          .maybeSingle();
-        throwIfError(previousError, "Could not read the previous failed-payment state");
+        // A delayed failed-invoice event must not resurrect a cancelled
+        // subscription or override a later successful payment.
+        const stripeResponse = await fetch(
+          "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(subscriptionId),
+          { headers: { Authorization: "Bearer " + stripeKey } },
+        );
+        const currentSubscription = await stripeResponse.json();
+        if (!stripeResponse.ok) throw new Error("Could not verify the failed subscription status.");
 
-        const failedAt = previous?.failed_at ?? new Date().toISOString();
+        const currentlyPastDue = ["past_due", "unpaid"].includes(currentSubscription.status);
+        const failedAt = currentlyPastDue
+          ? sub.failed_at ?? new Date().toISOString()
+          : null;
         const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
           .update({
-            status: "past_due",
+            status: currentSubscription.status,
+            current_period_start: currentSubscription.current_period_start
+              ? new Date(currentSubscription.current_period_start * 1000).toISOString()
+              : null,
+            current_period_end: currentSubscription.current_period_end
+              ? new Date(currentSubscription.current_period_end * 1000).toISOString()
+              : null,
+            cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
             failed_at: failedAt,
-            last_dunning_email_at: previous?.last_dunning_email_at ?? null,
+            last_dunning_email_at: failedAt ? sub.last_dunning_email_at : null,
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", sub.user_id);
@@ -276,11 +288,13 @@ Deno.serve(async (req) => {
         throwIfError(profileError, "Could not read the failed-payment account role");
         if (!profile) throw new Error("The failed-payment account profile does not exist.");
 
-        const withinGracePeriod = Date.now() - new Date(failedAt).getTime() < 5 * 86400000;
+        const withinGracePeriod = Boolean(failedAt) && Date.now() - new Date(failedAt).getTime() < 5 * 86400000;
+        const entitled = ["active", "trialing"].includes(currentSubscription.status)
+          || (currentlyPastDue && withinGracePeriod);
         if (profile.role !== "admin") {
           const { error } = await admin.from("profiles")
             .update({
-              premium_source: withinGracePeriod ? "subscription" : "none",
+              premium_source: entitled ? "subscription" : "none",
               updated_at: new Date().toISOString(),
             })
             .eq("id", sub.user_id);
