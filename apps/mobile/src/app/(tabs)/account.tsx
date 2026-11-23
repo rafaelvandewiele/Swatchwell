@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'expo-router'
 import { useLocalSearchParams } from 'expo-router'
 import {
   ActivityIndicator,
@@ -21,6 +22,8 @@ interface Profile {
 
 export default function AccountScreen() {
   const { recovery } = useLocalSearchParams<{ recovery?: string }>()
+  const router = useRouter()
+  const recoveryPending = useRef(recovery === '1')
   const [mode, setMode] = useState<Mode>(
     recovery === '1' ? 'update' : 'login',
   )
@@ -57,9 +60,12 @@ export default function AccountScreen() {
         setProfile(null)
       }
 
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' || recoveryPending.current) {
         setMode('update')
-        setMessage('Choose a new password for your account.')
+        if (event === 'PASSWORD_RECOVERY') {
+          recoveryPending.current = true
+          setMessage('Choose a new password for your account.')
+        }
       } else if (nextSession) {
         setMode('account')
       } else {
@@ -128,7 +134,9 @@ export default function AccountScreen() {
         if (error) throw error
         setMessage('Your password has been updated.')
         setPassword('')
+        recoveryPending.current = false
         setMode('account')
+        router.replace('/(tabs)/account' as never)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
