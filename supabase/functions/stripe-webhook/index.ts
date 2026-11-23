@@ -47,69 +47,208 @@ async function validSignature(payload: string, header: string, secret: string) {
   return signatures.some((signature) => constantTimeHexEqual(expected, signature));
 }
 
+function throwIfError(error: { message?: string } | null, operation: string): void {
+  if (error) throw new Error(operation + ": " + (error.message ?? "database operation failed"));
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET"), url = Deno.env.get("SUPABASE_URL"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!secret || !url || !service) return new Response("Billing webhook is not configured.", { status: 503 });
-  const payload = await req.text();
-  if (!await validSignature(payload, req.headers.get("Stripe-Signature") ?? "", secret)) return new Response("Invalid signature", { status: 400 });
-  let event: any;
-  try { event = JSON.parse(payload); } catch { return new Response("Invalid JSON", { status: 400 }); }
-  const admin = createClient(url, service);
-  const object = event.data?.object ?? {};
 
-  if (event.type === "checkout.session.completed" && object.customer && object.client_reference_id) {
-    await admin.from("billing_customers").upsert({ user_id: object.client_reference_id, stripe_customer_id: object.customer }, { onConflict: "user_id" });
+  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const url = Deno.env.get("SUPABASE_URL");
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret || !url || !service) {
+    return new Response("Billing webhook is not configured.", { status: 503 });
   }
 
-  if (event.type.startsWith("customer.subscription.") && object.id) {
-    const customerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
-    const { data: customer } = await admin.from("billing_customers").select("user_id").eq("stripe_customer_id", customerId).maybeSingle();
-    if (customer?.user_id) {
-      const { data: previous } = await admin.from("billing_subscriptions").select("failed_at,last_dunning_email_at").eq("user_id", customer.user_id).maybeSingle();
-      const failedAt = object.status === "past_due" || object.status === "unpaid" ? (previous?.failed_at ?? new Date().toISOString()) : null;
+  const payload = await req.text();
+  if (!await validSignature(payload, req.headers.get("Stripe-Signature") ?? "", secret)) {
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  let event: { type?: string; data?: { object?: Record<string, any> } };
+  try {
+    event = JSON.parse(payload);
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  try {
+    const admin = createClient(url, service);
+    const object = event.data?.object ?? {};
+
+    if (event.type === "checkout.session.completed" && object.mode === "subscription") {
+      if (!object.customer || !object.client_reference_id) {
+        throw new Error("Completed subscription checkout is missing its customer or user reference.");
+      }
+
+      const { error } = await admin.from("billing_customers").upsert({
+        user_id: object.client_reference_id,
+        stripe_customer_id: typeof object.customer === "string" ? object.customer : object.customer.id,
+      }, { onConflict: "user_id" });
+      throwIfError(error, "Could not save the Stripe customer mapping");
+    }
+
+    if (event.type?.startsWith("customer.subscription.") && object.id) {
+      const customerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
+      if (!customerId) throw new Error("Subscription event is missing its Stripe customer.");
+
+      const { data: customer, error: customerError } = await admin
+        .from("billing_customers")
+        .select("user_id")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle();
+      throwIfError(customerError, "Could not resolve the Stripe customer");
+      // Stripe does not guarantee delivery order. Returning 500 here asks Stripe
+      // to retry if checkout.session.completed has not stored this mapping yet.
+      if (!customer?.user_id) throw new Error("Stripe customer mapping is not available yet.");
+
+      const { data: previous, error: previousError } = await admin
+        .from("billing_subscriptions")
+        .select("failed_at,last_dunning_email_at")
+        .eq("user_id", customer.user_id)
+        .maybeSingle();
+      throwIfError(previousError, "Could not read the previous subscription state");
+
+      const failedAt = object.status === "past_due" || object.status === "unpaid"
+        ? previous?.failed_at ?? new Date().toISOString()
+        : null;
+
       const { error: saveError } = await admin.from("billing_subscriptions").upsert({
         user_id: customer.user_id,
         stripe_subscription_id: object.id,
         stripe_price_id: object.items?.data?.[0]?.price?.id ?? null,
         status: object.status,
-        current_period_start: object.current_period_start ? new Date(object.current_period_start * 1000).toISOString() : null,
-        current_period_end: object.current_period_end ? new Date(object.current_period_end * 1000).toISOString() : null,
+        current_period_start: object.current_period_start
+          ? new Date(object.current_period_start * 1000).toISOString()
+          : null,
+        current_period_end: object.current_period_end
+          ? new Date(object.current_period_end * 1000).toISOString()
+          : null,
         cancel_at_period_end: Boolean(object.cancel_at_period_end),
         failed_at: failedAt,
         last_dunning_email_at: failedAt ? previous?.last_dunning_email_at ?? null : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
-      if (!saveError) {
-        const { data: profile } = await admin.from("profiles").select("role").eq("id", customer.user_id).maybeSingle();
-        const entitled = ["active", "trialing", "past_due", "unpaid"].includes(object.status) && (!failedAt || Date.now() - new Date(failedAt).getTime() < 5 * 86400000);
-        if (profile?.role !== "admin") await admin.from("profiles").update({ premium_source: entitled ? "subscription" : "none", updated_at: new Date().toISOString() }).eq("id", customer.user_id);
+      throwIfError(saveError, "Could not save the subscription state");
+
+      const { data: profile, error: profileError } = await admin
+        .from("profiles")
+        .select("role")
+        .eq("id", customer.user_id)
+        .maybeSingle();
+      throwIfError(profileError, "Could not read the account role");
+      if (!profile) throw new Error("The subscription account profile does not exist.");
+
+      const entitled = ["active", "trialing", "past_due", "unpaid"].includes(object.status)
+        && (!failedAt || Date.now() - new Date(failedAt).getTime() < 5 * 86400000);
+
+      if (profile.role !== "admin") {
+        const { error } = await admin.from("profiles")
+          .update({
+            premium_source: entitled ? "subscription" : "none",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", customer.user_id);
+        throwIfError(error, "Could not synchronize Premium access");
       }
     }
-  }
 
-  if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
-    const subscriptionId = object.subscription ?? object.parent?.subscription_details?.subscription;
-    if (subscriptionId) {
-      const { data: sub } = await admin.from("billing_subscriptions").select("user_id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
-      if (sub?.user_id) {
-        await admin.from("billing_subscriptions").update({ failed_at: null, last_dunning_email_at: null, status: "active", updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
-        const { data: profile } = await admin.from("profiles").select("role").eq("id", sub.user_id).maybeSingle();
-        if (profile?.role !== "admin") await admin.from("profiles").update({ premium_source: "subscription", updated_at: new Date().toISOString() }).eq("id", sub.user_id);
+    if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+      const subscriptionId = object.subscription ?? object.parent?.subscription_details?.subscription;
+      if (subscriptionId) {
+        const { data: sub, error: subError } = await admin
+          .from("billing_subscriptions")
+          .select("user_id")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle();
+        throwIfError(subError, "Could not resolve the paid subscription");
+        if (!sub?.user_id) throw new Error("Paid subscription mapping is not available yet.");
+
+        const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
+          .update({
+            failed_at: null,
+            last_dunning_email_at: null,
+            status: "active",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", sub.user_id);
+        throwIfError(subscriptionUpdateError, "Could not mark the subscription as paid");
+
+        const { data: profile, error: profileError } = await admin
+          .from("profiles")
+          .select("role")
+          .eq("id", sub.user_id)
+          .maybeSingle();
+        throwIfError(profileError, "Could not read the paid account role");
+        if (!profile) throw new Error("The paid subscription account profile does not exist.");
+
+        if (profile.role !== "admin") {
+          const { error } = await admin.from("profiles")
+            .update({ premium_source: "subscription", updated_at: new Date().toISOString() })
+            .eq("id", sub.user_id);
+          throwIfError(error, "Could not restore Premium access after payment");
+        }
       }
     }
-  }
 
-  if (event.type === "invoice.payment_failed") {
-    const subscriptionId = object.subscription ?? object.parent?.subscription_details?.subscription;
-    if (subscriptionId) {
-      const { data: sub } = await admin.from("billing_subscriptions").select("user_id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
-      if (sub?.user_id) {
-        const { data: previous } = await admin.from("billing_subscriptions").select("failed_at,last_dunning_email_at").eq("user_id", sub.user_id).maybeSingle();
-        await admin.from("billing_subscriptions").update({ status: "past_due", failed_at: previous?.failed_at ?? new Date().toISOString(), last_dunning_email_at: previous?.last_dunning_email_at ?? null, updated_at: new Date().toISOString() }).eq("user_id", sub.user_id);
+    if (event.type === "invoice.payment_failed") {
+      const subscriptionId = object.subscription ?? object.parent?.subscription_details?.subscription;
+      if (subscriptionId) {
+        const { data: sub, error: subError } = await admin
+          .from("billing_subscriptions")
+          .select("user_id")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle();
+        throwIfError(subError, "Could not resolve the failed subscription");
+        if (!sub?.user_id) throw new Error("Failed subscription mapping is not available yet.");
+
+        const { data: previous, error: previousError } = await admin
+          .from("billing_subscriptions")
+          .select("failed_at,last_dunning_email_at")
+          .eq("user_id", sub.user_id)
+          .maybeSingle();
+        throwIfError(previousError, "Could not read the previous failed-payment state");
+
+        const failedAt = previous?.failed_at ?? new Date().toISOString();
+        const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
+          .update({
+            status: "past_due",
+            failed_at: failedAt,
+            last_dunning_email_at: previous?.last_dunning_email_at ?? null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", sub.user_id);
+        throwIfError(subscriptionUpdateError, "Could not save the failed-payment state");
+
+        const { data: profile, error: profileError } = await admin
+          .from("profiles")
+          .select("role")
+          .eq("id", sub.user_id)
+          .maybeSingle();
+        throwIfError(profileError, "Could not read the failed-payment account role");
+        if (!profile) throw new Error("The failed-payment account profile does not exist.");
+
+        const withinGracePeriod = Date.now() - new Date(failedAt).getTime() < 5 * 86400000;
+        if (profile.role !== "admin") {
+          const { error } = await admin.from("profiles")
+            .update({
+              premium_source: withinGracePeriod ? "subscription" : "none",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", sub.user_id);
+          throwIfError(error, "Could not synchronize Premium access after failed payment");
+        }
       }
     }
-  }
 
-  return new Response(JSON.stringify({ received: true }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    // A non-2xx response makes Stripe retry transient database or event-ordering
+    // failures instead of permanently acknowledging an event we did not apply.
+    console.error("Stripe webhook processing failed:", error);
+    return new Response("Webhook processing failed", { status: 500 });
+  }
 });
