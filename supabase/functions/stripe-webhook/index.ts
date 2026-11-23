@@ -159,21 +159,39 @@ Deno.serve(async (req) => {
       if (subscriptionId) {
         const { data: sub, error: subError } = await admin
           .from("billing_subscriptions")
-          .select("user_id")
+          .select("user_id,failed_at,last_dunning_email_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the paid subscription");
         if (!sub?.user_id) throw new Error("Paid subscription mapping is not available yet.");
 
+        // Invoice events can be delayed or delivered out of order. Retrieve the
+        // current Stripe subscription instead of assuming that a paid invoice
+        // means the subscription itself is still active.
+        const stripeResponse = await fetch(
+          "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(subscriptionId),
+          { headers: { Authorization: "Bearer " + stripeKey } },
+        );
+        const currentSubscription = await stripeResponse.json();
+        if (!stripeResponse.ok) throw new Error("Could not verify the current Stripe subscription status.");
+        const currentlyEntitled = ["active", "trialing"].includes(currentSubscription.status);
+
         const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
           .update({
-            failed_at: null,
-            last_dunning_email_at: null,
-            status: "active",
+            status: currentSubscription.status,
+            current_period_start: currentSubscription.current_period_start
+              ? new Date(currentSubscription.current_period_start * 1000).toISOString()
+              : null,
+            current_period_end: currentSubscription.current_period_end
+              ? new Date(currentSubscription.current_period_end * 1000).toISOString()
+              : null,
+            cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
+            failed_at: currentlyEntitled ? null : sub.failed_at,
+            last_dunning_email_at: currentlyEntitled ? null : sub.last_dunning_email_at,
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", sub.user_id);
-        throwIfError(subscriptionUpdateError, "Could not mark the subscription as paid");
+        throwIfError(subscriptionUpdateError, "Could not synchronize the paid subscription");
 
         const { data: profile, error: profileError } = await admin
           .from("profiles")
@@ -185,9 +203,12 @@ Deno.serve(async (req) => {
 
         if (profile.role !== "admin") {
           const { error } = await admin.from("profiles")
-            .update({ premium_source: "subscription", updated_at: new Date().toISOString() })
+            .update({
+              premium_source: currentlyEntitled ? "subscription" : "none",
+              updated_at: new Date().toISOString(),
+            })
             .eq("id", sub.user_id);
-          throwIfError(error, "Could not restore Premium access after payment");
+          throwIfError(error, "Could not synchronize Premium access after payment");
         }
       }
     }
