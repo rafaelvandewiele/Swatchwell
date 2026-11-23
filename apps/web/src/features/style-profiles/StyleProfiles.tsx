@@ -12,7 +12,8 @@ export default function StyleProfiles({ userId, isPremium, wardrobe, onChange }:
   const [profiles, setProfiles] = useState<StyleProfile[]>([]);
   const [activeId, setActiveId] = useState("");
   const [draft, setDraft] = useState<StyleProfileInput>(DEFAULT_STYLE_PROFILE);
-  const [editing, setEditing] = useState(false);\n  const [isCreating, setIsCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
