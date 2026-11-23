@@ -14,14 +14,16 @@ Deno.serve(async (req) => {
   if (!url || !anon || !service || !stripeKey) return json({ error: "Billing is not configured." }, 503, origin);
   const userClient = createClient(url, anon, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
   const { data: { user }, error: authError } = await userClient.auth.getUser();
-  if (authError || !user) return json({ error: "Authentication required." }, 401, origin);
+  if (authError || !user || !user.email_confirmed_at) return json({ error: "Authentication required." }, 401, origin);
   const admin = createClient(url, service);
-  const { data: actor } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const { data: actor, error: actorError } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (actorError) return json({ error: "Could not verify administrator access." }, 500, origin);
   if (actor?.role !== "admin") return json({ error: "Administrator access required." }, 403, origin);
   let body: { userId?: string; action?: string };
   try { body = await req.json(); } catch { return json({ error: "Invalid request." }, 400, origin); }
   if (!body.userId || !["cancel_now", "cancel_at_period_end", "resume"].includes(body.action ?? "")) return json({ error: "Invalid subscription action." }, 400, origin);
-  const { data: target } = await admin.from("billing_subscriptions").select("stripe_subscription_id").eq("user_id", body.userId).maybeSingle();
+  const { data: target, error: targetError } = await admin.from("billing_subscriptions").select("stripe_subscription_id").eq("user_id", body.userId).maybeSingle();
+  if (targetError) return json({ error: "Could not load the target subscription." }, 500, origin);
   if (!target?.stripe_subscription_id) return json({ error: "No subscription found for this user." }, 404, origin);
 
   let response: Response;
@@ -34,11 +36,29 @@ Deno.serve(async (req) => {
   const result = await response.json();
   if (!response.ok) return json({ error: "Stripe could not update this subscription." }, 502, origin);
   if (body.action === "cancel_now") {
-    await admin.from("billing_subscriptions").update({ status: "canceled", cancel_at_period_end: false, updated_at: new Date().toISOString() }).eq("user_id", body.userId);
-    const { data: profile } = await admin.from("profiles").select("role").eq("id", body.userId).maybeSingle();
-    if (profile?.role !== "admin") await admin.from("profiles").update({ premium_source: "none", updated_at: new Date().toISOString() }).eq("id", body.userId);
+    const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
+      .update({ status: "canceled", cancel_at_period_end: false, failed_at: null, updated_at: new Date().toISOString() })
+      .eq("user_id", body.userId);
+    if (subscriptionUpdateError) return json({ error: "Stripe cancelled the subscription, but its local status could not be updated. The webhook will retry synchronization." }, 500, origin);
+
+    const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", body.userId).maybeSingle();
+    if (profileError) return json({ error: "Stripe cancelled the subscription, but account access could not be verified." }, 500, origin);
+    if (!profile) return json({ error: "Stripe cancelled the subscription, but the account profile could not be found." }, 500, origin);
+    if (profile.role !== "admin") {
+      const { error: premiumUpdateError } = await admin.from("profiles")
+        .update({ premium_source: "none", updated_at: new Date().toISOString() })
+        .eq("id", body.userId);
+      if (premiumUpdateError) return json({ error: "Stripe cancelled the subscription, but Premium access could not be synchronized." }, 500, origin);
+    }
   } else {
-    await admin.from("billing_subscriptions").update({ cancel_at_period_end: Boolean(result.cancel_at_period_end), current_period_end: result.current_period_end ? new Date(result.current_period_end * 1000).toISOString() : null, updated_at: new Date().toISOString() }).eq("user_id", body.userId);
+    const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
+      .update({
+        cancel_at_period_end: Boolean(result.cancel_at_period_end),
+        current_period_end: result.current_period_end ? new Date(result.current_period_end * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", body.userId);
+    if (subscriptionUpdateError) return json({ error: "Stripe updated the subscription, but its local status could not be synchronized." }, 500, origin);
   }
   return json({ success: true, status: result.status, cancel_at_period_end: Boolean(result.cancel_at_period_end) }, 200, origin);
 });
