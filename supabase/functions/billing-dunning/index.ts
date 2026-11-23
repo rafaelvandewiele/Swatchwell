@@ -30,6 +30,60 @@ Deno.serve(async (req) => {
     const { data: profile, error: profileError } = await admin.from("profiles").select("email,language,role").eq("id", row.user_id).maybeSingle();
     if (profileError) return new Response("Could not load an overdue subscription profile.", { status: 500 });
     if (!profile || profile.role === "admin" || !profile.email) continue;
+
+    // The local subscription row can lag behind Stripe if a webhook was
+    // delayed. Never cancel or remind based only on a stale database status.
+    const stripeStateResponse = await fetch(
+      "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(row.stripe_subscription_id),
+      { headers: { Authorization: "Bearer " + stripeKey } },
+    );
+    if (!stripeStateResponse.ok) {
+      console.error("Could not verify the current Stripe subscription", row.stripe_subscription_id);
+      return new Response("Could not verify an overdue Stripe subscription.", { status: 502 });
+    }
+    const currentSubscription = await stripeStateResponse.json();
+    if (["active", "trialing"].includes(currentSubscription.status)) {
+      const { error: subscriptionSyncError } = await admin.from("billing_subscriptions")
+        .update({
+          status: currentSubscription.status,
+          failed_at: null,
+          last_dunning_email_at: null,
+          current_period_start: currentSubscription.current_period_start
+            ? new Date(currentSubscription.current_period_start * 1000).toISOString()
+            : null,
+          current_period_end: currentSubscription.current_period_end
+            ? new Date(currentSubscription.current_period_end * 1000).toISOString()
+            : null,
+          cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", row.user_id);
+      if (subscriptionSyncError) return new Response("Could not synchronize a recovered subscription.", { status: 500 });
+      const { error: profileSyncError } = await admin.from("profiles")
+        .update({ premium_source: "subscription", updated_at: new Date().toISOString() })
+        .eq("id", row.user_id);
+      if (profileSyncError) return new Response("Could not restore Premium access for a recovered subscription.", { status: 500 });
+      continue;
+    }
+
+    if (!["past_due", "unpaid"].includes(currentSubscription.status)) {
+      const { error: subscriptionSyncError } = await admin.from("billing_subscriptions")
+        .update({
+          status: currentSubscription.status,
+          failed_at: null,
+          last_dunning_email_at: null,
+          cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", row.user_id);
+      if (subscriptionSyncError) return new Response("Could not synchronize a non-overdue subscription.", { status: 500 });
+      const { error: profileSyncError } = await admin.from("profiles")
+        .update({ premium_source: "none", updated_at: new Date().toISOString() })
+        .eq("id", row.user_id);
+      if (profileSyncError) return new Response("Could not revoke access for a non-active subscription.", { status: 500 });
+      continue;
+    }
+
     const language = profile.language in messages ? profile.language as keyof typeof messages : "en";
     const copy = messages[language];
     if (daysOverdue >= 5) {
