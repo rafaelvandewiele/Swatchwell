@@ -69,6 +69,8 @@ Deno.serve(async (req) => {
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("customer", customerId);
+  form.set("client_reference_id", user.id);
+  form.set("metadata[user_id]", user.id);
   form.set("line_items[0][price_data][currency]", "eur");
   form.set("line_items[0][price_data][unit_amount]", "299");
   form.set("line_items[0][price_data][recurring][interval]", "month");
