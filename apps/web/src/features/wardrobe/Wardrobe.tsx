@@ -144,7 +144,7 @@ export default function Wardrobe() {
       data.subscription.unsubscribe()
       urls.forEach(URL.revokeObjectURL)
     }
-  }, [])
+  }, [t])
 
   const visibleItems = useMemo(() => {
     const query = search.trim().toLowerCase()
