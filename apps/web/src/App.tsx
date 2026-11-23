@@ -714,7 +714,7 @@ function App() {
         {page === "Cookie policy" && <LegalPage kind="cookies" /> }
         {page === "Confirm account deletion" && <SettingsPage confirmDeletion /> }
 
-        {showProfile && <AuthPanel initialMode={recoveryMode ? "update" : undefined} onClose={() => setShowProfile(false)} onRecoveryComplete={() => setRecoveryMode(false)} /> }
+        {showProfile && <AuthPanel initialMode={recoveryMode ? "update" : undefined} onClose={() => setShowProfile(false)} onRecoveryComplete={() => { setRecoveryMode(false); setShowProfile(false); }} /> }
 
         <footer className="footer">
           <span>
