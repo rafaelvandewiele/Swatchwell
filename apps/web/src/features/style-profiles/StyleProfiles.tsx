@@ -12,7 +12,7 @@ export default function StyleProfiles({ userId, isPremium, wardrobe, onChange }:
   const [profiles, setProfiles] = useState<StyleProfile[]>([]);
   const [activeId, setActiveId] = useState("");
   const [draft, setDraft] = useState<StyleProfileInput>(DEFAULT_STYLE_PROFILE);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(false);\n  const [isCreating, setIsCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -68,14 +68,14 @@ export default function StyleProfiles({ userId, isPremium, wardrobe, onChange }:
         if (clearError) throw clearError;
       }
       const payload = { ...draft, name: draft.name.trim(), updated_at: new Date().toISOString() };
-      const result = active && editing && profiles.some((profile) => profile.id === active.id)
+      const result = !isCreating && active && profiles.some((profile) => profile.id === active.id)
         ? await supabase.from("user_style_profiles").update(payload).eq("id", active.id).eq("user_id", userId).select("*").single()
         : await supabase.from("user_style_profiles").insert({ ...payload, user_id: userId }).select("*").single();
       if (result.error) throw result.error;
       const saved = normalizeStyleProfile(result.data);
       if (!saved) throw new Error("The saved style profile could not be read.");
       const next = [...profiles.filter((profile) => profile.id !== saved.id && !(saved.is_default && profile.is_default)), saved];
-      setProfiles(next); setActiveId(saved.id); setEditing(false);
+      setProfiles(next); setActiveId(saved.id); setEditing(false); setIsCreating(false);
     } catch (saveError) { setError(saveError instanceof Error ? saveError.message : t("Your style profile could not be saved.")); }
     finally { setBusy(false); }
   }
