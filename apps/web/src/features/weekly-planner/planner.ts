@@ -310,11 +310,12 @@ export function regenerateDayOutfit(
   if (currentDays[targetIndex].wornAt) {
     return { days: currentDays.map((day) => ({ ...day, itemIds: day.itemIds ? [...day.itemIds] : null })), candidates: [], repeatConflict: false };
   }
-  const rawCandidates = generateOutfits(wardrobe, {
+  const generatedCandidates = generateOutfits(wardrobe, {
     limit: 50,
     requireCompleteLayers: true,
     ...(season ? { season } : {}),
   });
+  const rawCandidates = styleProfile ? applyStyleProfile(generatedCandidates, styleProfile) : generatedCandidates;
   const seenCoreOutfits = new Set<string>();
   const candidates = rawCandidates.filter((outfit) => {
     const key = getOutfitCoreKey(outfit.items);
