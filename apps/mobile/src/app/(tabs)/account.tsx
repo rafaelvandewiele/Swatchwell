@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'expo-router'
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import {
   ActivityIndicator,
   Linking,
