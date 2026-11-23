@@ -38,9 +38,18 @@ Deno.serve(async (req) => {
     if(userError || !user) return json({error:"Unauthorized"},401);
     const apiKey=Deno.env.get("RESEND_API_KEY");
     if(!apiKey) return json({error:"Email provider is not configured"},503);
-    const {data:recent}=await admin.from("account_deletion_requests").select("id").eq("user_id",user.id).gt("created_at",new Date(Date.now()-15*60*1000).toISOString()).limit(1);
+    const {data:recent,error:recentError}=await admin.from("account_deletion_requests")
+      .select("id")
+      .eq("user_id",user.id)
+      .gt("created_at",new Date(Date.now()-15*60*1000).toISOString())
+      .limit(1);
+    if(recentError) return json({error:"Could not verify the deletion request limit"},500);
     if(recent?.length) return json({error:"A confirmation email was already requested recently"},429);
-    await admin.from("account_deletion_requests").delete().eq("user_id",user.id);
+
+    const {error:cleanupError}=await admin.from("account_deletion_requests")
+      .delete()
+      .eq("user_id",user.id);
+    if(cleanupError) return json({error:"Could not prepare a new confirmation request"},500);
     const {data:profile}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
     const language = profile && profile.language in messages ? profile.language as keyof typeof messages : "en";
     const copy=messages[language];
