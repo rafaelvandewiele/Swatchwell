@@ -98,3 +98,69 @@
   .premium-required { min-height: 60vh; }
   .premium-required-card { min-height: 0; }
 }
+
+/* Issue #28: render the finished combination as one layered outfit rather
+   than three disconnected garment rows. The transparent SVG silhouettes
+   overlap so the shirt remains visible below the upper layer and above the
+   trousers, like a dressed outfit. */
+.complete-outfit-preview {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 390px;
+  padding: 12px 0 20px;
+  isolation: isolate;
+}
+.complete-outfit-layer {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+.complete-outfit-layer .colour-combination-garment {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.complete-outfit-layer > span {
+  position: absolute;
+  left: calc(100% + 8px);
+  min-width: 70px;
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.complete-outfit-layer:nth-child(1) {
+  z-index: 3;
+  top: 1%;
+  left: 18%;
+  width: 58%;
+  height: 48%;
+}
+.complete-outfit-layer:nth-child(2) {
+  z-index: 2;
+  top: 7%;
+  left: 22%;
+  width: 52%;
+  height: 51%;
+}
+.complete-outfit-layer:nth-child(3) {
+  z-index: 1;
+  top: 43%;
+  left: 21%;
+  width: 54%;
+  height: 55%;
+}
+@media (max-width: 900px) {
+  .complete-outfit-preview { min-height: 410px; }
+  .complete-outfit-layer:nth-child(1) { left: 20%; width: 55%; }
+  .complete-outfit-layer:nth-child(2) { left: 24%; width: 49%; }
+  .complete-outfit-layer:nth-child(3) { left: 23%; width: 51%; }
+}
+@media (max-width: 620px) {
+  .complete-outfit-preview { min-height: 370px; }
+  .complete-outfit-layer > span { left: calc(100% + 4px); font-size: 8px; }
+}
