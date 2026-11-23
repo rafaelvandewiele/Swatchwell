@@ -1,3 +1,5 @@
+/// <reference lib="deno.ns" />
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const allowed = (origin: string) => origin === "https://swatchwell.veyca.dev" || /^https:\/\/[a-z0-9-]+\.swatchwell\.pages\.dev$/.test(origin) || /^http:\/\/localhost:\d+$/.test(origin);
