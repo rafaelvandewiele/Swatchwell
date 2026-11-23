@@ -207,8 +207,9 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
         const { error } = await supabase.auth.updateUser({ password })
         if (error) throw error
         setMessage(t('Your password has been updated.'))
-        setMode('account')
-        onRecoveryComplete?.()
+        setPassword('')
+        if (onRecoveryComplete) onRecoveryComplete()
+        else setMode('account')
         const cleanUrl = new URL(window.location.href)
         cleanUrl.searchParams.delete('type')
         cleanUrl.searchParams.delete('code')
