@@ -106,12 +106,14 @@ Deno.serve(async (req) => {
       if(!stripeKey) return json({error:"Billing cleanup is not configured"},503);
 
       const stripeHeaders={Authorization:"Bearer "+stripeKey};
+      let stripeCustomerId=billingCustomer?.stripe_customer_id;
       if(subscription?.stripe_subscription_id) {
         const subscriptionUrl="https://api.stripe.com/v1/subscriptions/"+encodeURIComponent(subscription.stripe_subscription_id);
         const currentResponse=await fetch(subscriptionUrl,{headers:stripeHeaders});
         if(currentResponse.status!==404) {
           const current=await currentResponse.json();
           if(!currentResponse.ok) return json({error:"Could not verify the Stripe subscription"},502);
+          if(typeof current.customer==="string") stripeCustomerId=stripeCustomerId??current.customer;
           if(current.status!=="canceled" && current.status!=="incomplete_expired") {
             const cancelResponse=await fetch(subscriptionUrl,{method:"DELETE",headers:stripeHeaders});
             if(!cancelResponse.ok) return json({error:"Could not cancel the Stripe subscription"},502);
@@ -119,9 +121,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      if(billingCustomer?.stripe_customer_id) {
+      if(stripeCustomerId) {
         const customerResponse=await fetch(
-          "https://api.stripe.com/v1/customers/"+encodeURIComponent(billingCustomer.stripe_customer_id),
+          "https://api.stripe.com/v1/customers/"+encodeURIComponent(stripeCustomerId),
           {method:"DELETE",headers:stripeHeaders},
         );
         if(!customerResponse.ok && customerResponse.status!==404) {
