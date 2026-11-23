@@ -373,8 +373,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       const today = new Date().toISOString().slice(0, 10);
       const recent = filterRecentOutfits(wearHistory, today, repeatDays);
       const recentSignatures = new Set(recent.map((entry) => outfitSignature(entry.item_ids)));
+      const rotationFiltered = generated.filter((outfit) => !recentSignatures.has(outfitSignature(outfit.items.map((item) => item.id))));
       return {
-        outfits: generated.filter((outfit) => !recentSignatures.has(outfitSignature(outfit.items.map((item) => item.id)))),
+        outfits: activeStyleProfile ? applyStyleProfile(rotationFiltered, activeStyleProfile) : rotationFiltered,
         error: "",
       };
     } catch {
