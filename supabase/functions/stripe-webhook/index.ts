@@ -35,13 +35,28 @@ Deno.serve(async (req) => {
     const object = event.data?.object ?? {};
 
     if (event.type === "checkout.session.completed" && object.mode === "subscription") {
-      if (!object.customer || !object.client_reference_id) {
-        throw new Error("Completed subscription checkout is missing its customer or user reference.");
+      if (!object.customer) throw new Error("Completed subscription checkout is missing its Stripe customer.");
+      const stripeCustomerId = typeof object.customer === "string" ? object.customer : object.customer.id;
+      let userId = object.client_reference_id ?? object.metadata?.user_id;
+
+      // Older Checkout Sessions may not have client_reference_id. Resolve the
+      // account from the customer metadata that the Checkout function writes.
+      if (!userId) {
+        const customerResponse = await fetch(
+          "https://api.stripe.com/v1/customers/" + encodeURIComponent(stripeCustomerId),
+          { headers: { Authorization: "Bearer " + stripeKey } },
+        );
+        const stripeCustomer = await customerResponse.json();
+        if (!customerResponse.ok) throw new Error("Could not resolve the completed checkout customer.");
+        userId = stripeCustomer.metadata?.user_id;
+      }
+      if (typeof userId !== "string" || !userId) {
+        throw new Error("Completed subscription checkout is missing its account reference.");
       }
 
       const { error } = await admin.from("billing_customers").upsert({
-        user_id: object.client_reference_id,
-        stripe_customer_id: typeof object.customer === "string" ? object.customer : object.customer.id,
+        user_id: userId,
+        stripe_customer_id: stripeCustomerId,
       }, { onConflict: "user_id" });
       throwIfError(error, "Could not save the Stripe customer mapping");
     }
