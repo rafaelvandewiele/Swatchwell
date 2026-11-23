@@ -90,7 +90,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
 
   const generatorWardrobe = useMemo(
     () => toGeneratorWardrobe(wardrobe).filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status)),
-    [wardrobe],
+    [wardrobe, garmentStatuses],
   );
   const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
   const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
