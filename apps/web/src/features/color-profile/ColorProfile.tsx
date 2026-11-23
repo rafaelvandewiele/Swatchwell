@@ -214,7 +214,7 @@ export default function ColorProfile() {
       loadVersion.current += 1;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [t]);
 
   function updateAnswer(value: string) {
     setProfile((current) => ({
