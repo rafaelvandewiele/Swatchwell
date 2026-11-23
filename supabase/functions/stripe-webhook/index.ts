@@ -62,35 +62,37 @@ Deno.serve(async (req) => {
 
       const { data: previous, error: previousError } = await admin
         .from("billing_subscriptions")
-        .select("stripe_subscription_id,status,failed_at,last_dunning_email_at")
+        .select("stripe_subscription_id,status,failed_at,last_dunning_email_at,updated_at")
         .eq("user_id", customer.user_id)
         .maybeSingle();
       throwIfError(previousError, "Could not read the previous subscription state");
 
-      // A customer may replace a cancelled subscription. Ignore delayed events
-      // for an older subscription once a different current subscription exists.
-      if (
+      let currentSubscription = object;
+      if (event.type !== "customer.subscription.deleted") {
+        const stripeResponse = await fetch(
+          "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(object.id),
+          { headers: { Authorization: "Bearer " + stripeKey } },
+        );
+        const fetchedSubscription = await stripeResponse.json();
+        if (!stripeResponse.ok) throw new Error("Could not verify the current Stripe subscription status.");
+        currentSubscription = fetchedSubscription;
+      } else {
+        currentSubscription = { ...object, status: "canceled" };
+      }
+
+      // A customer may replace a cancelled subscription. Compare Stripe's
+      // immutable creation time with the last persisted subscription update,
+      // so delayed events for an older subscription cannot overwrite a newer one.
+      const isOlderSubscriptionEvent = Boolean(
         previous?.stripe_subscription_id &&
         previous.stripe_subscription_id !== object.id &&
-        !["canceled", "incomplete_expired"].includes(previous.status)
-      ) {
+        Number.isFinite(Date.parse(previous.updated_at)) &&
+        Number(currentSubscription.created) * 1000 <= Date.parse(previous.updated_at)
+      );
+
+      if (isOlderSubscriptionEvent) {
         console.warn("Ignoring an event for a superseded Stripe subscription", object.id);
       } else {
-        let currentSubscription = object;
-        if (event.type !== "customer.subscription.deleted") {
-          const stripeResponse = await fetch(
-            "https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(object.id),
-            { headers: { Authorization: "Bearer " + stripeKey } },
-          );
-          // This endpoint requires the Stripe API secret, not the webhook
-          // signing secret. Use the configured STRIPE_SECRET_KEY below.
-          const fetchedSubscription = await stripeResponse.json();
-          if (!stripeResponse.ok) throw new Error("Could not verify the current Stripe subscription status.");
-          currentSubscription = fetchedSubscription;
-        } else {
-          currentSubscription = { ...object, status: "canceled" };
-        }
-
         const failedAt = currentSubscription.status === "past_due" || currentSubscription.status === "unpaid"
           ? previous?.failed_at ?? new Date().toISOString()
           : null;
