@@ -55,7 +55,9 @@ export function normalizeWardrobeGarment(value: unknown): WardrobeGarment | null
     ? "Sweaters"
     : Object.prototype.hasOwnProperty.call(CATEGORY_MAP, item.category)
       ? item.category as WardrobeCategory
-      : CATEGORY_ALIASES[item.category];
+      : Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, item.category)
+        ? CATEGORY_ALIASES[item.category]
+        : null;
 
   if (!category) return null;
   const color = typeof item.color === "string" && /^#[0-9a-fA-F]{6}$/.test(item.color)
