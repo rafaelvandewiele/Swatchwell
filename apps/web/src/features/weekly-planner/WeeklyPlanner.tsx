@@ -72,6 +72,7 @@ function toDbDays(days: PlannedDay[]) {
 export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, onOpenWardrobe }: WeeklyPlannerProps) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
@@ -199,30 +200,54 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
     let active = true;
     let generation = 0;
     const isActive = () => active;
+    const clearAccountState = () => {
+      setUserId(null);
+      setDays(createEmptyWeeklyPlan(weekStart).days);
+      setWardrobe([]);
+      setGarmentStatuses([]);
+      setSeason(undefined);
+      setRecentHistory([]);
+      setPhotoUrls({});
+      setHasSavedPlan(false);
+      setRepeatAvoidanceWeeks(4);
+      setError("");
+      setNotice("");
+    };
+
     const loadForSession = async () => {
       const current = ++generation;
       const { data, error: authError } = await supabase.auth.getUser();
       if (!active || current !== generation) return;
       if (authError || !data.user?.email_confirmed_at) {
-        setUserId(null);
+        if (activeUserIdRef.current !== null) {
+          activeUserIdRef.current = null;
+          clearAccountState();
+        }
         setLoading(false);
         return;
       }
-      setUserId(data.user.id);
-      await loadWeek(data.user.id, weekStart, isActive);
+      const id = data.user.id;
+      if (activeUserIdRef.current !== id) {
+        activeUserIdRef.current = id;
+        clearAccountState();
+      }
+      setUserId(id);
+      await loadWeek(id, weekStart, isActive);
     };
     void loadForSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       queueMicrotask(() => {
         if (!active) return;
         const id = session?.user.email_confirmed_at ? session.user.id : null;
-        setUserId(id);
-        if (id) void loadWeek(id, weekStart, isActive);
-        else {
-          loadGeneration.current++;
-          setDays(createEmptyWeeklyPlan(weekStart).days);
-          setWardrobe([]);
-          setLoading(false);
+        if (id === activeUserIdRef.current) return;
+        generation++;
+        loadGeneration.current++;
+        activeUserIdRef.current = id;
+        clearAccountState();
+        setLoading(Boolean(id));
+        if (id) {
+          setUserId(id);
+          void loadWeek(id, weekStart, isActive);
         }
       });
     });
