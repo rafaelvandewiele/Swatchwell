@@ -178,7 +178,11 @@ Deno.serve(async (req) => {
     }
 
     const {error:deleteError}=await admin.auth.admin.deleteUser(targetUserId);
-    if(deleteError) return json({error:"Could not delete account"},500);
+    // A concurrent confirmation or a retried request may already have removed
+    // the auth user. Treat that terminal state as successful and idempotent.
+    if(deleteError && !/user not found/i.test(deleteError.message)) {
+      return json({error:"Could not delete account"},500);
+    }
     return json({success:true,userId:targetUserId});
   }
   return json({error:"Unsupported action"},400);
