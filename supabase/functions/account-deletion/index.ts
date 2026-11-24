@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { collectStorageObjectPaths } from "../_shared/storage-cleanup.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "https://swatchwell.veyca.dev",
@@ -146,29 +147,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Storage folders are virtual: list() returns nested folders as entries
-    // with a null id, not downloadable objects. Walk the complete user tree,
-    // then remove actual object paths in bounded batches before deleting auth.
+    // Enumerate every nested folder before removing files. Supabase Storage
+    // folders are virtual entries (null id), not removable object paths.
     const photoBucket=admin.storage.from("wardrobe-photos");
-    const pendingDirectories=[targetUserId];
-    const photoPaths:string[]=[];
-    while(pendingDirectories.length>0) {
-      const directory=pendingDirectories.pop()!;
-      let offset=0;
-      while(true) {
-        const {data:entries,error:listError}=await photoBucket.list(directory,{limit:1000,offset});
-        if(listError) return json({error:"Could not enumerate wardrobe photos"},500);
-        const page=entries??[];
-        for(const entry of page) {
-          if(entry.id==null) {
-            pendingDirectories.push(directory+"/"+entry.name);
-          } else {
-            photoPaths.push(directory+"/"+entry.name);
-          }
-        }
-        if(page.length<1000) break;
-        offset+=page.length;
-      }
+    let photoPaths:string[];
+    try {
+      photoPaths=await collectStorageObjectPaths(
+        targetUserId,
+        async (directory,page) => {
+          const {data,error}=await photoBucket.list(directory,page);
+          return {data,error};
+        },
+      );
+    } catch {
+      return json({error:"Could not enumerate wardrobe photos"},500);
     }
 
     for(let offset=0;offset<photoPaths.length;offset+=1000) {
