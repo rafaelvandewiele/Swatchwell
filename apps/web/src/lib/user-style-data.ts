@@ -225,7 +225,6 @@ export async function clearLocalStyleDataForUser(
       const store = transaction.objectStore(STORE_NAME)
       const request = store.getAllKeys()
       request.onsuccess = () => {
-        const prefix = `${userId}:`
         for (const key of request.result) {
           if (isOwnedLocalPhotoKey(key, userId)) {
             store.delete(key)
