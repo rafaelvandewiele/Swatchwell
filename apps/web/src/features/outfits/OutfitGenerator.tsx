@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData, saveUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
@@ -249,6 +249,13 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
   const [season, setSeason] = useState<ColorSeason | undefined>(undefined);
 
   const [saveError, setSaveError] = useState("");
+  const activeUserIdRef = useRef<string | null>(null);
+
+  const isCurrentAccount = async (expectedUserId: string) => {
+    if (!supabase || activeUserIdRef.current !== expectedUserId) return false;
+    const { data, error } = await supabase.auth.getUser();
+    return !error && data.user?.id === expectedUserId && activeUserIdRef.current === expectedUserId;
+  };
 
   // Load account-specific wardrobe and saved outfits.
   useEffect(() => {
@@ -262,6 +269,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
 
     async function loadForUser(id: string | null) {
       const current = ++generation;
+      activeUserIdRef.current = id;
       setUserId(id);
       setWardrobe([]);
       setSavedOutfits([]);
@@ -269,6 +277,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       setGarmentStatuses([]);
       setWearHistory([]);
       setRepeatDays(7);
+      setIncludeUnavailable(false);
+      setPhotoUrls({});
       setSaveError("");
       setLoading(Boolean(id));
 
@@ -279,7 +289,19 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
 
       try {
         const data = await loadUserStyleData();
-        if (!active || current !== generation || data?.userId !== id) return;
+        if (!active || current !== generation || activeUserIdRef.current !== id || data?.userId !== id) return;
+
+        const [statusResult, historyResult, profileResult] = await Promise.all([
+          supabase.from("user_garment_statuses").select("item_id,status").eq("user_id", id),
+          supabase.from("user_outfit_wear_events").select("id,item_ids,outfit_name,worn_on").eq("user_id", id).order("worn_on", { ascending: false }),
+          supabase.from("user_outfit_rotation_settings").select("repeat_days").eq("user_id", id).maybeSingle(),
+        ]);
+        const { data: currentAuth, error: currentAuthError } = await supabase.auth.getUser();
+        if (currentAuthError) throw currentAuthError;
+        if (!active || current !== generation || activeUserIdRef.current !== id || currentAuth.user?.id !== id) return;
+        if (statusResult.error && !isMissingRotationMigration(statusResult.error.message)) throw statusResult.error;
+        if (historyResult.error && !isMissingRotationMigration(historyResult.error.message)) throw historyResult.error;
+        if (profileResult.error && !isMissingRotationMigration(profileResult.error.message)) throw profileResult.error;
 
         setWardrobe(data.wardrobe as StoredWardrobeItem[]);
         setSavedOutfits(
@@ -288,23 +310,15 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
           ),
         );
         setSeason(data.colorProfile?.analysis?.season);
-        const [statusResult, historyResult, profileResult] = await Promise.all([
-          supabase.from("user_garment_statuses").select("item_id,status").eq("user_id", id),
-          supabase.from("user_outfit_wear_events").select("id,item_ids,outfit_name,worn_on").eq("user_id", id).order("worn_on", { ascending: false }),
-          supabase.from("user_outfit_rotation_settings").select("repeat_days").eq("user_id", id).maybeSingle(),
-        ]);
-        if (statusResult.error && !isMissingRotationMigration(statusResult.error.message)) throw statusResult.error;
-        if (historyResult.error && !isMissingRotationMigration(historyResult.error.message)) throw historyResult.error;
-        if (profileResult.error && !isMissingRotationMigration(profileResult.error.message)) throw profileResult.error;
         setGarmentStatuses((statusResult.data ?? []) as GarmentStatusRecord[]);
         setWearHistory((historyResult.data ?? []) as OutfitWearRecord[]);
         setRepeatDays([0,7,14,30].includes(profileResult.data?.repeat_days) ? profileResult.data!.repeat_days : 7);
       } catch {
-        if (active && current === generation) {
+        if (active && current === generation && activeUserIdRef.current === id) {
           setSaveError(t("Your personal style data could not be loaded. Please refresh."));
         }
       } finally {
-        if (active && current === generation) setLoading(false);
+        if (active && current === generation && activeUserIdRef.current === id) setLoading(false);
       }
     }
 
@@ -393,9 +407,12 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
 
     // Keep reconciled favourites in the active account.
     useEffect(() => {
-      if (!userId || loading) return;
-      void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }, userId).catch(() => {
-        setSaveError(t("Your saved outfits could not be synchronised."));
+      const expectedUserId = userId;
+      if (!expectedUserId || loading || activeUserIdRef.current !== expectedUserId) return;
+      void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }, expectedUserId).catch(() => {
+        if (activeUserIdRef.current === expectedUserId) {
+          setSaveError(t("Your saved outfits could not be synchronised."));
+        }
       });
     }, [reconciledSavedOutfits, userId, loading, t]);
 
@@ -408,19 +425,38 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
   ).length;
 
     async function markOutfitWorn(outfit: OutfitRecommendation) {
-      if (!userId || !supabase) return;
+      const expectedUserId = userId;
+      if (!expectedUserId || !supabase || !await isCurrentAccount(expectedUserId)) return;
       const date = new Date().toISOString().slice(0,10);
       const itemIds = outfit.items.map((item) => item.id);
-      const { error } = await supabase.from("user_outfit_wear_events").insert({ user_id: userId, item_ids: itemIds, outfit_name: outfit.items.map((item) => item.name).join(" + "), worn_on: date });
-      if (error) { setSaveError(error.message); return; }
-      const { error: garmentError } = await supabase.from("user_garment_wear_events").upsert(itemIds.map((item_id) => ({ user_id: userId, item_id, worn_on: date })), { onConflict: "user_id,item_id,worn_on", ignoreDuplicates: true });
-      if (garmentError) { setSaveError(garmentError.message); return; }
-      setWearHistory((current) => [{ id: crypto.randomUUID(), item_ids: itemIds, outfit_name: outfit.items.map((item) => item.name).join(" + "), worn_on: date }, ...current]);
-      setSaveError("");
+      const outfitName = outfit.items.map((item) => item.name).join(" + ");
+      try {
+        const { error } = await supabase.from("user_outfit_wear_events").insert({
+          user_id: expectedUserId, item_ids: itemIds, outfit_name: outfitName, worn_on: date,
+        });
+        if (error) throw error;
+        if (!await isCurrentAccount(expectedUserId)) return;
+        const { error: garmentError } = await supabase.from("user_garment_wear_events").upsert(
+          itemIds.map((item_id) => ({ user_id: expectedUserId, item_id, worn_on: date })),
+          { onConflict: "user_id,item_id,worn_on", ignoreDuplicates: true },
+        );
+        if (garmentError) throw garmentError;
+        if (!await isCurrentAccount(expectedUserId)) return;
+        setWearHistory((current) => [
+          { id: crypto.randomUUID(), item_ids: itemIds, outfit_name: outfitName, worn_on: date },
+          ...current,
+        ]);
+        setSaveError("");
+      } catch (error) {
+        if (activeUserIdRef.current === expectedUserId) {
+          setSaveError(error instanceof Error ? error.message : t("Your outfit could not be marked as worn."));
+        }
+      }
     }
 
     async function toggleSavedOutfit(outfit: OutfitRecommendation) {
-      if (!userId || loading) return;
+      const expectedUserId = userId;
+      if (!expectedUserId || loading || !await isCurrentAccount(expectedUserId)) return;
 
       const alreadySaved = reconciledSavedOutfits.some(
         (saved) => saved.outfit.id === outfit.id,
@@ -430,19 +466,23 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
         : [...reconciledSavedOutfits, { outfit }];
 
       try {
-        await saveUserStyleData({ savedOutfits: updated }, userId);
+        await saveUserStyleData({ savedOutfits: updated }, expectedUserId);
+        if (!await isCurrentAccount(expectedUserId)) return;
         setSavedOutfits(updated);
         setSaveError("");
       } catch {
-        setSaveError(t("Your changes could not be saved. Please try again."));
+        if (activeUserIdRef.current === expectedUserId) {
+          setSaveError(t("Your changes could not be saved. Please try again."));
+        }
       }
     }
 
   async function refreshWardrobe() {
-    if (!userId) return;
+    const expectedUserId = userId;
+    if (!expectedUserId || !await isCurrentAccount(expectedUserId)) return;
     try {
       const data = await loadUserStyleData();
-      if (!data || data.userId !== userId) return;
+      if (!data || data.userId !== expectedUserId || !await isCurrentAccount(expectedUserId)) return;
       setWardrobe(data.wardrobe as StoredWardrobeItem[]);
       setSavedOutfits(
         (data.savedOutfits as StoredOutfit[]).filter(
@@ -452,7 +492,9 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
       setSeason(data.colorProfile?.analysis?.season);
       setSaveError("");
     } catch {
-      setSaveError(t("Your wardrobe could not be refreshed."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setSaveError(t("Your wardrobe could not be refreshed."));
+      }
     }
   }
 
@@ -503,7 +545,21 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
         </p>
       </section>
 
-      {isPremium && <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={async (event) => { const value=Number(event.target.value); setRepeatDays(value); if(userId&&supabase){const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:value,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setSaveError(error.message);} }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>}
+      {isPremium && <section className="outfit-rotation-controls"><label><input type="checkbox" checked={includeUnavailable} onChange={(event) => setIncludeUnavailable(event.target.checked)} /> {t("Include unavailable garments")}</label><label>{t("Avoid recent repeats")} <select value={repeatDays} onChange={(event) => { void (async () => {
+            const expectedUserId = userId;
+            const value = Number(event.target.value);
+            if (!expectedUserId || !supabase || !await isCurrentAccount(expectedUserId)) return;
+            const previous = repeatDays;
+            setRepeatDays(value);
+            const { error } = await supabase.from("user_outfit_rotation_settings").upsert({
+              user_id: expectedUserId, repeat_days: value, updated_at: new Date().toISOString(),
+            }, { onConflict: "user_id" });
+            if (activeUserIdRef.current !== expectedUserId) return;
+            if (error) {
+              setRepeatDays(previous);
+              setSaveError(error.message);
+            }
+          })(); }}><option value={0}>{t("Off")}</option><option value={7}>{t("7 days")}</option><option value={14}>{t("14 days")}</option><option value={30}>{t("30 days")}</option></select></label></section>}
 
       <section className="outfit-overview">
         <div>
