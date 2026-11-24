@@ -98,8 +98,10 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
       const isRecovery =
         new URLSearchParams(window.location.search).get('type') === 'recovery'
 
-      if (event === 'PASSWORD_RECOVERY' ||
-          (isRecovery && event === 'INITIAL_SESSION')) {
+      // The PKCE callback can surface as SIGNED_IN rather than
+      // PASSWORD_RECOVERY on some session-restoration paths. The recovery
+      // query parameter is authoritative until the password has been changed.
+      if (event === 'PASSWORD_RECOVERY' || isRecovery) {
         setMode('update')
       } else if (nextSession) {
         setMode('account')
