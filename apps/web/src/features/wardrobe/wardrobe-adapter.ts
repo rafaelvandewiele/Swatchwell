@@ -42,7 +42,9 @@ const CATEGORY_ALIASES: Record<string, WardrobeCategory> = {
   accessory: "Accessories",
 };
 
-export function normalizeWardrobeGarment(value: unknown): WardrobeGarment | null {
+export function normalizeWardrobeGarment(
+  value: unknown,
+): (Omit<WardrobeGarment, "category"> & { category: ClothingCategory }) | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Record<string, unknown>;
   if (
@@ -51,10 +53,10 @@ export function normalizeWardrobeGarment(value: unknown): WardrobeGarment | null
     typeof item.category !== "string"
   ) return null;
 
-  const category = item.category === "Knitwear"
+  const category: ClothingCategory | null = item.category === "Knitwear"
     ? "Sweaters"
     : Object.prototype.hasOwnProperty.call(CATEGORY_MAP, item.category)
-      ? item.category as WardrobeCategory
+      ? CATEGORY_MAP[item.category as WardrobeCategory]
       : Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, item.category)
         ? CATEGORY_ALIASES[item.category]
         : null;
