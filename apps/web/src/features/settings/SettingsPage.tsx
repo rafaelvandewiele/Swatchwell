@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
+import { clearLocalStyleDataForUser } from '../../lib/user-style-data'
 import { useI18n, type Language } from '../../lib/i18n'
 import './SettingsPage.css'
 import BillingSettings from './BillingSettings'
@@ -93,10 +94,22 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
     if (!token) { setError(c.error); return }
     setBusy(true); setError(''); setMessage('')
     try {
+      const {data:before}=await supabase.auth.getUser()
+      const currentUserIdBefore=before.user?.id??null
       const {data,error:invokeError}=await supabase.functions.invoke('account-deletion',{
         body:{action:'confirm',token},
       })
       if(invokeError||!data?.success||typeof data.userId!=='string') throw invokeError??new Error(c.error)
+
+      // Remove this account's browser-local photos as well as server-side data.
+      // Legacy global keys are cleared only when this was the active account,
+      // unless the migration marker already assigns them to the deleted user.
+      try {
+        await clearLocalStyleDataForUser(data.userId,currentUserIdBefore===data.userId)
+      } catch {
+        // The server-side deletion has succeeded; local cache cleanup is best effort.
+      }
+
       const {data:current}=await supabase.auth.getUser()
       // A signed-out confirmation link may be opened while another account
       // is active in this browser. Never sign out that unrelated account.
