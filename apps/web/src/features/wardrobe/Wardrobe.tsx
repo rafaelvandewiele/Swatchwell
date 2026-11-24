@@ -194,9 +194,21 @@ export default function Wardrobe() {
     })
   }, [items, search, filter])
 
-  async function persist(next: ClothingItem[]) {
-    if (!userId) throw new Error(t('Sign in before saving wardrobe items.'))
-    await saveUserStyleData({ wardrobe: next }, userId)
+  async function persist(next: ClothingItem[], expectedUserId = userId) {
+    if (!expectedUserId) throw new Error(t('Sign in before saving wardrobe items.'))
+    if (activeUserIdRef.current !== expectedUserId) {
+      throw new Error(t('Your account changed before this save could finish. Please retry.'))
+    }
+    await saveUserStyleData({ wardrobe: next }, expectedUserId)
+    const { data: authData, error: authError } = await supabase!.auth.getUser()
+    if (authError) throw authError
+    if (
+      !authData.user ||
+      authData.user.id !== expectedUserId ||
+      activeUserIdRef.current !== expectedUserId
+    ) {
+      throw new Error(t('Your account changed before this save could finish. Please retry.'))
+    }
     setItems(next)
   }
 
@@ -230,16 +242,22 @@ export default function Wardrobe() {
       return
     }
 
+    const expectedUserId = userId
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) {
+      setError(t('Sign in before saving wardrobe items.'))
+      return
+    }
+
     setSaving(true)
     setError('')
 
     try {
       const existing = items.find((item) => item.id === editing)
       const id = existing?.id ?? crypto.randomUUID()
-      if (!userId) throw new Error(t('Sign in before saving wardrobe items.'))
-      const imageKey = wardrobePhotoPath(userId, id)
+      const imageKey = wardrobePhotoPath(expectedUserId, id)
       if (draft.image) {
-        await uploadWardrobePhoto(userId, id, draft.image)
+        await uploadWardrobePhoto(expectedUserId, id, draft.image)
+        if (activeUserIdRef.current !== expectedUserId) return
       }
 
       const updated: ClothingItem = {
@@ -263,12 +281,12 @@ export default function Wardrobe() {
         ? items.map((item) => (item.id === id ? updated : item))
         : [updated, ...items]
 
-      await persist(next)
+      await persist(next, expectedUserId)
+      if (activeUserIdRef.current !== expectedUserId) return
 
       if (draft.image) {
-
-
-        const photoUrl = await getWardrobePhotoUrl(userId, id)
+        const photoUrl = await getWardrobePhotoUrl(expectedUserId, id)
+        if (activeUserIdRef.current !== expectedUserId) return
         if (photoUrl) {
           setPhotos((current) => ({ ...current, [id]: photoUrl }))
         }
@@ -277,21 +295,25 @@ export default function Wardrobe() {
       setModalOpen(false)
       setDraft(emptyDraft)
     } catch {
-      setError(t('Could not save this piece. Please try again.'))
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t('Could not save this piece. Please try again.'))
+      }
     } finally {
-      setSaving(false)
+      if (activeUserIdRef.current === expectedUserId) setSaving(false)
     }
   }
 
   async function handleDelete(item: ClothingItem) {
     if (!window.confirm(t("Remove item confirmation").replace("{name}", item.name))) return
+    const expectedUserId = userId
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return
 
     try {
       const next = items.filter((entry) => entry.id !== item.id)
-      await persist(next)
-      await deleteWardrobePhoto(userId, item.id)
-
-
+      await persist(next, expectedUserId)
+      if (activeUserIdRef.current !== expectedUserId) return
+      await deleteWardrobePhoto(expectedUserId, item.id)
+      if (activeUserIdRef.current !== expectedUserId) return
 
       setPhotos((current) => {
         const nextPhotos = { ...current }
@@ -299,7 +321,9 @@ export default function Wardrobe() {
         return nextPhotos
       })
     } catch {
-      setError(t('Could not remove this piece. Please try again.'))
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t('Could not remove this piece. Please try again.'))
+      }
     }
   }
 
