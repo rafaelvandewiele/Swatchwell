@@ -119,6 +119,7 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
       }
       setMessage(c.done)
       window.history.replaceState({},'','/')
+      window.dispatchEvent(new PopStateEvent('popstate'))
     } catch {
       setError(c.error)
     } finally {
