@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
   const reusableCheckoutUrl = findReusableSubscriptionCheckoutUrl(
     openSessionsResult.data,
     user.id,
+    customerId,
   );
   if (reusableCheckoutUrl) return json({ url: reusableCheckoutUrl }, 200, origin);
 
