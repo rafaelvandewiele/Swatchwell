@@ -97,10 +97,10 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
         body:{action:'confirm',token},
       })
       if(invokeError||!data?.success||typeof data.userId!=='string') throw invokeError??new Error(c.error)
-      const {data:current,error:currentError}=await supabase.auth.getUser()
-      if(currentError) throw currentError
+      const {data:current}=await supabase.auth.getUser()
       // A signed-out confirmation link may be opened while another account
       // is active in this browser. Never sign out that unrelated account.
+      // The deleted user's token may already be invalid, which is also fine.
       if(current.user?.id===data.userId) {
         await supabase.auth.signOut({scope:'local'})
       }
