@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useI18n, translateCategory } from '../../lib/i18n'
 import { loadUserStyleData, saveUserStyleData } from '../../lib/user-style-data'
 import { getWardrobePhotoUrl, uploadWardrobePhoto, deleteWardrobePhoto, wardrobePhotoPath } from '../../lib/wardrobe-photos'
+import { normalizeWardrobeGarment } from './wardrobe-adapter'
 
 type Category =
   | 'Shirts'
@@ -117,7 +118,25 @@ export default function Wardrobe() {
         const data = await loadUserStyleData()
         if (!active || current !== generation || data?.userId !== id) return
 
-        const stored = data.wardrobe as ClothingItem[]
+        const stored = data.wardrobe.flatMap((entry): ClothingItem[] => {
+          const garment = normalizeWardrobeGarment(entry)
+          if (!garment || !entry || typeof entry !== 'object') return []
+          const raw = entry as Record<string, unknown>
+          const purchasePrice = typeof raw.purchasePrice === 'number' &&
+            Number.isFinite(raw.purchasePrice) && raw.purchasePrice >= 0
+            ? raw.purchasePrice
+            : undefined
+          return [{
+            ...garment,
+            brand: typeof raw.brand === 'string' ? raw.brand : '',
+            notes: typeof raw.notes === 'string' ? raw.notes : '',
+            imageKey: typeof raw.imageKey === 'string' ? raw.imageKey : '',
+            createdAt: typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
+              ? raw.createdAt
+              : 0,
+            ...(purchasePrice !== undefined ? { purchasePrice } : {}),
+          }]
+        })
         setItems(stored)
         const loadedPhotos: Record<string, string> = {}
 
