@@ -32,6 +32,7 @@ function isStoredOutfit(value: unknown): value is StoredOutfit {
 
 export default function OutfitsScreen() {
   const loadVersion = useRef(0);
+  const activeUserIdRef = useRef<string | null>(null);
   const [wardrobe, setWardrobe] = useState<ClothingItem[]>([]);
   const [savedOutfits, setSavedOutfits] = useState<StoredOutfit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,7 @@ export default function OutfitsScreen() {
       if (authError) throw authError;
       if (!isCurrent()) return;
 
+      activeUserIdRef.current = user?.id ?? null;
       setUserId(user?.id ?? null);
 
       if (!user) {
@@ -134,6 +136,7 @@ export default function OutfitsScreen() {
 
       // Invalideer onmiddellijk alle lopende laadopdrachten.
       loadVersion.current += 1;
+      activeUserIdRef.current = session?.user.id ?? null;
       setUserId(session?.user.id ?? null);
       setWardrobe([]);
       setSavedOutfits([]);
@@ -178,16 +181,16 @@ export default function OutfitsScreen() {
 
   async function toggleSaved(outfit: OutfitRecommendation) {
     const client = supabase;
-
-    if (!client || !userId) {
+    const expectedUserId = userId;
+    if (!client || !expectedUserId || activeUserIdRef.current !== expectedUserId) {
       Alert.alert('Sign in required', 'Sign in to save your favourite outfits.');
       return;
     }
 
-    const exists = savedOutfits.some(
-      (entry) => entry.outfit.id === outfit.id,
-    );
+    const { data: before, error: beforeError } = await client.auth.getUser();
+    if (beforeError || before.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return;
 
+    const exists = savedOutfits.some((entry) => entry.outfit.id === outfit.id);
     const next = exists
       ? savedOutfits.filter((entry) => entry.outfit.id !== outfit.id)
       : [...savedOutfits, { outfit }];
@@ -199,14 +202,14 @@ export default function OutfitsScreen() {
           saved_outfits: next,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', userId)
+        .eq('user_id', expectedUserId)
         .select('user_id')
         .maybeSingle();
       if (updateError) throw updateError;
       if (!updated) {
         const { error: insertError } = await client
           .from('user_style_data')
-          .insert({ user_id: userId, saved_outfits: next });
+          .insert({ user_id: expectedUserId, saved_outfits: next });
         if (insertError && insertError.code === '23505') {
           const { error: retryError } = await client
             .from('user_style_data')
@@ -214,15 +217,20 @@ export default function OutfitsScreen() {
               saved_outfits: next,
               updated_at: new Date().toISOString(),
             })
-            .eq('user_id', userId);
+            .eq('user_id', expectedUserId);
           if (retryError) throw retryError;
         } else if (insertError) {
           throw insertError;
         }
       }
+      const { data: after, error: afterError } = await client.auth.getUser();
+      if (afterError) throw afterError;
+      if (after.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return;
       setSavedOutfits(next);
     } catch {
-      Alert.alert('Save error', 'Your favourite outfit could not be saved.');
+      if (activeUserIdRef.current === expectedUserId) {
+        Alert.alert('Save error', 'Your favourite outfit could not be saved.');
+      }
     }
   }
 
