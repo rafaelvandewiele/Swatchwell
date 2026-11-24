@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyStripeSignature } from "../_shared/stripe-signature.ts";
 import { isOlderStripeSubscriptionEvent } from "../_shared/subscription-order.ts";
+import { resolveDunningFailureState } from "../_shared/billing-dunning.ts";
 
 function throwIfError(error: { message?: string } | null, operation: string): void {
   if (error) throw new Error(operation + ": " + (error.message ?? "database operation failed"));
@@ -123,9 +124,12 @@ Deno.serve(async (req) => {
       if (isOlderSubscriptionEvent) {
         console.warn("Ignoring an event for a superseded Stripe subscription", object.id);
       } else {
-        const failedAt = currentSubscription.status === "past_due" || currentSubscription.status === "unpaid"
-          ? previous?.failed_at ?? new Date().toISOString()
-          : null;
+        const dunningState = resolveDunningFailureState(
+          currentSubscription.status,
+          previous,
+          new Date().toISOString(),
+        );
+        const failedAt = dunningState.failedAt;
 
         const { error: saveError } = await admin.from("billing_subscriptions").upsert({
           user_id: customer.user_id,
@@ -140,7 +144,7 @@ Deno.serve(async (req) => {
             : null,
           cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
           failed_at: failedAt,
-          last_dunning_email_at: failedAt ? previous?.last_dunning_email_at ?? null : null,
+          last_dunning_email_at: dunningState.lastDunningEmailAt,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
         throwIfError(saveError, "Could not save the subscription state");
