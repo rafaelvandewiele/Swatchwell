@@ -81,9 +81,9 @@ export default function OutfitHistory({isPremium,isAuthenticated,onSignIn}:{isPr
     setUserId(id);
     if(!channel){
      channel=supabase!.channel("outfit-rotation-"+id)
-      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_wear_events",filter:"user_id=eq."+id},()=>{void refresh(id);})
-      .on("postgres_changes",{event:"*",schema:"public",table:"user_garment_statuses",filter:"user_id=eq."+id},()=>{void refresh(id);})
-      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_rotation_settings",filter:"user_id=eq."+id},()=>{void refresh(id);})
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_wear_events",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_garment_statuses",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_rotation_settings",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
       .subscribe();
     }
    }catch(e){
