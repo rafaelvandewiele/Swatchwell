@@ -102,6 +102,7 @@ export default function Wardrobe() {
         setModalOpen(false)
         setEditing(null)
         setDraft(emptyDraft)
+        setSaving(false)
         setSearch('')
         setFilter('All pieces')
         setError('')
