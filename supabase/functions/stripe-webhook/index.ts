@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
       if (subscriptionId) {
         const { data: sub, error: subError } = await admin
           .from("billing_subscriptions")
-          .select("user_id,status,failed_at,last_dunning_email_at")
+          .select("user_id,stripe_subscription_id,status,failed_at,last_dunning_email_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the failed subscription");
@@ -317,6 +317,7 @@ Deno.serve(async (req) => {
           currentSubscription.status,
           sub,
           new Date().toISOString(),
+          subscriptionId,
         );
         const failedAt = dunningState.failedAt;
         const currentlyPastDue = ["past_due", "unpaid"].includes(currentSubscription.status);
