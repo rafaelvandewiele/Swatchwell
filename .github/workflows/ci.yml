@@ -25,8 +25,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Type-check Supabase Edge Functions
+        run: deno check supabase/functions/*/index.ts
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
       - name: Run unit tests
         run: npm test
+
+      - name: Lint web application
+        run: npm run lint --workspace=@swatchwell/web
+
+      - name: Type-check mobile application
+        run: npx tsc --noEmit -p apps/mobile/tsconfig.json
 
       - name: Build web application
         run: npm run build:web

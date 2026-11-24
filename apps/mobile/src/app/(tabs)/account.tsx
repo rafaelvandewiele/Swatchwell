@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useLocalSearchParams } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import {
   ActivityIndicator,
   Linking,
@@ -21,6 +21,10 @@ interface Profile {
 
 export default function AccountScreen() {
   const { recovery } = useLocalSearchParams<{ recovery?: string }>()
+  const router = useRouter()
+  const recoveryPending = useRef(recovery === '1')
+  const profileLoadVersion = useRef(0)
+  const activeUserIdRef = useRef<string | null>(null)
   const [mode, setMode] = useState<Mode>(
     recovery === '1' ? 'update' : 'login',
   )
@@ -35,39 +39,82 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!supabase) return
+    const client = supabase
+    if (!client) return
+    let active = true
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session)
-      if (data.session && recovery !== '1') setMode('account')
-      if (data.session) {
-        const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', data.session.user.id).maybeSingle()
-        setProfile(accountProfile)
+    const loadProfile = async (expectedUserId: string | null, version: number) => {
+      if (!expectedUserId) {
+        if (active && profileLoadVersion.current === version) setProfile(null)
+        return
       }
+
+      const { data: authData, error: authError } = await client.auth.getUser()
+      if (
+        authError ||
+        authData.user?.id !== expectedUserId ||
+        !active ||
+        profileLoadVersion.current !== version
+      ) return
+
+      const { data: accountProfile, error: profileError } = await client
+        .from('profiles')
+        .select('role,is_premium')
+        .eq('id', expectedUserId)
+        .maybeSingle()
+      const { data: latestAuth, error: latestAuthError } = await client.auth.getUser()
+
+      if (
+        profileError ||
+        latestAuthError ||
+        latestAuth.user?.id !== expectedUserId ||
+        !active ||
+        profileLoadVersion.current !== version
+      ) return
+
+      setProfile(accountProfile)
+    }
+
+    const initialVersion = profileLoadVersion.current
+    client.auth.getSession().then(({ data, error }) => {
+      if (!active || error || profileLoadVersion.current !== initialVersion) return
+      const nextSession = data.session
+      const version = ++profileLoadVersion.current
+      activeUserIdRef.current = nextSession?.user.id ?? null
+      setSession(nextSession)
+      if (nextSession && recovery !== '1') setMode('account')
+      void loadProfile(nextSession?.user.id ?? null, version)
     })
 
-    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return
+      const version = ++profileLoadVersion.current
+      activeUserIdRef.current = nextSession?.user.id ?? null
       setSession(nextSession)
-      if (nextSession) {
-        queueMicrotask(async () => {
-          const { data: accountProfile } = await supabase.from('profiles').select('role,is_premium').eq('id', nextSession.user.id).maybeSingle()
-          setProfile(accountProfile)
-        })
-      } else {
-        setProfile(null)
-      }
+      if (!nextSession) setProfile(null)
+      else queueMicrotask(() => {
+        void loadProfile(nextSession.user.id, version)
+      })
 
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' || recoveryPending.current) {
         setMode('update')
-        setMessage('Choose a new password for your account.')
+        if (event === 'PASSWORD_RECOVERY') {
+          recoveryPending.current = true
+          setMessage('Choose a new password for your account.')
+        }
       } else if (nextSession) {
         setMode('account')
       } else {
         setMode('login')
       }
+      setBusy(false)
     })
 
-    return () => data.subscription.unsubscribe()
+    return () => {
+      active = false
+      profileLoadVersion.current += 1
+      data.subscription.unsubscribe()
+    }
   }, [])
 
   function clearFeedback() {
@@ -128,7 +175,9 @@ export default function AccountScreen() {
         if (error) throw error
         setMessage('Your password has been updated.')
         setPassword('')
+        recoveryPending.current = false
         setMode('account')
+        router.replace('/(tabs)/account' as never)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -139,17 +188,25 @@ export default function AccountScreen() {
 
   async function openSubscriptionAction() {
     if (!supabase) return
+    const { data: before, error: beforeError } = await supabase.auth.getUser()
+    const expectedUserId = before.user?.id
+    if (beforeError || !expectedUserId || activeUserIdRef.current !== expectedUserId) return
     setBusy(true)
     setError('')
     try {
       const functionName = profile?.is_premium ? 'create-billing-portal' : 'create-checkout-session'
       const { data, error: invokeError } = await supabase.functions.invoke(functionName, { body: {} })
       if (invokeError || !data?.url) throw invokeError ?? new Error('Billing could not be opened.')
+      const { data: after, error: afterError } = await supabase.auth.getUser()
+      if (afterError) throw afterError
+      if (after.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return
       await Linking.openURL(data.url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Billing could not be opened.')
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(err instanceof Error ? err.message : 'Billing could not be opened.')
+      }
     } finally {
-      setBusy(false)
+      if (activeUserIdRef.current === expectedUserId) setBusy(false)
     }
   }
 

@@ -108,6 +108,7 @@ function normalizeHex(value: string): string | null {
 
 export default function WardrobeScreen() {
   const loadVersion = useRef(0);
+  const currentUserIdRef = useRef<string | null>(null);
   const [items, setItems] = useState<Garment[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -135,6 +136,7 @@ export default function WardrobeScreen() {
 
       if (event === 'SIGNED_OUT') {
         loadVersion.current += 1;
+        currentUserIdRef.current = null;
         setItems([]);
         setPhotoUrls({});
         setCurrentUserId(null);
@@ -147,6 +149,7 @@ export default function WardrobeScreen() {
 
       if (event === 'SIGNED_IN') {
         loadVersion.current += 1;
+        currentUserIdRef.current = null;
         setItems([]);
         setPhotoUrls({});
         setCurrentUserId(null);
@@ -204,12 +207,14 @@ export default function WardrobeScreen() {
       if (!isCurrent()) return;
 
       if (!user) {
+        currentUserIdRef.current = null;
         setItems([]);
         setPhotoUrls({});
         setCurrentUserId(null);
         return;
       }
 
+      currentUserIdRef.current = user.id;
       setCurrentUserId(user.id);
 
       const { data, error } = await client
@@ -266,19 +271,13 @@ export default function WardrobeScreen() {
     }
   }
 
-  async function persistItems(nextItems: Garment[]) {
+  async function persistItems(nextItems: Garment[], expectedUserId: string): Promise<boolean> {
     const client = supabase;
-
     try {
-      if (!client) throw new Error('Supabase is not configured.');
-
+      if (!client || !expectedUserId || currentUserIdRef.current !== expectedUserId) return false;
       const { data: { user }, error: userError } = await client.auth.getUser();
       if (userError) throw userError;
-      if (!user) {
-        setItems([]);
-        Alert.alert('Sign in required', 'Sign in to save your wardrobe.');
-        return;
-      }
+      if (!user || user.id !== expectedUserId || currentUserIdRef.current !== expectedUserId) return false;
 
       const wardrobe = nextItems.map((item) => ({
         id: item.id,
@@ -294,27 +293,34 @@ export default function WardrobeScreen() {
       const { data: updated, error: updateError } = await client
         .from('user_style_data')
         .update({ wardrobe, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id)
+        .eq('user_id', expectedUserId)
         .select('user_id')
         .maybeSingle();
       if (updateError) throw updateError;
       if (!updated) {
         const { error: insertError } = await client
           .from('user_style_data')
-          .insert({ user_id: user.id, wardrobe });
+          .insert({ user_id: expectedUserId, wardrobe });
         if (insertError && insertError.code === '23505') {
           const { error: retryError } = await client
             .from('user_style_data')
             .update({ wardrobe, updated_at: new Date().toISOString() })
-            .eq('user_id', user.id);
+            .eq('user_id', expectedUserId);
           if (retryError) throw retryError;
         } else if (insertError) {
           throw insertError;
         }
       }
+      const { data: latest, error: latestError } = await client.auth.getUser();
+      if (latestError) throw latestError;
+      if (latest.user?.id !== expectedUserId || currentUserIdRef.current !== expectedUserId) return false;
       setItems(nextItems);
+      return true;
     } catch {
-      Alert.alert('Save error', 'Your cloud changes could not be saved. Please try again.');
+      if (currentUserIdRef.current === expectedUserId) {
+        Alert.alert('Save error', 'Your cloud changes could not be saved. Please try again.');
+      }
+      return false;
     }
   }
 
@@ -434,6 +440,7 @@ export default function WardrobeScreen() {
     const id = editingId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const existingItem = items.find((item) => item.id === id);
     let imageKey = existingItem?.imageKey ?? '';
+    let expectedUserId: string | null = null;
 
     try {
       const client = supabase;
@@ -441,10 +448,11 @@ export default function WardrobeScreen() {
 
       const { data: { user }, error: userError } = await client.auth.getUser();
       if (userError) throw userError;
-      if (!user) {
-        Alert.alert('Sign in required', 'Sign in to save your wardrobe.');
+      if (!user || currentUserIdRef.current !== user.id) {
+        Alert.alert('Sign in required', 'Wait until your account wardrobe has finished loading, then try again.');
         return;
       }
+      expectedUserId = user.id;
 
       const selectedPhotoIsNew =
         Boolean(form.imageUri) && form.imageUri !== photoUrls[id];
@@ -469,6 +477,9 @@ export default function WardrobeScreen() {
 
         if (uploadError) throw uploadError;
         imageKey = path;
+        const { data: latest, error: latestError } = await client.auth.getUser();
+        if (latestError) throw latestError;
+        if (latest.user?.id !== expectedUserId || currentUserIdRef.current !== expectedUserId) return;
       }
     } catch (error) {
       console.error('Swatchwell garment photo upload failed:', error);
@@ -496,7 +507,9 @@ export default function WardrobeScreen() {
       ? items.map((item) => item.id === editingId ? garment : item)
       : [garment, ...items];
 
-    await persistItems(nextItems);
+    if (!expectedUserId) return;
+    const saved = await persistItems(nextItems, expectedUserId);
+    if (!saved || currentUserIdRef.current !== expectedUserId) return;
     setModalVisible(false);
     setForm(EMPTY_FORM);
     setEditingId(null);
@@ -513,17 +526,21 @@ export default function WardrobeScreen() {
           style: 'destructive',
           onPress: () => {
             const client = supabase;
-            if (client && currentUserId) {
-              void client.storage
-                .from('wardrobe-photos')
-                .remove([`${currentUserId}/${item.id}`]);
-            }
-            void persistItems(items.filter((entry) => entry.id !== item.id));
-            setPhotoUrls((current) => {
-              const next = { ...current };
-              delete next[item.id];
-              return next;
-            });
+            const expectedUserId = currentUserIdRef.current;
+            if (!client || !expectedUserId || expectedUserId !== currentUserId) return;
+            void (async () => {
+              const saved = await persistItems(items.filter((entry) => entry.id !== item.id), expectedUserId);
+              if (!saved || currentUserIdRef.current !== expectedUserId) return;
+              const { data: latest, error: latestError } = await client.auth.getUser();
+              if (latestError || latest.user?.id !== expectedUserId || currentUserIdRef.current !== expectedUserId) return;
+              await client.storage.from('wardrobe-photos').remove([expectedUserId + '/' + item.id]);
+              if (currentUserIdRef.current !== expectedUserId) return;
+              setPhotoUrls((current) => {
+                const next = { ...current };
+                delete next[item.id];
+                return next;
+              });
+            })();
           },
         },
       ],

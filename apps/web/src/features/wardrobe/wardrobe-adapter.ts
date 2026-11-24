@@ -31,6 +31,68 @@ export interface WardrobeGarment {
   extraColors?: string[];
 }
 
+type NormalizedWardrobeCategory = Exclude<WardrobeCategory, "Knitwear">;
+
+const NORMALIZED_CATEGORIES = new Set<NormalizedWardrobeCategory>([
+  "Shirts",
+  "T-shirts",
+  "Polo shirts",
+  "Sweaters",
+  "Trousers",
+  "Outerwear",
+  "Shoes",
+  "Accessories",
+]);
+
+const CATEGORY_ALIASES: Record<string, NormalizedWardrobeCategory> = {
+  shirt: "Shirts",
+  tshirt: "T-shirts",
+  polo: "Polo shirts",
+  sweater: "Sweaters",
+  pants: "Trousers",
+  jacket: "Outerwear",
+  shoes: "Shoes",
+  accessory: "Accessories",
+};
+
+export function normalizeWardrobeGarment(
+  value: unknown,
+): (Omit<WardrobeGarment, "category"> & { category: NormalizedWardrobeCategory }) | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.id !== "string" || !item.id.trim() ||
+    typeof item.name !== "string" || !item.name.trim() ||
+    typeof item.category !== "string"
+  ) return null;
+
+  const category: NormalizedWardrobeCategory | null = item.category === "Knitwear"
+    ? "Sweaters"
+    : NORMALIZED_CATEGORIES.has(item.category as NormalizedWardrobeCategory)
+      ? item.category as NormalizedWardrobeCategory
+      : Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, item.category)
+        ? CATEGORY_ALIASES[item.category]
+        : null;
+
+  if (!category) return null;
+  const color = typeof item.color === "string" && /^#[0-9a-fA-F]{6}$/.test(item.color)
+    ? item.color
+    : "#D8D4C9";
+  const extraColors = Array.isArray(item.extraColors)
+    ? [...new Set(item.extraColors.filter((entry): entry is string =>
+        typeof entry === "string" && /^#[0-9a-fA-F]{6}$/.test(entry),
+      ))].slice(0, 5)
+    : [];
+
+  return {
+    id: item.id,
+    name: item.name,
+    category,
+    color,
+    ...(extraColors.length ? { extraColors } : {}),
+  };
+}
+
 export function toGeneratorItem(item: WardrobeGarment): ClothingItem {
   return {
     id: item.id,
@@ -51,11 +113,11 @@ export function toGeneratorWardrobe(
 
 export function sortOutfitLayers<T extends { category: string }>(items: readonly T[]): T[] {
   const order: Record<string, number> = {
-    jacket: 0, Outerwear: 0,
-    sweater: 1, Sweaters: 1, Knitwear: 1,
+    shoes: 0, Shoes: 0,
+    pants: 1, Trousers: 1,
     shirt: 2, Shirts: 2, tshirt: 2, "T-shirts": 2, polo: 2, "Polo shirts": 2,
-    pants: 3, Trousers: 3,
-    shoes: 4, Shoes: 4,
+    sweater: 3, Sweaters: 3, Knitwear: 3,
+    jacket: 4, Outerwear: 4,
     accessory: 5, Accessories: 5,
   };
   return [...items].sort((a, b) => (order[a.category] ?? 99) - (order[b.category] ?? 99));

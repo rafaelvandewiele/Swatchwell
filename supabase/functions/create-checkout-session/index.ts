@@ -1,4 +1,8 @@
+/// <reference lib="deno.ns" />
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { findReusableSubscriptionCheckoutUrl } from "../_shared/checkout-session.ts";
+import { isBlockingSubscriptionStatus } from "../_shared/billing-subscription.ts";
 
 const originAllowed = (origin: string) =>
   origin === "https://swatchwell.veyca.dev" ||
@@ -30,11 +34,23 @@ Deno.serve(async (req) => {
   if (authError || !user || !user.email_confirmed_at) return json({ error: "Authentication required." }, 401, origin);
 
   const admin = createClient(url, serviceKey);
-  const { data: profile } = await admin.from("profiles").select("role, language, premium_source").eq("id", user.id).maybeSingle();
+  const { data: profile, error: profileError } = await admin.from("profiles").select("role, language, premium_source").eq("id", user.id).maybeSingle();
+  if (profileError) return json({ error: "Could not verify the account profile." }, 500, origin);
   if (!profile) return json({ error: "Account profile not found." }, 404, origin);
   if (profile.role === "admin" || profile.premium_source === "admin") return json({ error: "This account already has Premium access." }, 409, origin);
 
-  const { data: existing } = await admin.from("billing_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+  const { data: currentSubscription, error: subscriptionError } = await admin
+    .from("billing_subscriptions")
+    .select("status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (subscriptionError) return json({ error: "Could not verify the existing subscription." }, 500, origin);
+  if (currentSubscription && isBlockingSubscriptionStatus(currentSubscription.status)) {
+    return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
+  }
+
+  const { data: existing, error: customerError } = await admin.from("billing_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+  if (customerError) return json({ error: "Could not load the billing customer." }, 500, origin);
   let customerId = existing?.stripe_customer_id as string | undefined;
   const stripeHeaders = { Authorization: "Bearer " + stripeKey, "Content-Type": "application/x-www-form-urlencoded" };
 
@@ -52,9 +68,46 @@ Deno.serve(async (req) => {
   }
   if (!customerId) return json({ error: "Could not resolve the billing customer." }, 500, origin);
 
+  // The local webhook projection can briefly lag behind Stripe. Check Stripe
+  // directly as well so a delayed webhook cannot open a duplicate subscription.
+  const subscriptionsResponse = await fetch(
+    "https://api.stripe.com/v1/subscriptions?customer=" + encodeURIComponent(customerId) + "&status=all&limit=100",
+    { headers: { Authorization: "Bearer " + stripeKey } },
+  );
+  const subscriptionsResult = await subscriptionsResponse.json();
+  if (!subscriptionsResponse.ok || !Array.isArray(subscriptionsResult.data)) {
+    return json({ error: "Could not verify existing Stripe subscriptions." }, 502, origin);
+  }
+  const hasExistingStripeSubscription = subscriptionsResult.data.some((subscription: { status?: string }) =>
+    isBlockingSubscriptionStatus(subscription.status)
+  );
+  if (hasExistingStripeSubscription) {
+    return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
+  }
+
+  // Reuse an existing in-progress subscription checkout even when the
+  // customer returns after the short Stripe idempotency-key window.
+  const openSessionsResponse = await fetch(
+    "https://api.stripe.com/v1/checkout/sessions?customer=" +
+      encodeURIComponent(customerId) + "&status=open&limit=100",
+    { headers: { Authorization: "Bearer " + stripeKey } },
+  );
+  const openSessionsResult = await openSessionsResponse.json();
+  if (!openSessionsResponse.ok || !Array.isArray(openSessionsResult.data)) {
+    return json({ error: "Could not verify open checkout sessions." }, 502, origin);
+  }
+  const reusableCheckoutUrl = findReusableSubscriptionCheckoutUrl(
+    openSessionsResult.data,
+    user.id,
+    customerId,
+  );
+  if (reusableCheckoutUrl) return json({ url: reusableCheckoutUrl }, 200, origin);
+
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("customer", customerId);
+  form.set("client_reference_id", user.id);
+  form.set("metadata[user_id]", user.id);
   form.set("line_items[0][price_data][currency]", "eur");
   form.set("line_items[0][price_data][unit_amount]", "299");
   form.set("line_items[0][price_data][recurring][interval]", "month");
@@ -67,7 +120,17 @@ Deno.serve(async (req) => {
   form.set("billing_address_collection", "auto");
   form.set("allow_promotion_codes", "true");
 
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: stripeHeaders, body: form });
+  // Repeated clicks or network retries in the same short window must
+  // resolve to one Checkout Session rather than create parallel sessions.
+  const checkoutAttempt = Math.floor(Date.now() / (10 * 60 * 1000));
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      ...stripeHeaders,
+      "Idempotency-Key": "swatchwell-checkout-" + user.id + "-" + checkoutAttempt,
+    },
+    body: form,
+  });
   const session = await response.json();
   if (!response.ok || !session.url) return json({ error: "Could not start checkout." }, 502, origin);
   return json({ url: session.url }, 200, origin);

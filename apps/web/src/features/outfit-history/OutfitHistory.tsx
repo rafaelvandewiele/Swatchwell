@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { loadUserStyleData } from "../../lib/user-style-data";
@@ -15,17 +15,208 @@ const translations: Record<string, Record<string,string>> = {
  de: {title:"Outfit-Verlauf",subtitle:"Eine Übersicht getragener Outfits und aktuell verfügbarer Kleidungsstücke.",history:"OUTFIT-VERLAUF",garments:"VERFÜGBARKEIT DER KLEIDUNG",empty:"Dein Outfit-Verlauf erscheint hier, sobald du ein Outfit als getragen markierst.",date:"Getragen am",save:"Datum speichern",delete:"Löschen",available:"Im Kleiderschrank",laundry:"In der Wäsche",unavailable:"Nicht verfügbar",repair:"In Reparatur",status:"Status",repeat:"Ein vollständiges Outfit nicht erneut tragen innerhalb von",off:"Aus",seven:"7 Tagen",fourteen:"14 Tagen",thirty:"30 Tagen",saveSettings:"Einstellung speichern",premium:"SWATCHWELL PREMIUM",signin:"Melde dich an, um deine Outfit-Rotation zu verwalten.",loading:"Rotation wird geladen...",error:"Outfit-Rotation konnte nicht geladen werden.",saved:"Änderungen gespeichert.",confirm:"Diesen Eintrag löschen?",include:"Verlauf und Status sind nur für dich sichtbar."}
 };
 export default function OutfitHistory({isPremium,isAuthenticated,onSignIn}:{isPremium:boolean;isAuthenticated:boolean;onSignIn:()=>void}) {
- const {language}=useI18n(); const tr=(key:string)=>translations[language]?.[key]??translations.en[key]??key;
+ const {language}=useI18n(); const tr=useCallback((key:string)=>translations[language]?.[key]??translations.en[key]??key,[language]);
  const [userId,setUserId]=useState<string|null>(null),[wardrobe,setWardrobe]=useState<Garment[]>([]),[statuses,setStatuses]=useState<GarmentStatusRecord[]>([]),[history,setHistory]=useState<OutfitWearRecord[]>([]),[repeatDays,setRepeatDays]=useState("7"),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const refresh=useCallback(async(id:string)=>{if(!supabase)return;const [s,h,p]=await Promise.all([supabase.from("user_garment_statuses").select("item_id,status,updated_at").eq("user_id",id),supabase.from("user_outfit_wear_events").select("id,item_ids,outfit_name,worn_on,created_at").eq("user_id",id).order("worn_on",{ascending:false}),supabase.from("user_outfit_rotation_settings").select("repeat_days").eq("user_id",id).maybeSingle()]);if(s.error)throw s.error;if(h.error)throw h.error;setStatuses((s.data??[]) as GarmentStatusRecord[]);setHistory((h.data??[]) as OutfitWearRecord[]);if([0,7,14,30].includes(Number(p.data?.repeat_days)))setRepeatDays(String(p.data?.repeat_days));},[]);
- useEffect(()=>{if(!isPremium||!supabase){setLoading(false);return;}let active=true;let channel:RealtimeChannel|null=null;const load=async()=>{setLoading(true);try{const {data,error}=await supabase!.auth.getUser();if(error||!data.user?.email_confirmed_at){if(active){setUserId(null);setWardrobe([]);setStatuses([]);setHistory([]);}return;}const id=data.user.id;const style=await loadUserStyleData();if(!active||style?.userId!==id)return;setUserId(id);setWardrobe(style.wardrobe.filter((x:any)=>x&&typeof x.id==="string"&&typeof x.name==="string") as Garment[]);await refresh(id);if(active&&!channel){channel=supabase!.channel("outfit-rotation-"+id).on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_wear_events",filter:"user_id=eq."+id},()=>{void refresh(id);}).on("postgres_changes",{event:"*",schema:"public",table:"user_garment_statuses",filter:"user_id=eq."+id},()=>{void refresh(id);}).on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_rotation_settings",filter:"user_id=eq."+id},()=>{void refresh(id);}).subscribe();}}catch(e){if(active)setError(e instanceof Error?e.message:tr("error"));}finally{if(active)setLoading(false);}};void load();const {data:listener}=supabase.auth.onAuthStateChange(()=>queueMicrotask(()=>{if(active)void load();}));return()=>{active=false;listener.subscription.unsubscribe();if(channel&&supabase)void supabase.removeChannel(channel);};},[isPremium,refresh]);
+ const activeUserIdRef=useRef<string|null>(null);
+ const refresh=useCallback(async(id:string)=>{
+  if(!supabase)return;
+  const [s,h,p]=await Promise.all([
+   supabase.from("user_garment_statuses").select("item_id,status,updated_at").eq("user_id",id),
+   supabase.from("user_outfit_wear_events").select("id,item_ids,outfit_name,worn_on,created_at").eq("user_id",id).order("worn_on",{ascending:false}),
+   supabase.from("user_outfit_rotation_settings").select("repeat_days").eq("user_id",id).maybeSingle(),
+  ]);
+  if(s.error)throw s.error;
+  if(h.error)throw h.error;
+  if(p.error)throw p.error;
+  if(activeUserIdRef.current!==id)return;
+  setStatuses((s.data??[]) as GarmentStatusRecord[]);
+  setHistory((h.data??[]) as OutfitWearRecord[]);
+  if([0,7,14,30].includes(Number(p.data?.repeat_days)))setRepeatDays(String(p.data?.repeat_days));
+ },[]);
+ useEffect(()=>{
+  if(!isPremium||!supabase){setLoading(false);return;}
+  let active=true;
+  let generation=0;
+  let channel:RealtimeChannel|null=null;
+
+  const clearAccountState=()=>{
+   setUserId(null);
+   setWardrobe([]);
+   setStatuses([]);
+   setHistory([]);
+   setRepeatDays("7");
+   setError("");
+   setNotice("");
+  };
+
+  const load=async()=>{
+   const current=++generation;
+   setLoading(true);
+   try{
+    const {data,error}=await supabase!.auth.getUser();
+    if(error)throw error;
+    if(!active||current!==generation)return;
+    if(!data.user?.email_confirmed_at){
+     if(activeUserIdRef.current!==null){
+      activeUserIdRef.current=null;
+      clearAccountState();
+     }
+     return;
+    }
+    const id=data.user.id;
+    if(activeUserIdRef.current!==id){
+     activeUserIdRef.current=id;
+     clearAccountState();
+    }
+    const style=await loadUserStyleData();
+    if(!active||current!==generation||style?.userId!==id)return;
+    setWardrobe(style.wardrobe.filter((item):item is Garment=>Boolean(
+     item&&typeof item==="object"&&
+     "id"in item&&typeof item.id==="string"&&
+     "name"in item&&typeof item.name==="string"&&
+     "category"in item&&typeof item.category==="string"
+    )));
+    await refresh(id);
+    if(!active||current!==generation||activeUserIdRef.current!==id)return;
+    setUserId(id);
+    if(!channel){
+     channel=supabase!.channel("outfit-rotation-"+id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_wear_events",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_garment_statuses",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_outfit_rotation_settings",filter:"user_id=eq."+id},()=>{void refresh(id).catch((error)=>{if(activeUserIdRef.current===id)setError(error instanceof Error?error.message:tr("error"));});})
+      .subscribe();
+    }
+   }catch(e){
+    if(active&&current===generation)setError(e instanceof Error?e.message:tr("error"));
+   }finally{
+    if(active&&current===generation)setLoading(false);
+   }
+  };
+
+  void load();
+  const {data:listener}=supabase.auth.onAuthStateChange((_event,session)=>{
+   const nextUserId=session?.user.email_confirmed_at?session.user.id:null;
+   if(nextUserId===activeUserIdRef.current)return;
+   generation++;
+   if(channel){void supabase!.removeChannel(channel);channel=null;}
+   activeUserIdRef.current=nextUserId;
+   clearAccountState();
+   setLoading(Boolean(nextUserId));
+   queueMicrotask(()=>{if(active)void load();});
+  });
+  return()=>{
+   active=false;
+   generation++;
+   listener.subscription.unsubscribe();
+   if(channel&&supabase)void supabase.removeChannel(channel);
+  };
+ },[isPremium,refresh,tr]);
  const names=useMemo(()=>new Map(wardrobe.map(g=>[g.id,g.name])),[wardrobe]);
  const ordered=useMemo(()=>sortWearHistory(history),[history]);
- const setStatus=async(itemId:string,status:GarmentStatus)=>{if(!supabase||!userId)return;setError("");try{if(status==="available"){const {error}=await supabase.from("user_garment_statuses").delete().eq("user_id",userId).eq("item_id",itemId);if(error)throw error;}else{const {error}=await supabase.from("user_garment_statuses").upsert({user_id:userId,item_id:itemId,status,updated_at:new Date().toISOString()},{onConflict:"user_id,item_id"});if(error)throw error;}await refresh(userId);setNotice(tr("saved"));}catch(e){setError(e instanceof Error?e.message:tr("error"));}};
- const changeDate=async(entry:OutfitWearRecord,date:string)=>{if(!supabase||!userId||!date)return;const {error}=await supabase.from("user_outfit_wear_events").update({worn_on:date}).eq("id",entry.id).eq("user_id",userId);if(error){setError(error.message);return;}const {error:garmentError}=await supabase.from("user_garment_wear_events").update({worn_on:date}).eq("user_id",userId).eq("worn_on",entry.worn_on).in("item_id",entry.item_ids);if(garmentError)setError(garmentError.message);else{await refresh(userId);setNotice(tr("saved"));}};
- const remove=async(entry:OutfitWearRecord)=>{if(!supabase||!userId||!window.confirm(tr("confirm")))return;const {error}=await supabase.from("user_outfit_wear_events").delete().eq("id",entry.id).eq("user_id",userId);if(error){setError(error.message);return;}const {error:garmentError}=await supabase.from("user_garment_wear_events").delete().eq("user_id",userId).eq("worn_on",entry.worn_on).in("item_id",entry.item_ids);if(garmentError)setError(garmentError.message);else{await refresh(userId);setNotice(tr("saved"));}};
- const checkout=async()=>{if(!supabase)return;const {data,error}=await supabase.functions.invoke("create-checkout-session",{body:{}});if(error||!data?.url){setError(error?.message??tr("error"));return;}window.location.assign(data.url);};
- const saveRepeat=async()=>{if(!supabase||!userId)return;const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:userId,repeat_days:Number(repeatDays),updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)setError(error.message);else setNotice(tr("saved"));};
+ const isCurrentAccount=async(expectedUserId:string)=>{
+  if(!supabase||activeUserIdRef.current!==expectedUserId)return false;
+  const {data,error}=await supabase.auth.getUser();
+  return !error&&data.user?.id===expectedUserId&&activeUserIdRef.current===expectedUserId;
+ };
+ const setStatus=async(itemId:string,status:GarmentStatus)=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId||!await isCurrentAccount(expectedUserId))return;
+  setError("");
+  try{
+   if(status==="available"){
+    const {error}=await supabase.from("user_garment_statuses").delete().eq("user_id",expectedUserId).eq("item_id",itemId);
+    if(error)throw error;
+   }else{
+    const {error}=await supabase.from("user_garment_statuses").upsert({user_id:expectedUserId,item_id:itemId,status,updated_at:new Date().toISOString()},{onConflict:"user_id,item_id"});
+    if(error)throw error;
+   }
+   if(!await isCurrentAccount(expectedUserId))return;
+   await refresh(expectedUserId);
+   if(await isCurrentAccount(expectedUserId))setNotice(tr("saved"));
+  }catch(e){
+   if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:tr("error"));
+  }
+ };
+ const changeDate=async(entry:OutfitWearRecord,date:string)=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId||!date||date===entry.worn_on||!await isCurrentAccount(expectedUserId))return;
+  setError("");
+  try{
+   const {data:otherEvents,error:queryError}=await supabase.from("user_outfit_wear_events").select("item_ids").eq("user_id",expectedUserId).eq("worn_on",entry.worn_on).neq("id",entry.id);
+   if(queryError)throw queryError;
+   if(!await isCurrentAccount(expectedUserId))return;
+   const stillUsed=new Set((otherEvents??[]).flatMap(event=>event.item_ids));
+   const orphaned=entry.item_ids.filter(itemId=>!stillUsed.has(itemId));
+
+   // Insert the new garment dates first. If this fails, the original outfit
+   // and its old garment dates remain intact.
+   const {error:insertError}=await supabase.from("user_garment_wear_events").upsert(
+    entry.item_ids.map(item_id=>({user_id:expectedUserId,item_id,worn_on:date})),
+    {onConflict:"user_id,item_id,worn_on",ignoreDuplicates:true},
+   );
+   if(insertError)throw insertError;
+   if(!await isCurrentAccount(expectedUserId))return;
+
+   const {error:updateError}=await supabase.from("user_outfit_wear_events").update({worn_on:date}).eq("id",entry.id).eq("user_id",expectedUserId);
+   if(updateError)throw updateError;
+   if(!await isCurrentAccount(expectedUserId))return;
+
+   if(orphaned.length){
+    const {error:deleteError}=await supabase.from("user_garment_wear_events").delete().eq("user_id",expectedUserId).eq("worn_on",entry.worn_on).in("item_id",orphaned);
+    if(deleteError)throw deleteError;
+   }
+   if(!await isCurrentAccount(expectedUserId))return;
+   await refresh(expectedUserId);
+   if(await isCurrentAccount(expectedUserId))setNotice(tr("saved"));
+  }catch(e){
+   if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:tr("error"));
+  }
+ };
+ const remove=async(entry:OutfitWearRecord)=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId||!window.confirm(tr("confirm"))||!await isCurrentAccount(expectedUserId))return;
+  try{
+   const {data:otherEvents,error:queryError}=await supabase.from("user_outfit_wear_events").select("item_ids").eq("user_id",expectedUserId).eq("worn_on",entry.worn_on).neq("id",entry.id);
+   if(queryError)throw queryError;
+   if(!await isCurrentAccount(expectedUserId))return;
+   const stillUsed=new Set((otherEvents??[]).flatMap(event=>event.item_ids));
+   const orphaned=entry.item_ids.filter(itemId=>!stillUsed.has(itemId));
+   const {error}=await supabase.from("user_outfit_wear_events").delete().eq("id",entry.id).eq("user_id",expectedUserId);
+   if(error)throw error;
+   if(!await isCurrentAccount(expectedUserId))return;
+   if(orphaned.length){
+    const {error:garmentError}=await supabase.from("user_garment_wear_events").delete().eq("user_id",expectedUserId).eq("worn_on",entry.worn_on).in("item_id",orphaned);
+    if(garmentError)throw garmentError;
+   }
+   if(!await isCurrentAccount(expectedUserId))return;
+   await refresh(expectedUserId);
+   if(await isCurrentAccount(expectedUserId))setNotice(tr("saved"));
+  }catch(e){
+   if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:tr("error"));
+  }
+ };
+ const checkout=async()=>{
+  if(!supabase)return;
+  const {data:before,error:beforeError}=await supabase.auth.getUser();
+  const expectedUserId=before.user?.id;
+  if(beforeError||!expectedUserId||activeUserIdRef.current!==expectedUserId)return;
+  try{
+   const {data,error}=await supabase.functions.invoke("create-checkout-session",{body:{}});
+   if(error||!data?.url)throw error??new Error(tr("error"));
+   if(!await isCurrentAccount(expectedUserId))return;
+   window.location.assign(data.url);
+  }catch(e){
+   if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:tr("error"));
+  }
+ };
+ const saveRepeat=async()=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId||!await isCurrentAccount(expectedUserId))return;
+  const {error}=await supabase.from("user_outfit_rotation_settings").upsert({user_id:expectedUserId,repeat_days:Number(repeatDays),updated_at:new Date().toISOString()},{onConflict:"user_id"});
+  if(activeUserIdRef.current!==expectedUserId)return;
+  if(error)setError(error.message);
+  else if(await isCurrentAccount(expectedUserId))setNotice(tr("saved"));
+ };
  if(!isPremium)return <main className="page-content premium-required"><section className="premium-required-card"><span className="premium-required-lock">🔒</span><span className="eyebrow">{tr("premium")}</span><h1>Swatchwell Premium</h1><p>{tr("subtitle")}</p>{isAuthenticated?<button className="primary-button" onClick={()=>void checkout()}>€2,99 per maand · Subscribe</button>:<button className="primary-button" onClick={onSignIn}>{tr("signin")}</button>}</section></main>;
  if(!userId&&!loading)return <main className="page-content outfit-history-page"><section className="outfit-history-gate"><h1>{tr("title")}</h1><p>{tr("signin")}</p><button className="primary-button" onClick={onSignIn}>{tr("Sign in")}</button></section></main>;
  return <main className="page-content subpage outfit-history-page"><header className="outfit-history-intro"><span className="eyebrow">SWATCHWELL PREMIUM · YOUR ROTATION</span><h1>{tr("title")}</h1><p>{tr("subtitle")}</p></header>{error&&<p className="outfit-history-message is-error" role="alert">{error}</p>}{notice&&<p className="outfit-history-message" role="status">{notice}</p>}{loading?<p>{tr("loading")}</p>:<><section className="outfit-history-panel"><div className="outfit-history-heading"><span className="eyebrow">{tr("history")}</span><strong>{history.length}</strong></div>{ordered.length===0?<p>{tr("empty")}</p>:<div className="outfit-history-list">{ordered.map(entry=><article key={entry.id}><div><strong>{entry.outfit_name||tr("title")}</strong><small>{entry.item_ids.map(id=>names.get(id)||id).join(" · ")}</small></div><label>{tr("date")}<input type="date" value={entry.worn_on} max={new Date().toISOString().slice(0,10)} onChange={e=>void changeDate(entry,e.target.value)}/></label><button type="button" onClick={()=>void remove(entry)}>{tr("delete")}</button></article>)}</div>}</section><section className="outfit-history-panel"><div className="outfit-history-heading"><span className="eyebrow">{tr("garments")}</span><strong>{wardrobe.length}</strong></div><div className="outfit-status-list">{wardrobe.map(item=>{const status=statuses.find(s=>s.item_id===item.id)?.status??"available";return <label key={item.id}><span><strong>{item.name}</strong><small>{tr("status")}</small></span><select value={status} onChange={e=>void setStatus(item.id,e.target.value as GarmentStatus)}>{(["available","laundry","unavailable","repair"] as GarmentStatus[]).map(value=><option key={value} value={value}>{tr(value)}</option>)}</select></label>;})}</div></section><section className="outfit-history-panel"><span className="eyebrow">SMART ROTATION</span><h2>{tr("repeat")}</h2><div className="outfit-repeat-control"><select value={repeatDays} onChange={e=>setRepeatDays(e.target.value)}><option value="0">{tr("off")}</option><option value="7">{tr("seven")}</option><option value="14">{tr("fourteen")}</option><option value="30">{tr("thirty")}</option></select><button className="primary-button" onClick={()=>void saveRepeat()}>{tr("saveSettings")}</button></div><p>{tr("include")}</p></section></>}</main>;

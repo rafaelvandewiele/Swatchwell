@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useI18n } from '../../lib/i18n'
 
@@ -37,66 +37,180 @@ export default function BillingSettings() {
   const [subscriptions, setSubscriptions] = useState<Record<string, AdminSubscription>>({})
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const activeUserIdRef = useRef<string | null>(null)
+  const loadGeneration = useRef(0)
 
-  async function refresh() {
-    if (!supabase) { setLoading(false); return }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSignedIn(false); setLoading(false); return }
-    setSignedIn(true)
-    const { data: profile } = await supabase.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle()
-    setRole(profile?.role ?? 'user')
-    setPremium(Boolean(profile?.is_premium))
-    const { data: sub } = await supabase.from('billing_subscriptions').select('status,current_period_end,cancel_at_period_end').eq('user_id', user.id).maybeSingle()
-    setSubscription(sub)
-    if (profile?.role === 'admin') {
-      const { data: rows } = await supabase.from('profiles').select('id,email,role,is_premium,premium_source').order('created_at', { ascending: false })
-      setUsers((rows ?? []) as AdminUser[])
-      const { data: subscriptionRows } = await supabase.from('billing_subscriptions').select('user_id,status,cancel_at_period_end')
-      setSubscriptions(Object.fromEntries((subscriptionRows ?? []).map(row => [row.user_id, { status: row.status, cancel_at_period_end: row.cancel_at_period_end }])))
-    }
-    setLoading(false)
+  function clearAccountState() {
+    setSignedIn(false)
+    setRole('user')
+    setPremium(false)
+    setSubscription(null)
+    setUsers([])
+    setSubscriptions({})
+    setError('')
+    setNotice('')
+    setBusy(false)
   }
 
-  useEffect(() => { void refresh() }, [])
+  async function refresh(expectedUserId?: string) {
+    if (!supabase) { setLoading(false); return }
+    const request = ++loadGeneration.current
+    setLoading(true)
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (request !== loadGeneration.current) return
+      if (!user?.email_confirmed_at) {
+        if (expectedUserId && activeUserIdRef.current !== expectedUserId) return
+        activeUserIdRef.current = null
+        clearAccountState()
+        return
+      }
+      if (expectedUserId && (user.id !== expectedUserId || activeUserIdRef.current !== expectedUserId)) return
+      if (activeUserIdRef.current !== user.id) {
+        activeUserIdRef.current = user.id
+        clearAccountState()
+      }
+
+      const [profileResult, subscriptionResult] = await Promise.all([
+        supabase.from('profiles').select('role,is_premium').eq('id', user.id).maybeSingle(),
+        supabase.from('billing_subscriptions').select('status,current_period_end,cancel_at_period_end').eq('user_id', user.id).maybeSingle(),
+      ])
+      if (request !== loadGeneration.current || activeUserIdRef.current !== user.id) return
+      if (profileResult.error) throw profileResult.error
+      if (subscriptionResult.error) throw subscriptionResult.error
+
+      const profile = profileResult.data
+      setSignedIn(true)
+      setRole(profile?.role ?? 'user')
+      setPremium(Boolean(profile?.is_premium))
+      setSubscription(subscriptionResult.data)
+
+      if (profile?.role === 'admin') {
+        const [rowsResult, subscriptionsResult] = await Promise.all([
+          supabase.from('profiles').select('id,email,role,is_premium,premium_source').order('created_at', { ascending: false }),
+          supabase.from('billing_subscriptions').select('user_id,status,cancel_at_period_end'),
+        ])
+        if (request !== loadGeneration.current || activeUserIdRef.current !== user.id) return
+        if (rowsResult.error) throw rowsResult.error
+        if (subscriptionsResult.error) throw subscriptionsResult.error
+        setUsers((rowsResult.data ?? []) as AdminUser[])
+        setSubscriptions(Object.fromEntries((subscriptionsResult.data ?? []).map(row => [
+          row.user_id,
+          { status: row.status, cancel_at_period_end: row.cancel_at_period_end },
+        ])))
+      } else {
+        setUsers([])
+        setSubscriptions({})
+      }
+    } catch {
+      if (request === loadGeneration.current && (!expectedUserId || activeUserIdRef.current === expectedUserId)) setError(c.error)
+    } finally {
+      if (request === loadGeneration.current && (!expectedUserId || activeUserIdRef.current === expectedUserId)) setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+    void refresh()
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user.email_confirmed_at ? session.user.id : null
+      if (nextUserId === activeUserIdRef.current) return
+      loadGeneration.current++
+      activeUserIdRef.current = nextUserId
+      clearAccountState()
+      setLoading(Boolean(nextUserId))
+      queueMicrotask(() => { void refresh(nextUserId ?? undefined) })
+    })
+    return () => {
+      loadGeneration.current++
+      listener.subscription.unsubscribe()
+    }
+  }, [])
 
   async function openCheckout() {
-    if (!supabase) return
+    const expectedUserId = activeUserIdRef.current
+    if (!supabase || !expectedUserId) return
     setBusy(true); setError('')
-    const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: {} })
-    if (invokeError || !data?.url) { setError(c.error); setBusy(false); return }
-    window.location.assign(data.url)
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: {} })
+      if (activeUserIdRef.current !== expectedUserId) return
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedUserId) return
+      if (invokeError || !data?.url) throw new Error(c.error)
+      window.location.assign(data.url)
+    } catch {
+      if (activeUserIdRef.current === expectedUserId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedUserId) setBusy(false)
+    }
   }
 
   async function openPortal() {
-    if (!supabase) return
+    const expectedUserId = activeUserIdRef.current
+    if (!supabase || !expectedUserId) return
     setBusy(true); setError('')
-    const { data, error: invokeError } = await supabase.functions.invoke('create-billing-portal', { body: {} })
-    if (invokeError || !data?.url) { setError(c.error); setBusy(false); return }
-    window.location.assign(data.url)
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-billing-portal', { body: {} })
+      if (activeUserIdRef.current !== expectedUserId) return
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedUserId) return
+      if (invokeError || !data?.url) throw new Error(c.error)
+      window.location.assign(data.url)
+    } catch {
+      if (activeUserIdRef.current === expectedUserId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedUserId) setBusy(false)
+    }
   }
 
   async function setUserPremium(userId: string, enabled: boolean) {
-    if (!supabase) return
+    const expectedAdminId = activeUserIdRef.current
+    if (!supabase || !expectedAdminId) return
     setBusy(true); setError(''); setNotice('')
-    const { error: rpcError } = await supabase.rpc('admin_set_premium', { p_user_id: userId, p_enabled: enabled })
-    if (rpcError) {
-      const missingFunction = rpcError.code === 'PGRST202' || rpcError.message.toLowerCase().includes('admin_set_premium')
-      setError(missingFunction ? c.migrationMissing : c.grantFailure + rpcError.message)
-    } else {
-      setNotice(c.grantSuccess)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedAdminId || activeUserIdRef.current !== expectedAdminId) return
+      const { error: rpcError } = await supabase.rpc('admin_set_premium', { p_user_id: userId, p_enabled: enabled })
+      if (activeUserIdRef.current !== expectedAdminId) return
+      if (rpcError) {
+        const missingFunction = rpcError.code === 'PGRST202' || rpcError.message.toLowerCase().includes('admin_set_premium')
+        setError(missingFunction ? c.migrationMissing : c.grantFailure + rpcError.message)
+      } else {
+        setNotice(c.grantSuccess)
+      }
+      await refresh(expectedAdminId)
+    } catch {
+      if (activeUserIdRef.current === expectedAdminId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedAdminId) setBusy(false)
     }
-    await refresh()
-    setBusy(false)
   }
 
   async function updateSubscription(userId: string, action: 'cancel_now' | 'cancel_at_period_end' | 'resume') {
-    if (!supabase) return
+    const expectedAdminId = activeUserIdRef.current
+    if (!supabase || !expectedAdminId) return
     if (action === 'cancel_now' && !window.confirm('Cancel this Stripe subscription immediately?')) return
     setBusy(true); setError(''); setNotice('')
-    const { error: invokeError } = await supabase.functions.invoke('admin-update-subscription', { body: { userId, action } })
-    if (invokeError) setError(c.error)
-    await refresh()
-    setBusy(false)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedAdminId || activeUserIdRef.current !== expectedAdminId) return
+      const { error: invokeError } = await supabase.functions.invoke('admin-update-subscription', { body: { userId, action } })
+      if (activeUserIdRef.current !== expectedAdminId) return
+      if (invokeError) setError(c.error)
+      await refresh(expectedAdminId)
+    } catch {
+      if (activeUserIdRef.current === expectedAdminId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedAdminId) setBusy(false)
+    }
   }
 
   if (loading) return <section className="settings-card"><p>{c.loading}</p></section>

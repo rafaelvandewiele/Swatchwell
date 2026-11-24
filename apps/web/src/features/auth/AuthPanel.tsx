@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
@@ -65,6 +65,7 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const profileLoadVersion = useRef(0)
 
   useEffect(() => {
     if (!supabase) return
@@ -98,8 +99,10 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
       const isRecovery =
         new URLSearchParams(window.location.search).get('type') === 'recovery'
 
-      if (event === 'PASSWORD_RECOVERY' ||
-          (isRecovery && event === 'INITIAL_SESSION')) {
+      // The PKCE callback can surface as SIGNED_IN rather than
+      // PASSWORD_RECOVERY on some session-restoration paths. The recovery
+      // query parameter is authoritative until the password has been changed.
+      if (event === 'PASSWORD_RECOVERY' || isRecovery) {
         setMode('update')
       } else if (nextSession) {
         setMode('account')
@@ -129,29 +132,65 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
       active = false
       data.subscription.unsubscribe()
     }
-  }, [])
+  }, [t, setLanguage])
 
   useEffect(() => {
+    const version = ++profileLoadVersion.current
     if (!supabase || !session) {
       setProfile(null)
+      setFirstName('')
+      setLastName('')
+      setPreferredLanguage(appLanguage)
       return
     }
 
-    supabase
-      .from('profiles')
-      .select('role, is_premium, first_name, last_name, language')
-      .eq('id', session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setProfile(data)
-          setFirstName(data.first_name ?? '')
-          setLastName(data.last_name ?? '')
-          setPreferredLanguage(data.language ?? 'en')
-          setLanguage((data.language ?? 'en') as Language)
-        }
-      })
-  }, [session])
+    const expectedUserId = session.user.id
+    let active = true
+    setProfile(null)
+    setFirstName('')
+    setLastName('')
+    setPreferredLanguage(appLanguage)
+
+    void (async () => {
+      try {
+        const { data: before, error: beforeError } = await supabase.auth.getUser()
+        if (
+          beforeError ||
+          before.user?.id !== expectedUserId ||
+          !active ||
+          profileLoadVersion.current !== version
+        ) return
+
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, is_premium, first_name, last_name, language')
+          .eq('id', expectedUserId)
+          .maybeSingle()
+        const { data: after, error: afterError } = await supabase.auth.getUser()
+
+        if (
+          profileError ||
+          afterError ||
+          after.user?.id !== expectedUserId ||
+          !active ||
+          profileLoadVersion.current !== version
+        ) return
+
+        setProfile(data)
+        setFirstName(data?.first_name ?? '')
+        setLastName(data?.last_name ?? '')
+        setPreferredLanguage((data?.language ?? appLanguage) as Language)
+        if (data?.language) setLanguage(data.language as Language)
+      } catch {
+        if (active && profileLoadVersion.current === version) setProfile(null)
+      }
+    })()
+
+    return () => {
+      active = false
+      if (profileLoadVersion.current === version) profileLoadVersion.current += 1
+    }
+  }, [session, setLanguage, appLanguage])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -207,8 +246,9 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
         const { error } = await supabase.auth.updateUser({ password })
         if (error) throw error
         setMessage(t('Your password has been updated.'))
-        setMode('account')
-        onRecoveryComplete?.()
+        setPassword('')
+        if (onRecoveryComplete) onRecoveryComplete()
+        else setMode('account')
         const cleanUrl = new URL(window.location.href)
         cleanUrl.searchParams.delete('type')
         cleanUrl.searchParams.delete('code')

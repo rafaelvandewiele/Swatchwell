@@ -1,11 +1,12 @@
-import { useCallback,useEffect,useState } from "react";
+import { useCallback,useEffect,useRef,useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { generateOutfits } from "@swatchwell/outfit-engine";
 import { useI18n,translateCategory } from "../../lib/i18n";
 import type { ColorSeason } from "@swatchwell/color-engine";
 import { supabase } from "../../lib/supabase";
 import { loadUserStyleData } from "../../lib/user-style-data";
 import { getWardrobePhotoUrl } from "../../lib/wardrobe-photos";
-import { toGeneratorWardrobe,sortOutfitLayers,type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
+import { normalizeWardrobeGarment,toGeneratorWardrobe,sortOutfitLayers,type WardrobeGarment } from "../wardrobe/wardrobe-adapter";
 import { createTravelPlan,validateTrip,reconcilePacking,type ManualEssential,type PackingEntry,type TripInput,type TravelPlan,type TripType } from "./travel";
 import "./travel-capsule.css";
 
@@ -14,26 +15,250 @@ const initial:TripInput={destination:"",startDate:"",endDate:"",tripType:"city",
 const activityOptions=["Sightseeing","Dining","Business meetings","Beach","Hiking","Events","Travel days"];
 const basicEssentials=["Underwear","Socks","Sleepwear","Toiletries","Phone charger","Travel documents"];
 export default function TravelCapsule({isPremium,isAuthenticated,onSignIn}:Props){
- const {t,language}=useI18n();const [userId,setUserId]=useState<string|null>(null);const [wardrobe,setWardrobe]=useState<WardrobeGarment[]>([]);const [season,setSeason]=useState<ColorSeason|undefined>(undefined);const [photos,setPhotos]=useState<Record<string,string>>({});
+ const {t,language}=useI18n();const [userId,setUserId]=useState<string|null>(null);const activeUserIdRef=useRef<string|null>(null);const [wardrobe,setWardrobe]=useState<WardrobeGarment[]>([]);const [season,setSeason]=useState<ColorSeason|undefined>(undefined);const [photos,setPhotos]=useState<Record<string,string>>({});
  const [input,setInput]=useState<TripInput>(initial);const [plans,setPlans]=useState<TravelPlan[]>([]);const [activeId,setActiveId]=useState<string|null>(null);const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [newEssential,setNewEssential]=useState("");const [selectedWardrobeItem,setSelectedWardrobeItem]=useState("");
  const activePlan=plans.find(plan=>plan.id===activeId)??null;
- const savePlan=useCallback(async(plan:TravelPlan)=>{if(!supabase||!userId)throw new Error(t("Sign in to save your travel plans."));const {error:e}=await supabase.from("user_travel_plans").upsert({id:plan.id,user_id:userId,plan,updated_at:new Date().toISOString()},{onConflict:"id"});if(e)throw e;setPlans(current=>[plan,...current.filter(x=>x.id!==plan.id)]);},[userId,t]);
- useEffect(()=>{if(!isPremium||!supabase){setLoading(false);return;}let active=true;let channel:any;void(async()=>{setLoading(true);try{const {data:auth}=await supabase!.auth.getUser();if(!active||!auth.user?.email_confirmed_at)return;const id=auth.user.id;setUserId(id);const [style,stored]=await Promise.all([loadUserStyleData(),supabase!.from("user_travel_plans").select("plan").eq("user_id",id).order("updated_at",{ascending:false})]);if(stored.error)throw stored.error;if(!active||style?.userId!==id)return;const items=style.wardrobe.filter((x):x is WardrobeGarment=>Boolean(x&&typeof x==="object"&&"id"in x&&"category"in x&&"name"in x&&"color"in x));setWardrobe(items);setSeason(style.colorProfile?.analysis?.season);const loaded=(stored.data??[]).map(row=>row.plan).filter((x):x is TravelPlan=>Boolean(x&&typeof x==="object"&&typeof x.id==="string"&&x.input&&Array.isArray(x.days)&&Array.isArray(x.entries)));setPlans(loaded);setActiveId(loaded[0]?.id??null);if(loaded[0])setInput(loaded[0].input);const photoEntries=await Promise.all(items.map(async item=>{const key=(item as WardrobeGarment&{imageKey?:string}).imageKey;if(!key)return null;try{const url=await getWardrobePhotoUrl(id,item.id,key);return url?[item.id,url] as const:null}catch{return null}}));if(active)setPhotos(Object.fromEntries(photoEntries.filter((x):x is NonNullable<typeof x>=>Boolean(x))));channel=supabase!.channel("travel-plans-"+id).on("postgres_changes",{event:"*",schema:"public",table:"user_travel_plans",filter:"user_id=eq."+id},()=>{void supabase!.from("user_travel_plans").select("plan").eq("user_id",id).order("updated_at",{ascending:false}).then(({data})=>{if(active&&data){const rows=data.map(r=>r.plan as TravelPlan);setPlans(rows);}})}).subscribe();}catch(e){if(active)setError(e instanceof Error?e.message:t("Could not load your travel plans."));}finally{if(active)setLoading(false)}})();return()=>{active=false;if(channel&&supabase)supabase.removeChannel(channel)}},[isPremium,t]);
+ const savePlan=useCallback(async(plan:TravelPlan)=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId)throw new Error(t("Sign in to save your travel plans."));
+  const {data:auth,error:authError}=await supabase.auth.getUser();
+  if(authError)throw authError;
+  if(auth.user?.id!==expectedUserId||!auth.user.email_confirmed_at||activeUserIdRef.current!==expectedUserId)throw new Error(t("Your account changed before this save could finish."));
+  const {error:e}=await supabase.from("user_travel_plans").upsert({id:plan.id,user_id:expectedUserId,plan,updated_at:new Date().toISOString()},{onConflict:"id"});
+  if(e)throw e;
+  const {data:verified,error:verifyError}=await supabase.auth.getUser();
+  if(verifyError)throw verifyError;
+  if(verified.user?.id!==expectedUserId||activeUserIdRef.current!==expectedUserId)throw new Error(t("Your account changed before this save could finish."));
+  setPlans(current=>[plan,...current.filter(x=>x.id!==plan.id)]);
+ },[userId,t]);
+ useEffect(() => {
+  if (!isPremium || !supabase) {
+    setLoading(false);
+    return;
+  }
+
+  let active = true;
+  let generation = 0;
+  let channel: RealtimeChannel | null = null;
+
+  const clearAccountState = (nextUserId: string | null) => {
+    setUserId(nextUserId);
+    setWardrobe([]);
+    setSeason(undefined);
+    setPhotos({});
+    setPlans([]);
+    setActiveId(null);
+    setInput(initial);
+    setError("");
+    setNewEssential("");
+    setSelectedWardrobeItem("");
+    setBusy(false);
+    setLoading(Boolean(nextUserId));
+  };
+
+  const load = async () => {
+    const current = ++generation;
+    setLoading(true);
+    try {
+      const { data: auth, error: authError } = await supabase!.auth.getUser();
+      if (authError) throw authError;
+      if (!active || current !== generation) return;
+
+      if (!auth.user?.email_confirmed_at) {
+        if (activeUserIdRef.current !== null) {
+          activeUserIdRef.current = null;
+          clearAccountState(null);
+        }
+        return;
+      }
+
+      const id = auth.user.id;
+      const accountChanged = activeUserIdRef.current !== id;
+      activeUserIdRef.current = id;
+      if (accountChanged) clearAccountState(id);
+      else setUserId(id);
+
+      const [style, stored] = await Promise.all([
+        loadUserStyleData(),
+        supabase!.from("user_travel_plans")
+          .select("plan")
+          .eq("user_id", id)
+          .order("updated_at", { ascending: false }),
+      ]);
+      if (stored.error) throw stored.error;
+      if (!active || current !== generation || style?.userId !== id) return;
+
+      const items = style.wardrobe.flatMap((entry) => {
+        const garment = normalizeWardrobeGarment(entry);
+        if (!garment || !entry || typeof entry !== "object") return [];
+        const raw = entry as Record<string, unknown>;
+        return [{
+          ...garment,
+          imageKey: typeof raw.imageKey === "string" ? raw.imageKey : "",
+        }];
+      });
+      setWardrobe(items);
+      setSeason(style.colorProfile?.analysis?.season);
+
+      const loaded = (stored.data ?? [])
+        .map((row) => row.plan)
+        .filter((value): value is TravelPlan => Boolean(
+          value &&
+          typeof value === "object" &&
+          typeof value.id === "string" &&
+          value.input &&
+          Array.isArray(value.days) &&
+          Array.isArray(value.entries)
+        ));
+      setPlans(loaded);
+      setActiveId(loaded[0]?.id ?? null);
+      setInput(loaded[0]?.input ?? initial);
+
+      const photoEntries = await Promise.all(items.map(async (item) => {
+        if (!item.imageKey) return null;
+        try {
+          const url = await getWardrobePhotoUrl(id, item.id, item.imageKey);
+          return url ? [item.id, url] as const : null;
+        } catch {
+          return null;
+        }
+      }));
+      if (!active || current !== generation) return;
+      setPhotos(Object.fromEntries(
+        photoEntries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+      ));
+
+      channel = supabase!.channel("travel-plans-" + id)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "user_travel_plans", filter: "user_id=eq." + id },
+          () => {
+            void supabase!.from("user_travel_plans")
+              .select("plan")
+              .eq("user_id", id)
+              .order("updated_at", { ascending: false })
+              .then(({ data, error }) => {
+                if (!active || current !== generation) return;
+                if (error) {
+                  setError(t("Could not load your travel plans."));
+                  return;
+                }
+                const rows = (data ?? [])
+                  .map((row) => row.plan)
+                  .filter((value): value is TravelPlan => Boolean(
+                    value &&
+                    typeof value === "object" &&
+                    typeof value.id === "string" &&
+                    value.input &&
+                    Array.isArray(value.days) &&
+                    Array.isArray(value.entries)
+                  ));
+                setPlans(rows);
+                setActiveId((currentId) =>
+                  rows.some((plan) => plan.id === currentId)
+                    ? currentId
+                    : rows[0]?.id ?? null,
+                );
+              }, (error) => {
+                if (active && current === generation) {
+                  setError(error instanceof Error ? error.message : t("Could not load your travel plans."));
+                }
+              });
+          },
+        )
+        .subscribe();
+    } catch (error) {
+      if (active && current === generation) {
+        setError(error instanceof Error ? error.message : t("Could not load your travel plans."));
+      }
+    } finally {
+      if (active && current === generation) setLoading(false);
+    }
+  };
+
+  void load();
+
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
+    if (nextUserId === activeUserIdRef.current) return;
+
+    generation++;
+    if (channel) {
+      void supabase!.removeChannel(channel);
+      channel = null;
+    }
+    activeUserIdRef.current = nextUserId;
+    clearAccountState(nextUserId);
+    queueMicrotask(() => {
+      if (active) void load();
+    });
+  });
+
+  return () => {
+    active = false;
+    generation++;
+    listener.subscription.unsubscribe();
+    if (channel && supabase) void supabase.removeChannel(channel);
+  };
+ }, [isPremium,t]);
  const updateInput=(patch:Partial<TripInput>)=>setInput(v=>({...v,...patch}));
  const missingCategories=["T-shirts","Trousers","Shoes","Sweaters","Outerwear"].filter(category=>!wardrobe.some(item=>item.category===category));
- const generate=async()=>{const invalid=validateTrip(input);if(invalid){setError(t(invalid));return;}if(!wardrobe.length){setError(t("Add clothes to your wardrobe before creating a packing list."));return;}setBusy(true);setError("");try{const generated=createTravelPlan(input,toGeneratorWardrobe(wardrobe),season);await savePlan(generated);setActiveId(generated.id)}catch(e){setError(e instanceof Error?e.message:t("The packing list could not be generated."))}finally{setBusy(false)}};
- const updateActive=async(next:TravelPlan)=>{if(!activePlan)return;try{await savePlan(next)}catch(e){setPlans(current=>current.map(p=>p.id===activePlan.id?activePlan:p));setError(e instanceof Error?e.message:t("Could not save your changes."))}};
+ const generate=async()=>{const expectedUserId=userId;const invalid=validateTrip(input);if(invalid){setError(t(invalid));return;}if(!wardrobe.length){setError(t("Add clothes to your wardrobe before creating a packing list."));return;}setBusy(true);setError("");try{const generated=createTravelPlan(input,toGeneratorWardrobe(wardrobe),season);await savePlan(generated);if(activeUserIdRef.current===expectedUserId)setActiveId(generated.id)}catch(e){if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:t("The packing list could not be generated."))}finally{if(activeUserIdRef.current===expectedUserId)setBusy(false)}};
+ const updateActive=async(next:TravelPlan):Promise<boolean>=>{
+  const expectedUserId=userId;
+  if(!activePlan||!expectedUserId||activeUserIdRef.current!==expectedUserId)return false;
+  try{
+   await savePlan(next);
+   return activeUserIdRef.current===expectedUserId;
+  }catch(e){
+   if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:t("Could not save your changes."));
+   return false;
+  }
+ };
  const toggleItem=async(entry:PackingEntry)=>{if(!activePlan)return;await updateActive({...activePlan,entries:activePlan.entries.map(x=>x.itemId===entry.itemId?{...x,packed:!x.packed}:x),updatedAt:new Date().toISOString()})};
  const toggleEssential=async(id:string)=>{if(!activePlan)return;await updateActive({...activePlan,essentials:activePlan.essentials.map(x=>x.id===id?{...x,packed:!x.packed}:x),updatedAt:new Date().toISOString()})};
- const addEssential=async()=>{if(!activePlan||!newEssential.trim())return;const item:ManualEssential={id:crypto.randomUUID(),name:newEssential.trim(),packed:false};await updateActive({...activePlan,essentials:[...activePlan.essentials,item],updatedAt:new Date().toISOString()});setNewEssential("")};
+ const addEssential=async()=>{if(!activePlan||!newEssential.trim())return;const item:ManualEssential={id:crypto.randomUUID(),name:newEssential.trim(),packed:false};const saved=await updateActive({...activePlan,essentials:[...activePlan.essentials,item],updatedAt:new Date().toISOString()});if(saved)setNewEssential("")};
  const removeGarment=async(itemId:string)=>{if(!activePlan)return;const days=activePlan.days.map(day=>({...day,itemIds:day.itemIds.filter(id=>id!==itemId)}));const next=reconcilePacking(activePlan,days);await updateActive({...next,entries:next.entries.filter(entry=>entry.itemId!==itemId)});};
  const addGarment=async()=>{if(!activePlan||!selectedWardrobeItem)return;const days=activePlan.days.map((day,index)=>index===0?{...day,itemIds:[...new Set([...day.itemIds,selectedWardrobeItem])]}:day);const next=reconcilePacking(activePlan,days);await updateActive(next);setSelectedWardrobeItem("");};
  const refreshDay=async(index:number)=>{if(!activePlan)return;const pool=generateOutfits(toGeneratorWardrobe(wardrobe),{limit:50});const reserved=activePlan.days.filter((_,i)=>i!==index).map(day=>day.itemIds.slice().sort().join("|"));const current=activePlan.days[index].itemIds.slice().sort().join("|");const candidate=pool.filter(outfit=>!reserved.includes(outfit.items.map(x=>x.id).sort().join("|"))&&outfit.items.map(x=>x.id).sort().join("|")!==current).sort((a,b)=>{const usage=(outfit:typeof a)=>outfit.items.reduce((sum,item)=>sum+activePlan.days.filter((day,i)=>i!==index&&day.itemIds.includes(item.id)).length,0);return usage(a)-usage(b)||b.score-a.score})[0];if(!candidate){setError(t("No alternative outfit is available for this day."));return;}const days=activePlan.days.map((day,i)=>i===index?{...day,itemIds:candidate.items.map(x=>x.id)}:day);await updateActive(reconcilePacking(activePlan,days));};
  const removeEssential=async(id:string)=>{if(!activePlan)return;await updateActive({...activePlan,essentials:activePlan.essentials.filter(x=>x.id!==id),updatedAt:new Date().toISOString()})};
- const removePlan=async(id:string)=>{if(!supabase||!userId)return;setBusy(true);const {error:e}=await supabase.from("user_travel_plans").delete().eq("id",id).eq("user_id",userId);if(e)setError(e.message);else{const remaining=plans.filter(p=>p.id!==id);setPlans(remaining);if(activeId===id){setActiveId(remaining[0]?.id??null);if(remaining[0])setInput(remaining[0].input)}}setBusy(false)};
- const regenerate=async()=>{if(!activePlan)return;setBusy(true);try{const next=createTravelPlan(activePlan.input,toGeneratorWardrobe(wardrobe),season);next.id=activePlan.id;next.createdAt=activePlan.createdAt;next.essentials=activePlan.essentials;const packed=new Set(activePlan.entries.filter(x=>x.packed).map(x=>x.itemId));next.entries=next.entries.map(x=>({...x,packed:packed.has(x.itemId)}));await updateActive(next)}catch(e){setError(e instanceof Error?e.message:t("The packing list could not be regenerated."))}finally{setBusy(false)}};
+ const removePlan=async(id:string)=>{
+  const expectedUserId=userId;
+  if(!supabase||!expectedUserId)return;
+  setBusy(true);
+  try{
+   const {data:auth,error:authError}=await supabase.auth.getUser();
+   if(authError)throw authError;
+   if(auth.user?.id!==expectedUserId||activeUserIdRef.current!==expectedUserId)throw new Error(t("Your account changed before this save could finish."));
+   const {error:e}=await supabase.from("user_travel_plans").delete().eq("id",id).eq("user_id",expectedUserId);
+   if(e)throw e;
+   const {data:verified,error:verifyError}=await supabase.auth.getUser();
+   if(verifyError)throw verifyError;
+   if(verified.user?.id!==expectedUserId||activeUserIdRef.current!==expectedUserId)return;
+   const remaining=plans.filter(p=>p.id!==id);
+   setPlans(remaining);
+   if(activeId===id){setActiveId(remaining[0]?.id??null);setInput(remaining[0]?.input??initial);}
+  }catch(e){if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:t("Could not save your changes."))}
+  finally{if(activeUserIdRef.current===expectedUserId)setBusy(false)}
+ };
+ const regenerate=async()=>{if(!activePlan)return;const expectedUserId=userId;setBusy(true);try{const next=createTravelPlan(activePlan.input,toGeneratorWardrobe(wardrobe),season);next.id=activePlan.id;next.createdAt=activePlan.createdAt;next.essentials=activePlan.essentials;const packed=new Set(activePlan.entries.filter(x=>x.packed).map(x=>x.itemId));next.entries=next.entries.map(x=>({...x,packed:packed.has(x.itemId)}));await updateActive(next)}catch(e){if(activeUserIdRef.current===expectedUserId)setError(e instanceof Error?e.message:t("The packing list could not be regenerated."))}finally{if(activeUserIdRef.current===expectedUserId)setBusy(false)}};
  const addActivity=(value:string)=>updateInput({activities:input.activities.includes(value)?input.activities.filter(x=>x!==value):[...input.activities,value]});
- const checkout=async()=>{if(!supabase)return;const {data,error:e}=await supabase.functions.invoke("create-checkout-session",{body:{}});if(e||!data?.url){setError(t("Premium checkout could not be started."));return;}window.location.assign(data.url)};
+ const checkout=async()=>{
+  if(!supabase)return;
+  const {data:before,error:beforeError}=await supabase.auth.getUser();
+  const expectedUserId=before.user?.id;
+  if(beforeError||!expectedUserId||activeUserIdRef.current!==expectedUserId)return;
+  try{
+   const {data,error:e}=await supabase.functions.invoke("create-checkout-session",{body:{}});
+   if(e||!data?.url)throw e??new Error(t("Premium checkout could not be started."));
+   const {data:after,error:afterError}=await supabase.auth.getUser();
+   if(afterError)throw afterError;
+   if(after.user?.id!==expectedUserId||activeUserIdRef.current!==expectedUserId)return;
+   window.location.assign(data.url);
+  }catch(error){
+   if(activeUserIdRef.current===expectedUserId)setError(error instanceof Error?error.message:t("Premium checkout could not be started."));
+  }
+ };
  if(!isPremium)return <main className="page-content travel-page"><section className="travel-gate"><span className="eyebrow">SWATCHWELL PREMIUM</span><h1>{t("Travel, thoughtfully packed.")}</h1><p>{t("Build a considered capsule wardrobe and packing list from clothes you already own.")}</p>{isAuthenticated?<button className="primary-button" onClick={()=>void checkout()}>{t("Subscribe to Premium")}</button>:<button className="primary-button" onClick={onSignIn}>{t("Sign in")}</button>}</section></main>;
  const locale=language==="nl"?"nl-BE":language==="fr"?"fr-BE":language==="de"?"de-DE":"en-GB";
  const allPacked=(activePlan?.entries.filter(x=>x.packed).length??0)+(activePlan?.essentials.filter(x=>x.packed).length??0);const total=(activePlan?.entries.length??0)+(activePlan?.essentials.length??0);

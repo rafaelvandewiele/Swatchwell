@@ -86,8 +86,7 @@ describe("weekly outfit selection", () => {
     expect(new Set(coreLooks).size).toBe(coreLooks.length);
     for (const day of result.days) {
       if (day.itemIds) {
-        expect(day.itemIds.some((id) => id.startsWith("tee-"))).toBe(true);
-        expect(day.itemIds.some((id) => id.startsWith("sweater-"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("shirt-") || id.startsWith("tee-"))).toBe(true);
         expect(day.itemIds.some((id) => id.startsWith("pants-"))).toBe(true);
         expect(day.itemIds.some((id) => id.startsWith("shoes-"))).toBe(true);
       }
@@ -152,18 +151,45 @@ describe("weekly outfit selection", () => {
   });
 
 
-  it("keeps the current outfit when refresh has no genuinely different core combination", () => {
+  it("generates a weekly plan from only a base top and trousers", () => {
+    const essentials = [
+      { id: "shirt", name: "Oxford shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "pants", name: "Navy trousers", category: "pants" as const, color: "#26364A" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    const result = generateWeeklyOutfits(essentials, undefined, days);
+    expect(result.days.some((day) => day.itemIds?.length)).toBe(true);
+    for (const day of result.days) {
+      if (!day.itemIds) continue;
+      expect(day.itemIds).toContain("shirt");
+      expect(day.itemIds).toContain("pants");
+    }
+  });
+
+  it("accepts a pinned shirt-and-trousers outfit without optional layers", () => {
+    const essentials = [
+      { id: "shirt", name: "Oxford shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "pants", name: "Navy trousers", category: "pants" as const, color: "#26364A" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].pinned = true;
+    days[0].itemIds = ["shirt", "pants"];
+    const result = generateWeeklyOutfits(essentials, undefined, days);
+    expect(result.days[0].pinned).toBe(true);
+    expect(result.days[0].itemIds).toEqual(["shirt", "pants"]);
+  });
+
+  it("keeps the current outfit when only a different pair of shoes is available", () => {
     const minimalWardrobe = [
       { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
-      { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
       { id: "pants", name: "Trousers", category: "pants" as const, color: "#252525" },
       { id: "shoes-1", name: "White shoes", category: "shoes" as const, color: "#FFFFFF" },
       { id: "shoes-2", name: "Brown shoes", category: "shoes" as const, color: "#684B35" },
     ];
     const days = createEmptyWeeklyPlan("2026-11-16").days;
-    days[0].itemIds = ["tee", "sweater", "pants", "shoes-1"];
+    days[0].itemIds = ["tee", "pants", "shoes-1"];
     const result = regenerateDayOutfit(minimalWardrobe, undefined, days, 0);
-    expect(result.days[0].itemIds).toEqual(["tee", "sweater", "pants", "shoes-1"]);
+    expect(result.days[0].itemIds).toEqual(["tee", "pants", "shoes-1"]);
     expect(result.repeatConflict).toBe(true);
   });
 
@@ -191,7 +217,7 @@ describe("weekly outfit selection", () => {
     expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
   });
 
-  it("does not repeat a recent core look just to fill all seven days", () => {
+  it("avoids a recent layered look but can use the same essentials without the optional sweater", () => {
     const minimalWardrobe = [
       { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
       { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
@@ -201,7 +227,9 @@ describe("weekly outfit selection", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     const history = [{ ...days[0], date: "2026-11-09", itemIds: ["tee", "sweater", "pants", "shoes"] }];
     const result = generateWeeklyOutfits(minimalWardrobe, undefined, days, history);
-    expect(result.days.every((day) => day.itemIds === null)).toBe(true);
+    const assigned = result.days.filter((day) => day.itemIds !== null);
+    expect(assigned).toHaveLength(1);
+    expect(assigned[0].itemIds).toEqual(["tee", "pants", "shoes"]);
     expect(result.repeatConflicts).toEqual([]);
   });
 

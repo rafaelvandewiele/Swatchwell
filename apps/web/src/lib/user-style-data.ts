@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { StoredColorProfile } from '../features/color-profile/color-profile'
+import { shouldClaimLegacyStyleData, shouldFinalizeLegacyStyleData, isOwnedLocalPhotoKey } from './style-data-migration'
 
 export interface UserStyleData {
   userId: string
@@ -119,12 +120,19 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
 
   if (error) throw error
 
+  const currentUserId = await getCurrentStyleUserId()
+  if (currentUserId !== userId) return null
+
+  const migrationState = localStorage.getItem(MIGRATION_KEY)
+
   if (data) {
-    // Cloud data already belongs to this account. Close the legacy migration
-    // so another account cannot claim leftover device-wide browser data.
-    localStorage.setItem(MIGRATION_KEY, 'done')
-    localStorage.removeItem(LEGACY_WARDROBE_KEY)
-    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+    // Only the account that owns an in-progress migration may finalize it.
+    // Another account must never clear or claim that account's legacy data.
+    if (shouldFinalizeLegacyStyleData(migrationState, userId)) {
+      localStorage.setItem(MIGRATION_KEY, 'done')
+      localStorage.removeItem(LEGACY_WARDROBE_KEY)
+      localStorage.removeItem(LEGACY_OUTFITS_KEY)
+    }
 
     return {
       userId,
@@ -141,13 +149,19 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
   let wardrobe: unknown[] = []
   let savedOutfits: unknown[] = []
 
-  // Legacy browser data has no account owner. Only the first account
-  // may claim it; subsequent accounts start with empty personal data.
-  if (localStorage.getItem(MIGRATION_KEY) !== 'done') {
+  // Claim unowned legacy data synchronously before asynchronous photo copying.
+  // If another account is already migrating it, this account starts empty.
+  if (shouldClaimLegacyStyleData(migrationState, userId)) {
+    if (migrationState === null) {
+      localStorage.setItem(MIGRATION_KEY, `in-progress:${userId}`)
+    }
     wardrobe = readLegacyArray(LEGACY_WARDROBE_KEY)
     savedOutfits = readLegacyArray(LEGACY_OUTFITS_KEY)
 
     await copyLegacyPhotos(userId, wardrobe)
+
+    const afterPhotoCopyUserId = await getCurrentStyleUserId()
+    if (afterPhotoCopyUserId !== userId) return null
 
     wardrobe = wardrobe.map((entry) => {
       if (!entry || typeof entry !== 'object') return entry
@@ -174,15 +188,62 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
 
   if (saveError) throw saveError
 
-  localStorage.setItem(MIGRATION_KEY, 'done')
-  localStorage.removeItem(LEGACY_WARDROBE_KEY)
-  localStorage.removeItem(LEGACY_OUTFITS_KEY)
+  const afterSaveUserId = await getCurrentStyleUserId()
+  if (afterSaveUserId !== userId) return null
+
+  if (shouldFinalizeLegacyStyleData(localStorage.getItem(MIGRATION_KEY), userId)) {
+    localStorage.setItem(MIGRATION_KEY, 'done')
+    localStorage.removeItem(LEGACY_WARDROBE_KEY)
+    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+  }
 
   return { userId, wardrobe, savedOutfits, colorProfile: null }
 }
 
+export async function clearLocalStyleDataForUser(
+  userId: string,
+  clearUnownedLegacyData = false,
+): Promise<void> {
+  if (!userId.trim()) return
+
+  const migrationState = localStorage.getItem(MIGRATION_KEY)
+  if (
+    migrationState === `in-progress:${userId}` ||
+    (clearUnownedLegacyData && migrationState === null)
+  ) {
+    localStorage.removeItem(LEGACY_WARDROBE_KEY)
+    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+    localStorage.setItem(MIGRATION_KEY, 'done')
+  }
+
+  const db = await openPhotoDatabase()
+  try {
+    if (!db.objectStoreNames.contains(STORE_NAME)) return
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.getAllKeys()
+      request.onsuccess = () => {
+        for (const key of request.result) {
+          if (isOwnedLocalPhotoKey(key, userId)) {
+            store.delete(key)
+          }
+        }
+      }
+      request.onerror = () => reject(request.error)
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+      transaction.onabort = () => reject(transaction.error)
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function saveUserStyleData(
   patch: Partial<Pick<UserStyleData, 'wardrobe' | 'savedOutfits' | 'colorProfile'>>,
+  expectedUserId: string,
 ): Promise<void> {
   if (!supabase) throw new Error('Account storage is not configured.')
 
@@ -196,7 +257,11 @@ export async function saveUserStyleData(
     throw new Error('Verify your email address before saving personal style data.')
   }
 
-  const userId = authData.user.id
+  if (!expectedUserId.trim() || authData.user.id !== expectedUserId) {
+    throw new Error('Your account changed before this save could finish. Please retry.')
+  }
+
+  const userId = expectedUserId
   const updatedAt = new Date().toISOString()
 
   const values: {

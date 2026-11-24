@@ -115,17 +115,36 @@ describe("Outfit generator", () => {
     expect(results).toEqual([]);
   });
 
-  it("requires a sweater, T-shirt, trousers and shoes for complete layered outfits", () => {
-    const layered: ClothingItem[] = [
+  it("keeps sweaters and shoes optional for complete outfits", () => {
+    const essentials: ClothingItem[] = [
       { id: "tee", name: "White T-shirt", category: "tshirt", color: "#FFFFFF" },
-      { id: "sweater", name: "Navy sweater", category: "sweater", color: "#26364A" },
       { id: "pants", name: "Beige trousers", category: "pants", color: "#C6AD8A" },
+    ];
+
+    const withoutOptionalLayers = generateOutfits(essentials, { requireCompleteLayers: true });
+    expect(withoutOptionalLayers).toHaveLength(1);
+    expect(withoutOptionalLayers[0].items.map((item) => item.category)).toEqual(["tshirt", "pants"]);
+
+    const layered: ClothingItem[] = [
+      ...essentials,
+      { id: "sweater", name: "Navy sweater", category: "sweater", color: "#26364A" },
       { id: "shoes", name: "Brown shoes", category: "shoes", color: "#684B35" },
     ];
-    const results = generateOutfits(layered, { requireCompleteLayers: true });
-    expect(results.length).toBe(1);
-    expect(results[0].items.map((item) => item.category)).toEqual(["tshirt", "pants", "shoes", "sweater"]);
-    expect(generateOutfits(layered.filter((item) => item.category !== "sweater"), { requireCompleteLayers: true })).toEqual([]);
+    const results = generateOutfits(layered, { requireCompleteLayers: true, limit: 50 });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((outfit) =>
+      outfit.items.some((item) => item.category === "tshirt") &&
+      outfit.items.some((item) => item.category === "pants") &&
+      outfit.items.some((item) => item.category === "shoes")
+    )).toBe(true);
+    expect(results.some((outfit) => outfit.items.some((item) => item.category === "sweater"))).toBe(true);
+
+    const withoutShoes = generateOutfits(
+      [...essentials, layered[2]],
+      { requireCompleteLayers: true },
+    );
+    expect(withoutShoes).toHaveLength(2);
+    expect(withoutShoes.every((outfit) => !outfit.items.some((item) => item.category === "shoes"))).toBe(true);
   });
 
   it("does not use a sweater as a replacement for a base top", () => {

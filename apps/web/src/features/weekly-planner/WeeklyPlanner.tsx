@@ -72,6 +72,8 @@ function toDbDays(days: PlannedDay[]) {
 export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, onOpenWardrobe }: WeeklyPlannerProps) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
+  const recordingDaysRef = useRef(new Set<number>());
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
@@ -90,41 +92,55 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
 
   const generatorWardrobe = useMemo(
     () => toGeneratorWardrobe(wardrobe).filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status)),
-    [wardrobe],
+    [wardrobe, garmentStatuses],
   );
-  const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
+  const hasPlannerTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
   const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
-  const hasPlannerSweater = generatorWardrobe.some((item) => item.category === "sweater");
-  const hasPlannerShoes = generatorWardrobe.some((item) => item.category === "shoes");
   const outfitOptions = useMemo(() => generateOutfits(generatorWardrobe, { limit: 50, requireCompleteLayers: true, ...(season ? { season } : {}) }), [generatorWardrobe, season]);
 
-  const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
-    if (!supabase || !userId) {
-      setError(t("Your changes are visible in this session, but syncing requires a signed-in Premium account."));
-      return;
+  const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks): Promise<boolean> => {
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || activeUserIdRef.current !== expectedUserId) {
+      if (expectedUserId && activeUserIdRef.current === expectedUserId) {
+        setError(t("Your changes are visible in this session, but syncing requires a signed-in Premium account."));
+      }
+      return false;
     }
     setSaving(true);
     try {
+      const { data: beforeSave, error: beforeSaveError } = await supabase.auth.getUser();
+      if (beforeSaveError) throw beforeSaveError;
+      if (beforeSave.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return false;
+
       const { error: saveError } = await supabase
         .from("user_weekly_plans")
         .upsert({
-          user_id: userId,
+          user_id: expectedUserId,
           week_start: nextWeekStart,
           days: toDbDays(nextDays),
           repeat_avoidance_weeks: nextRepeatAvoidanceWeeks,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,week_start" });
       if (saveError) throw saveError;
+
+      const { data: afterSave, error: afterSaveError } = await supabase.auth.getUser();
+      if (afterSaveError) throw afterSaveError;
+      if (afterSave.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return false;
+
       setHasSavedPlan(true);
       setError("");
+      return true;
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : String(saveError);
-      const migrationMissing = /user_weekly_plans|schema cache|does not exist|42P01|PGRST205/i.test(message);
-      setError(migrationMissing
-        ? t("Your plan is visible in this session, but cloud sync is unavailable until the weekly planner Supabase migration is applied.")
-        : t("Your plan is visible in this session, but could not sync to Supabase. Check your connection and try again."));
+      if (activeUserIdRef.current === expectedUserId) {
+        const message = saveError instanceof Error ? saveError.message : String(saveError);
+        const migrationMissing = /user_weekly_plans|schema cache|does not exist|42P01|PGRST205/i.test(message);
+        setError(migrationMissing
+          ? t("Your plan is visible in this session, but cloud sync is unavailable until the weekly planner Supabase migration is applied.")
+          : t("Your plan is visible in this session, but could not sync to Supabase. Check your connection and try again."));
+      }
+      return false;
     } finally {
-      setSaving(false);
+      if (activeUserIdRef.current === expectedUserId) setSaving(false);
     }
   }, [userId, weekStart, repeatAvoidanceWeeks, t]);
 
@@ -185,7 +201,6 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       setRepeatAvoidanceWeeks(savedRepeatWindow === 0 || savedRepeatWindow === 2 ? savedRepeatWindow : 4);
       setDays(sanitized);
       setHasSavedPlan(Boolean(planResult.data));
-      setHasSavedPlan(Boolean(planResult.data));
     } catch (loadError) {
       if (isActive() && request === loadGeneration.current) setError(loadError instanceof Error ? loadError.message : t("The weekly plan could not be loaded."));
     } finally {
@@ -201,30 +216,56 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
     let active = true;
     let generation = 0;
     const isActive = () => active;
+    const clearAccountState = () => {
+      setUserId(null);
+      setDays(createEmptyWeeklyPlan(weekStart).days);
+      setWardrobe([]);
+      setGarmentStatuses([]);
+      setSeason(undefined);
+      setRecentHistory([]);
+      setPhotoUrls({});
+      setHasSavedPlan(false);
+      setRepeatAvoidanceWeeks(4);
+      setSaving(false);
+      setGenerating(false);
+      setRefreshingDay(null);
+      setError("");
+    };
+
     const loadForSession = async () => {
       const current = ++generation;
       const { data, error: authError } = await supabase.auth.getUser();
       if (!active || current !== generation) return;
       if (authError || !data.user?.email_confirmed_at) {
-        setUserId(null);
+        if (activeUserIdRef.current !== null) {
+          activeUserIdRef.current = null;
+          clearAccountState();
+        }
         setLoading(false);
         return;
       }
-      setUserId(data.user.id);
-      await loadWeek(data.user.id, weekStart, isActive);
+      const id = data.user.id;
+      if (activeUserIdRef.current !== id) {
+        activeUserIdRef.current = id;
+        clearAccountState();
+      }
+      setUserId(id);
+      await loadWeek(id, weekStart, isActive);
     };
     void loadForSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       queueMicrotask(() => {
         if (!active) return;
         const id = session?.user.email_confirmed_at ? session.user.id : null;
-        setUserId(id);
-        if (id) void loadWeek(id, weekStart, isActive);
-        else {
-          loadGeneration.current++;
-          setDays(createEmptyWeeklyPlan(weekStart).days);
-          setWardrobe([]);
-          setLoading(false);
+        if (id === activeUserIdRef.current) return;
+        generation++;
+        loadGeneration.current++;
+        activeUserIdRef.current = id;
+        clearAccountState();
+        setLoading(Boolean(id));
+        if (id) {
+          setUserId(id);
+          void loadWeek(id, weekStart, isActive);
         }
       });
     });
@@ -237,10 +278,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   }, [isPremium, weekStart, loadWeek]);
 
   useEffect(() => {
-    if (!userId || loading || !supabase) {
-      setPhotoUrls({});
-      return;
-    }
+    if (!userId || loading || !supabase) return;
     let active = true;
     void Promise.all(wardrobe.map(async (item) => {
       if (!item.imageKey) return null;
@@ -277,6 +315,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   }, [isPremium, userId, weekStart]);
 
   const changeDay = async (index: number, patch: Partial<PlannedDay>) => {
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
     try {
       let next = days.map((day, dayIndex) => dayIndex === index ? { ...day, ...patch } : day);
       const contextChanged = patch.occasion !== undefined || patch.weather !== undefined;
@@ -286,16 +326,21 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
         const history = repeatAvoidanceWeeks === 0 ? [] : recentHistory.filter((entry) => parseLocalDate(entry.date) >= cutoff);
         next = regenerateDayOutfit(generatorWardrobe, season, next, index, history).days;
       }
+      if (activeUserIdRef.current !== expectedUserId) return;
       setDays(next);
       await persist(next);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be updated."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be updated."));
+      }
     }
   };
 
   const generateWeek = async () => {
-    if (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) {
-      setError(t("Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits."));
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
+    if (!hasPlannerTop || !hasPlannerTrousers) {
+      setError(t("Add at least one top and one pair of trousers to generate complete outfits."));
       return;
     }
     setGenerating(true);
@@ -305,20 +350,25 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       cutoff.setDate(cutoff.getDate() - repeatAvoidanceWeeks * 7);
       const history = repeatAvoidanceWeeks === 0 ? [] : recentHistory.filter((entry) => parseLocalDate(entry.date) >= cutoff);
       const generated = generateWeeklyOutfits(generatorWardrobe, season, days, history);
+      if (activeUserIdRef.current !== expectedUserId) return;
       setDays(generated.days);
-      await persist(generated.days);
+      const saved = await persist(generated.days);
+      if (!saved || activeUserIdRef.current !== expectedUserId) return;
       const assignedDays = generated.days.filter((day) => day.itemIds?.length).length;
       if (assignedDays < 7) setError(t("Your wardrobe has too few distinct combinations for all seven days. Some days have been left empty."));
       else if (generated.repeatConflicts.length) setError(t("Not enough unique combinations remain to avoid every recent outfit."));
     } catch (generationError) {
-      setError(generationError instanceof Error ? generationError.message : t("The weekly plan could not be generated."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(generationError instanceof Error ? generationError.message : t("The weekly plan could not be generated."));
+      }
     } finally {
-      setGenerating(false);
+      if (activeUserIdRef.current === expectedUserId) setGenerating(false);
     }
   };
 
   const regenerateDay = async (index: number) => {
-    if (days[index]?.pinned || days[index]?.wornAt) return;
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId || days[index]?.pinned || days[index]?.wornAt) return;
     setGenerating(true);
     setRefreshingDay(index);
     setError("");
@@ -329,18 +379,26 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       const generated = regenerateDayOutfit(generatorWardrobe, season, days, index, history);
       const next = generated.days;
       if (!next[index]?.itemIds) throw new Error(t("Your wardrobe does not contain enough pieces for a complete outfit."));
+      if (activeUserIdRef.current !== expectedUserId) return;
       setDays(next);
-      await persist(next);
+      const saved = await persist(next);
+      if (!saved || activeUserIdRef.current !== expectedUserId) return;
       if (generated.repeatConflict) setError(t("No different complete outfit is available for this day. Your current outfit has been kept; add more wardrobe combinations to refresh it."));
     } catch (generationError) {
-      setError(generationError instanceof Error ? generationError.message : t("The outfit could not be regenerated."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(generationError instanceof Error ? generationError.message : t("The outfit could not be regenerated."));
+      }
     } finally {
-      setGenerating(false);
-      setRefreshingDay(null);
+      if (activeUserIdRef.current === expectedUserId) {
+        setGenerating(false);
+        setRefreshingDay(null);
+      }
     }
   };
 
   const assignOutfit = async (index: number, outfitId: string) => {
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
     const selected = outfitOptions.find((outfit) => outfit.id === outfitId);
     if (!selected) return;
     const next = assignOutfitToDay(days, index, selected.items.map((item) => item.id));
@@ -349,6 +407,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   };
 
   const clearDay = async (index: number) => {
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
     const next = days.map((day, dayIndex) => dayIndex === index ? { ...day, itemIds: null, pinned: false, wornAt: null } : day);
     setDays(next);
     await persist(next);
@@ -356,55 +416,72 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
 
   const markWorn = async (index: number) => {
     const day = days[index];
-    if (!day?.itemIds?.length || !userId || !supabase) return;
-    const undo = Boolean(day.wornAt);
-    const wornAt = undo ? null : new Date().toISOString();
-    const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
-    setDays(next);
-    await persist(next);
+    const expectedUserId = userId;
+    if (
+      !day?.itemIds?.length ||
+      !expectedUserId ||
+      !supabase ||
+      activeUserIdRef.current !== expectedUserId ||
+      recordingDaysRef.current.has(index)
+    ) return;
+    recordingDaysRef.current.add(index);
     try {
+      const undo = Boolean(day.wornAt);
+      const wornAt = undo ? null : new Date().toISOString();
+      const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
+      setDays(next);
+      const saved = await persist(next);
+      if (!saved || activeUserIdRef.current !== expectedUserId) return;
+
+      const { data: currentAuth, error: currentAuthError } = await supabase.auth.getUser();
+      if (currentAuthError) throw currentAuthError;
+      if (currentAuth.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return;
       if (undo) {
         const { error: deleteError } = await supabase
           .from("user_garment_wear_events")
           .delete()
-          .eq("user_id", userId)
+          .eq("user_id", expectedUserId)
           .eq("worn_on", day.date)
           .in("item_id", day.itemIds);
         if (deleteError) throw deleteError;
         const { error: outfitDeleteError } = await supabase
           .from("user_outfit_wear_events")
           .delete()
-          .eq("user_id", userId)
+          .eq("user_id", expectedUserId)
           .eq("worn_on", day.date)
           .eq("item_ids", day.itemIds);
         if (outfitDeleteError) throw outfitDeleteError;
       } else {
         const { error: insertError } = await supabase
           .from("user_garment_wear_events")
-          .upsert(day.itemIds.map((itemId) => ({ user_id: userId, item_id: itemId, worn_on: day.date })), {
+          .upsert(day.itemIds.map((itemId) => ({ user_id: expectedUserId, item_id: itemId, worn_on: day.date })), {
             onConflict: "user_id,item_id,worn_on",
             ignoreDuplicates: true,
           });
         if (insertError) throw insertError;
         const { error: outfitInsertError } = await supabase
           .from("user_outfit_wear_events")
-          .insert({ user_id: userId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
+          .insert({ user_id: expectedUserId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
         if (outfitInsertError) throw outfitInsertError;
       }
     } catch {
-      setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
+      }
+    } finally {
+      recordingDaysRef.current.delete(index);
     }
   };
 
   const changeRepeatAvoidance = async (value: string) => {
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
     const next = value === "0" ? 0 : value === "2" ? 2 : 4;
     const previous = repeatAvoidanceWeeks;
     setRepeatAvoidanceWeeks(next);
-    try {
-      await persist(days, weekStart, next);
-    } catch (saveError) {
+    const saved = await persist(days, weekStart, next);
+    if (!saved && activeUserIdRef.current === expectedUserId) {
       setRepeatAvoidanceWeeks(previous);
-      setError(saveError instanceof Error ? saveError.message : t("Your weekly plan could not be saved."));
     }
   };
 
@@ -421,12 +498,20 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       setError(t("Premium checkout is currently unavailable. Please try again later."));
       return;
     }
+    const { data: beforeCheckout, error: beforeError } = await supabase.auth.getUser();
+    const expectedUserId = beforeCheckout.user?.id;
+    if (beforeError || !expectedUserId || activeUserIdRef.current !== expectedUserId) return;
     try {
       const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
       if (checkoutError || !data?.url) throw checkoutError ?? new Error("Checkout URL was not returned.");
+      const { data: afterCheckout, error: afterError } = await supabase.auth.getUser();
+      if (afterError) throw afterError;
+      if (afterCheckout.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return;
       window.location.assign(data.url);
     } catch {
-      setError(t("Premium checkout could not be started. Please try again."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t("Premium checkout could not be started. Please try again."));
+      }
     }
   };
 
@@ -437,7 +522,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
           <span className="premium-required-lock">🔒</span>
           <div className="eyebrow">{t("PREMIUM MEMBERSHIP")}</div>
           <h1>{t("Swatchwell Premium")}</h1>
-          <p>{t("Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
+          <p>{t("Plan seven days of outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
           <strong>{t("€2.99 per month")}</strong>
           {isAuthenticated
             ? <button className="primary-button" type="button" onClick={() => void subscribeToPremium()}>{t("Subscribe to Premium")} <span>→</span></button>
@@ -484,19 +569,19 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
         <div className="weekly-planner-actions">
           <label className="weekly-planner-repeat">{t("Avoid recent repeats")}<select value={String(repeatAvoidanceWeeks)} onChange={(event) => void changeRepeatAvoidance(event.target.value)} disabled={loading || saving || generating}><option value="0">{t("Off")}</option><option value="2">{t("2 weeks")}</option><option value="4">{t("4 weeks")}</option></select></label>
           <span className="weekly-planner-status">{loading ? t("Loading your week...") : saving ? t("Saving...") : hasSavedPlan ? t("Synced to your account") : t("Not saved yet")}</span>
-          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes}>
+          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers}>
             {generating ? t("Creating your week...") : t("Generate my week")}
           </button>
         </div>
       </div>
 
       {error && <div className="weekly-planner-error" role="alert">{error}</div>}
-      {!loading && wardrobe.length > 0 && (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) && <div className="weekly-planner-error" role="status">{t("The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.")}</div>}
+      {!loading && wardrobe.length > 0 && (!hasPlannerTop || !hasPlannerTrousers) && <div className="weekly-planner-error" role="status">{t("Add at least one top and one pair of trousers to generate complete outfits.")}</div>}
 
       {!loading && wardrobe.length === 0 && (
         <div className="weekly-planner-empty">
           <h2>{t("Your wardrobe comes first.")}</h2>
-          <p>{t("Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.")}</p>
+          <p>{t("Add a few tops and trousers to your wardrobe. Swatchwell will use those pieces to build complete outfits.")}</p>
           <button className="primary-button" type="button" onClick={onOpenWardrobe}>{t("Open my wardrobe")}</button>
         </div>
       )}
@@ -539,7 +624,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
               {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
                   {[...outfitItems].sort((a, b) => {
-                    const order: Record<string, number> = { sweater: 0, tshirt: 1, pants: 2, shoes: 3, shirt: 4, polo: 4, jacket: 5, accessory: 6 };
+                    const order: Record<string, number> = { shoes: 0, pants: 1, shirt: 2, tshirt: 2, polo: 2, sweater: 3, jacket: 4, accessory: 5 };
                     return (order[a.category] ?? 99) - (order[b.category] ?? 99);
                   }).map((item) => {
                     const wardrobeItem = wardrobe.find((entry) => entry.id === item.id);

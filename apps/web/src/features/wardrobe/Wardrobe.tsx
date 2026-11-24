@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useI18n, translateCategory } from '../../lib/i18n'
 import { loadUserStyleData, saveUserStyleData } from '../../lib/user-style-data'
 import { getWardrobePhotoUrl, uploadWardrobePhoto, deleteWardrobePhoto, wardrobePhotoPath } from '../../lib/wardrobe-photos'
+import { normalizeWardrobeGarment } from './wardrobe-adapter'
 
 type Category =
   | 'Shirts'
@@ -76,6 +77,7 @@ export default function Wardrobe() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const activeUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) {
@@ -89,12 +91,22 @@ export default function Wardrobe() {
 
     async function loadForUser(id: string | null) {
       const current = ++generation
+      const accountChanged = activeUserIdRef.current !== id
+      activeUserIdRef.current = id
       urls.forEach(URL.revokeObjectURL)
       urls = []
       setUserId(id)
-      setItems([])
-      setPhotos({})
-      setError('')
+      if (accountChanged) {
+        setItems([])
+        setPhotos({})
+        setModalOpen(false)
+        setEditing(null)
+        setDraft(emptyDraft)
+        setSaving(false)
+        setSearch('')
+        setFilter('All pieces')
+        setError('')
+      }
       setLoading(Boolean(id))
 
       if (!id) {
@@ -106,7 +118,25 @@ export default function Wardrobe() {
         const data = await loadUserStyleData()
         if (!active || current !== generation || data?.userId !== id) return
 
-        const stored = data.wardrobe as ClothingItem[]
+        const stored = data.wardrobe.flatMap((entry): ClothingItem[] => {
+          const garment = normalizeWardrobeGarment(entry)
+          if (!garment || !entry || typeof entry !== 'object') return []
+          const raw = entry as Record<string, unknown>
+          const purchasePrice = typeof raw.purchasePrice === 'number' &&
+            Number.isFinite(raw.purchasePrice) && raw.purchasePrice >= 0
+            ? raw.purchasePrice
+            : undefined
+          return [{
+            ...garment,
+            brand: typeof raw.brand === 'string' ? raw.brand : '',
+            notes: typeof raw.notes === 'string' ? raw.notes : '',
+            imageKey: typeof raw.imageKey === 'string' ? raw.imageKey : '',
+            createdAt: typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
+              ? raw.createdAt
+              : 0,
+            ...(purchasePrice !== undefined ? { purchasePrice } : {}),
+          }]
+        })
         setItems(stored)
         const loadedPhotos: Record<string, string> = {}
 
@@ -131,11 +161,15 @@ export default function Wardrobe() {
     }
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      void loadForUser(session?.user.id ?? null)
+      const confirmedUserId = session?.user.email_confirmed_at ? session.user.id : null
+      void loadForUser(confirmedUserId)
     })
 
     void supabase.auth.getSession().then(({ data }) => {
-      if (active) void loadForUser(data.session?.user.id ?? null)
+      const confirmedUserId = data.session?.user.email_confirmed_at
+        ? data.session.user.id
+        : null
+      if (active) void loadForUser(confirmedUserId)
     })
 
     return () => {
@@ -144,7 +178,7 @@ export default function Wardrobe() {
       data.subscription.unsubscribe()
       urls.forEach(URL.revokeObjectURL)
     }
-  }, [])
+  }, [t])
 
   const visibleItems = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -161,9 +195,21 @@ export default function Wardrobe() {
     })
   }, [items, search, filter])
 
-  async function persist(next: ClothingItem[]) {
-    if (!userId) throw new Error(t('Sign in before saving wardrobe items.'))
-    await saveUserStyleData({ wardrobe: next })
+  async function persist(next: ClothingItem[], expectedUserId = userId) {
+    if (!expectedUserId) throw new Error(t('Sign in before saving wardrobe items.'))
+    if (activeUserIdRef.current !== expectedUserId) {
+      throw new Error(t('Your account changed before this save could finish. Please retry.'))
+    }
+    await saveUserStyleData({ wardrobe: next }, expectedUserId)
+    const { data: authData, error: authError } = await supabase!.auth.getUser()
+    if (authError) throw authError
+    if (
+      !authData.user ||
+      authData.user.id !== expectedUserId ||
+      activeUserIdRef.current !== expectedUserId
+    ) {
+      throw new Error(t('Your account changed before this save could finish. Please retry.'))
+    }
     setItems(next)
   }
 
@@ -197,16 +243,22 @@ export default function Wardrobe() {
       return
     }
 
+    const expectedUserId = userId
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) {
+      setError(t('Sign in before saving wardrobe items.'))
+      return
+    }
+
     setSaving(true)
     setError('')
 
     try {
       const existing = items.find((item) => item.id === editing)
       const id = existing?.id ?? crypto.randomUUID()
-      if (!userId) throw new Error(t('Sign in before saving wardrobe items.'))
-      const imageKey = wardrobePhotoPath(userId, id)
+      const imageKey = wardrobePhotoPath(expectedUserId, id)
       if (draft.image) {
-        await uploadWardrobePhoto(userId, id, draft.image)
+        await uploadWardrobePhoto(expectedUserId, id, draft.image)
+        if (activeUserIdRef.current !== expectedUserId) return
       }
 
       const updated: ClothingItem = {
@@ -230,12 +282,12 @@ export default function Wardrobe() {
         ? items.map((item) => (item.id === id ? updated : item))
         : [updated, ...items]
 
-      await persist(next)
+      await persist(next, expectedUserId)
+      if (activeUserIdRef.current !== expectedUserId) return
 
       if (draft.image) {
-
-
-        const photoUrl = await getWardrobePhotoUrl(userId, id)
+        const photoUrl = await getWardrobePhotoUrl(expectedUserId, id)
+        if (activeUserIdRef.current !== expectedUserId) return
         if (photoUrl) {
           setPhotos((current) => ({ ...current, [id]: photoUrl }))
         }
@@ -244,21 +296,25 @@ export default function Wardrobe() {
       setModalOpen(false)
       setDraft(emptyDraft)
     } catch {
-      setError(t('Could not save this piece. Please try again.'))
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t('Could not save this piece. Please try again.'))
+      }
     } finally {
-      setSaving(false)
+      if (activeUserIdRef.current === expectedUserId) setSaving(false)
     }
   }
 
   async function handleDelete(item: ClothingItem) {
     if (!window.confirm(t("Remove item confirmation").replace("{name}", item.name))) return
+    const expectedUserId = userId
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return
 
     try {
       const next = items.filter((entry) => entry.id !== item.id)
-      await persist(next)
-      await deleteWardrobePhoto(userId, item.id)
-
-
+      await persist(next, expectedUserId)
+      if (activeUserIdRef.current !== expectedUserId) return
+      await deleteWardrobePhoto(expectedUserId, item.id)
+      if (activeUserIdRef.current !== expectedUserId) return
 
       setPhotos((current) => {
         const nextPhotos = { ...current }
@@ -266,7 +322,9 @@ export default function Wardrobe() {
         return nextPhotos
       })
     } catch {
-      setError(t('Could not remove this piece. Please try again.'))
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t('Could not remove this piece. Please try again.'))
+      }
     }
   }
 

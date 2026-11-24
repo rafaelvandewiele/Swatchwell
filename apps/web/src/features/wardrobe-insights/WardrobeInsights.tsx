@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { generateOutfits } from "@swatchwell/outfit-engine";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
@@ -34,6 +34,7 @@ function todayKey() {
 export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn }: Props) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
   const [wardrobe, setWardrobe] = useState<StoredGarment[]>([]);
   const [events, setEvents] = useState<GarmentWearEvent[]>([]);
   const [photos, setPhotos] = useState<Record<string, string>>({});
@@ -43,6 +44,12 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const isCurrentAccount = async (expectedUserId: string) => {
+    if (!supabase || activeUserIdRef.current !== expectedUserId) return false;
+    const { data, error } = await supabase.auth.getUser();
+    return !error && data.user?.id === expectedUserId && activeUserIdRef.current === expectedUserId;
+  };
+
   const refreshEvents = useCallback(async (id: string) => {
     if (!supabase) return;
     const { data, error: queryError } = await supabase
@@ -51,6 +58,7 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       .eq("user_id", id)
       .order("worn_on", { ascending: false });
     if (queryError) throw queryError;
+    if (activeUserIdRef.current !== id) return;
     setEvents((data ?? []) as GarmentWearEvent[]);
   }, []);
 
@@ -59,9 +67,21 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       setLoading(false);
       return;
     }
+
     let active = true;
     let generation = 0;
     let channel: RealtimeChannel | null = null;
+
+    const clearAccountState = () => {
+      setUserId(null);
+      setWardrobe([]);
+      setEvents([]);
+      setPhotos({});
+      setBusyItem(null);
+      setLogDate(todayKey);
+      setError("");
+      setNotice("");
+    };
 
     const load = async () => {
       const current = ++generation;
@@ -69,25 +89,42 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       setError("");
       try {
         const { data: auth, error: authError } = await supabase!.auth.getUser();
+        if (!active || current !== generation) return;
         if (authError || !auth.user?.email_confirmed_at) {
-          if (active) {
-            setUserId(null);
-            setWardrobe([]);
-            setEvents([]);
+          if (activeUserIdRef.current !== null) {
+            activeUserIdRef.current = null;
+            clearAccountState();
           }
           return;
         }
+
         const id = auth.user.id;
+        if (activeUserIdRef.current !== id) {
+          activeUserIdRef.current = id;
+          clearAccountState();
+        }
+
         const [style, wearResult] = await Promise.all([
           loadUserStyleData(),
-          supabase!.from("user_garment_wear_events").select("id,item_id,worn_on").eq("user_id", id).order("worn_on", { ascending: false }),
+          supabase!.from("user_garment_wear_events")
+            .select("id,item_id,worn_on")
+            .eq("user_id", id)
+            .order("worn_on", { ascending: false }),
         ]);
         if (wearResult.error) throw wearResult.error;
-        if (!active || current !== generation || style?.userId !== id) return;
-        const items = style.wardrobe.filter((item): item is StoredGarment => Boolean(item && typeof item === "object" && "id" in item && "name" in item && "category" in item && "color" in item)) as StoredGarment[];
+        if (!active || current !== generation || activeUserIdRef.current !== id || style?.userId !== id) return;
+
+        const items = style.wardrobe.filter((item): item is StoredGarment => Boolean(
+          item && typeof item === "object" &&
+          "id" in item && typeof item.id === "string" &&
+          "name" in item && typeof item.name === "string" &&
+          "category" in item && typeof item.category === "string" &&
+          "color" in item && typeof item.color === "string"
+        ));
         setUserId(id);
         setWardrobe(items);
         setEvents((wearResult.data ?? []) as GarmentWearEvent[]);
+
         const photoEntries = await Promise.all(items.map(async (item) => {
           if (!item.imageKey) return null;
           try {
@@ -97,15 +134,25 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
             return null;
           }
         }));
-        if (active && current === generation) setPhotos(Object.fromEntries(photoEntries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))));
-        channel = supabase!.channel("wardrobe-insights-" + id).on("postgres_changes", {
-          event: "*", schema: "public", table: "user_garment_wear_events", filter: "user_id=eq." + id,
-        }, () => {
-          void refreshEvents(id).catch((e) => setError(e instanceof Error ? e.message : t("Wear data could not be refreshed.")));
-        }).subscribe();
-      } catch (e) {
+        if (!active || current !== generation || activeUserIdRef.current !== id) return;
+        setPhotos(Object.fromEntries(
+          photoEntries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+        ));
+
+        channel = supabase!.channel("wardrobe-insights-" + id)
+          .on("postgres_changes", {
+            event: "*", schema: "public", table: "user_garment_wear_events", filter: "user_id=eq." + id,
+          }, () => {
+            void refreshEvents(id).catch((error) => {
+              if (active && activeUserIdRef.current === id) {
+                setError(error instanceof Error ? error.message : t("Wear data could not be refreshed."));
+              }
+            });
+          })
+          .subscribe();
+      } catch (error) {
         if (active && current === generation) {
-          const message = e instanceof Error ? e.message : "";
+          const message = error instanceof Error ? error.message : "";
           setError(/user_garment_wear_events|schema cache|does not exist|42P01|PGRST205/i.test(message)
             ? t("Apply the Wardrobe Insights Supabase migration to enable private wear tracking.")
             : message || t("Your wardrobe insights could not be loaded."));
@@ -116,9 +163,20 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
     };
 
     void load();
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
+      if (nextUserId === activeUserIdRef.current) return;
+      generation++;
+      if (channel) {
+        void supabase!.removeChannel(channel);
+        channel = null;
+      }
+      activeUserIdRef.current = nextUserId;
+      clearAccountState();
+      setLoading(Boolean(nextUserId));
       queueMicrotask(() => { if (active) void load(); });
     });
+
     return () => {
       active = false;
       generation++;
@@ -150,64 +208,83 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
   const dateLabel = (value: string) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(value + "T12:00:00"));
 
   const logWear = async (itemId: string) => {
-    if (!supabase || !userId) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem(itemId);
     setError("");
     setNotice("");
     try {
       const { error: insertError } = await supabase.from("user_garment_wear_events").upsert({
-        user_id: userId, item_id: itemId, worn_on: logDate,
+        user_id: expectedUserId, item_id: itemId, worn_on: logDate,
       }, { onConflict: "user_id,item_id,worn_on", ignoreDuplicates: true });
       if (insertError) throw insertError;
-      await refreshEvents(userId);
-      setNotice(t("Wear date saved."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      await refreshEvents(expectedUserId);
+      if (await isCurrentAccount(expectedUserId)) setNotice(t("Wear date saved."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear date could not be saved."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear date could not be saved."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const deleteEvent = async (event: GarmentWearEvent) => {
-    if (!supabase || !userId) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem(event.id);
     setError("");
     try {
-      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("id", event.id).eq("user_id", userId);
+      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("id", event.id).eq("user_id", expectedUserId);
       if (deleteError) throw deleteError;
-      await refreshEvents(userId);
-      setNotice(t("Wear record removed."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      await refreshEvents(expectedUserId);
+      if (await isCurrentAccount(expectedUserId)) setNotice(t("Wear record removed."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear record could not be removed."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear record could not be removed."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const resetEvents = async () => {
-    if (!supabase || !userId || !window.confirm(t("Reset all recorded wear dates? This cannot be undone."))) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !window.confirm(t("Reset all recorded wear dates? This cannot be undone.")) || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem("reset");
     setError("");
     try {
-      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("user_id", userId);
+      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("user_id", expectedUserId);
       if (deleteError) throw deleteError;
+      if (!await isCurrentAccount(expectedUserId)) return;
       setEvents([]);
       setNotice(t("All wear records have been reset."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear records could not be reset."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear records could not be reset."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const checkout = async () => {
     if (!supabase) return;
-    const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
-    if (checkoutError || !data?.url) {
-      setError(t("Premium checkout could not be started. Please try again."));
-      return;
+    const { data: before, error: beforeError } = await supabase.auth.getUser();
+    const expectedUserId = before.user?.id;
+    if (beforeError || !expectedUserId || activeUserIdRef.current !== expectedUserId) return;
+    try {
+      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
+      if (checkoutError || !data?.url) throw checkoutError ?? new Error(t("Premium checkout could not be started. Please try again."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      window.location.assign(data.url);
+    } catch (error) {
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(error instanceof Error ? error.message : t("Premium checkout could not be started. Please try again."));
+      }
     }
-    window.location.assign(data.url);
   };
 
   if (!isPremium) {

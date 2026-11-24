@@ -135,9 +135,11 @@ export default function ColorProfile() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const loadVersion = useRef(0);
+  const activeUserIdRef = useRef<string | null>(null);
 
   const currentQuestion = QUESTIONS[step];
   const result = saved ? storedProfile?.analysis ?? null : null;
@@ -166,10 +168,14 @@ export default function ColorProfile() {
         if (!active || version !== loadVersion.current) return;
 
         if (!authData.user || !data || data.userId !== authData.user.id) {
+          activeUserIdRef.current = null;
+          setUserId(null);
           setError(t("Sign in to create and save your personal colour profile."));
           return;
         }
 
+        activeUserIdRef.current = authData.user.id;
+        setUserId(authData.user.id);
         const candidate = data.colorProfile;
         if (
           candidate &&
@@ -195,12 +201,15 @@ export default function ColorProfile() {
       }
     }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       loadVersion.current += 1;
+      activeUserIdRef.current = session?.user.email_confirmed_at ? session.user.id : null;
+      setUserId(null);
       setStoredProfile(null);
       setProfile(INITIAL_PROFILE);
       setSaved(false);
+      setSaving(false);
       setLoading(true);
       queueMicrotask(() => {
         if (active) void loadProfile();
@@ -214,7 +223,7 @@ export default function ColorProfile() {
       loadVersion.current += 1;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [t]);
 
   function updateAnswer(value: string) {
     setProfile((current) => ({
@@ -231,39 +240,60 @@ export default function ColorProfile() {
       setError(t("Account storage is not configured."));
       return;
     }
+    const expectedUserId = userId;
+    if (!expectedUserId || activeUserIdRef.current !== expectedUserId) {
+      setError(t("Sign in required."));
+      return;
+    }
 
     try {
       setSaving(true);
       setError("");
       const nextProfile = createColorProfile(profile);
-      await saveUserStyleData({ colorProfile: nextProfile });
+      await saveUserStyleData({ colorProfile: nextProfile }, expectedUserId);
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
-      if (!authData.user) throw new Error(t("Sign in required."));
+      if (!authData.user || authData.user.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) {
+        throw new Error(t("Your account changed before this save could finish."));
+      }
 
       setStoredProfile(nextProfile);
       setSaved(true);
     } catch {
-      setError(t("Your profile could not be saved. Check your connection and sign-in status."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t("Your profile could not be saved. Check your connection and sign-in status."));
+      }
     } finally {
-      setSaving(false);
+      if (activeUserIdRef.current === expectedUserId) setSaving(false);
     }
   }
 
   async function resetProfile() {
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || activeUserIdRef.current !== expectedUserId) {
+      setError(t("Sign in required."));
+      return;
+    }
     try {
       setSaving(true);
       setError("");
-      await saveUserStyleData({ colorProfile: null });
+      await saveUserStyleData({ colorProfile: null }, expectedUserId);
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user || authData.user.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) {
+        throw new Error(t("Your account changed before this save could finish."));
+      }
       setProfile(INITIAL_PROFILE);
       setStoredProfile(null);
       setSaved(false);
       setStep(0);
     } catch {
-      setError(t("Your profile could not be removed. Please try again."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(t("Your profile could not be removed. Please try again."));
+      }
     } finally {
-      setSaving(false);
+      if (activeUserIdRef.current === expectedUserId) setSaving(false);
     }
   }
 

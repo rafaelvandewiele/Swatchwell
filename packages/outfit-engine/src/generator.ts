@@ -14,7 +14,7 @@ export interface OutfitGeneratorOptions {
   limit?: number;
   includeJackets?: boolean;
   includeAccessories?: boolean;
-  /** Requires a complete layered look: sweater, T-shirt, trousers and shoes. */
+  /** Base tops and trousers are required; sweaters and shoes remain optional. Jackets and accessories are omitted. */
   requireCompleteLayers?: boolean;
 }
 
@@ -130,7 +130,7 @@ export function generateOutfits(
   const limit = validateOptions(options);
 
   const baseTops = wardrobe.filter((item) =>
-    options.requireCompleteLayers ? item.category === "tshirt" : BASE_TOP_CATEGORIES.includes(item.category),
+    BASE_TOP_CATEGORIES.includes(item.category),
   );
 
   const sweaters = wardrobe.filter(
@@ -155,15 +155,14 @@ export function generateOutfits(
       ? []
       : wardrobe.filter((item) => item.category === "accessory");
 
-  if (baseTops.length === 0 || pants.length === 0 || (options.requireCompleteLayers && (sweaters.length === 0 || shoes.length === 0))) {
+  if (baseTops.length === 0 || pants.length === 0) {
     return [];
   }
 
   const shoeOptions: Array<ClothingItem | undefined> =
-    options.requireCompleteLayers ? shoes : shoes.length > 0 ? shoes : [undefined];
+    shoes.length > 0 ? shoes : [undefined];
 
-  const sweaterOptions: Array<ClothingItem | undefined> =
-    options.requireCompleteLayers ? sweaters : [undefined, ...sweaters];
+  const sweaterOptions: Array<ClothingItem | undefined> = [undefined, ...sweaters];
 
   const jacketOptions: Array<ClothingItem | undefined> =
     options.requireCompleteLayers ? [undefined] : [undefined, ...jackets];
