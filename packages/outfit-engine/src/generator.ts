@@ -14,7 +14,7 @@ export interface OutfitGeneratorOptions {
   limit?: number;
   includeJackets?: boolean;
   includeAccessories?: boolean;
-  /** @deprecated Base tops and trousers are always required; sweaters and shoes remain optional. */
+  /** Base tops and trousers are required; sweaters and shoes remain optional. Jackets and accessories are omitted. */
   requireCompleteLayers?: boolean;
 }
 
@@ -164,9 +164,11 @@ export function generateOutfits(
 
   const sweaterOptions: Array<ClothingItem | undefined> = [undefined, ...sweaters];
 
-  const jacketOptions: Array<ClothingItem | undefined> = [undefined, ...jackets];
+  const jacketOptions: Array<ClothingItem | undefined> =
+    options.requireCompleteLayers ? [undefined] : [undefined, ...jackets];
 
-  const accessoryOptions: Array<ClothingItem | undefined> = [undefined, ...accessories];
+  const accessoryOptions: Array<ClothingItem | undefined> =
+    options.requireCompleteLayers ? [undefined] : [undefined, ...accessories];
 
   const recommendations: OutfitRecommendation[] = [];
   const seen = new Set<string>();
