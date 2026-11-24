@@ -31,7 +31,7 @@ export interface WardrobeGarment {
   extraColors?: string[];
 }
 
-const CATEGORY_ALIASES: Record<string, WardrobeCategory> = {
+const CATEGORY_ALIASES: Record<string, ClothingCategory> = {
   shirt: "Shirts",
   tshirt: "T-shirts",
   polo: "Polo shirts",
