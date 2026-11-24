@@ -115,7 +115,11 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
       // is active in this browser. Never sign out that unrelated account.
       // The deleted user's token may already be invalid, which is also fine.
       if(current.user?.id===data.userId) {
-        await supabase.auth.signOut({scope:'local'})
+        try {
+          await supabase.auth.signOut({scope:'local'})
+        } catch {
+          // The auth user is already deleted; a stale local token can expire naturally.
+        }
       }
       setMessage(c.done)
       window.history.replaceState({},'','/')
