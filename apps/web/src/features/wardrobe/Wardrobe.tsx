@@ -87,14 +87,25 @@ export default function Wardrobe() {
     let generation = 0
     let urls: string[] = []
 
+    let activeUserId: string | null = null
+
     async function loadForUser(id: string | null) {
       const current = ++generation
+      const accountChanged = activeUserId !== id
+      activeUserId = id
       urls.forEach(URL.revokeObjectURL)
       urls = []
       setUserId(id)
-      setItems([])
-      setPhotos({})
-      setError('')
+      if (accountChanged) {
+        setItems([])
+        setPhotos({})
+        setModalOpen(false)
+        setEditing(null)
+        setDraft(emptyDraft)
+        setSearch('')
+        setFilter('All pieces')
+        setError('')
+      }
       setLoading(Boolean(id))
 
       if (!id) {
@@ -167,7 +178,7 @@ export default function Wardrobe() {
 
   async function persist(next: ClothingItem[]) {
     if (!userId) throw new Error(t('Sign in before saving wardrobe items.'))
-    await saveUserStyleData({ wardrobe: next })
+    await saveUserStyleData({ wardrobe: next }, userId)
     setItems(next)
   }
 
