@@ -217,7 +217,7 @@ describe("weekly outfit selection", () => {
     expect(getWeatherFit(layered, "Cold")).toBeGreaterThan(getWeatherFit(layered, "Warm"));
   });
 
-  it("does not repeat a recent core look just to fill all seven days", () => {
+  it("avoids a recent layered look but can use the same essentials without the optional sweater", () => {
     const minimalWardrobe = [
       { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
       { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
@@ -227,7 +227,9 @@ describe("weekly outfit selection", () => {
     const days = createEmptyWeeklyPlan("2026-11-16").days;
     const history = [{ ...days[0], date: "2026-11-09", itemIds: ["tee", "sweater", "pants", "shoes"] }];
     const result = generateWeeklyOutfits(minimalWardrobe, undefined, days, history);
-    expect(result.days.every((day) => day.itemIds === null)).toBe(true);
+    const assigned = result.days.filter((day) => day.itemIds !== null);
+    expect(assigned).toHaveLength(1);
+    expect(assigned[0].itemIds).toEqual(["tee", "pants", "shoes"]);
     expect(result.repeatConflicts).toEqual([]);
   });
 
