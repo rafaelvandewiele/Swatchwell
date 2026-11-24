@@ -5,15 +5,17 @@ export interface ReusableCheckoutSession {
   mode: string;
   client_reference_id?: string | null;
   metadata?: Record<string, unknown> | null;
+  customer?: string | { id?: string } | null;
   expires_at: number;
 }
 
 export function findReusableSubscriptionCheckoutUrl(
   sessions: unknown,
   userId: string,
+  expectedCustomerId: string,
   nowMilliseconds = Date.now(),
 ): string | null {
-  if (!Array.isArray(sessions) || !userId.trim() || !Number.isFinite(nowMilliseconds)) {
+  if (!Array.isArray(sessions) || !userId.trim() || !expectedCustomerId.trim() || !Number.isFinite(nowMilliseconds)) {
     return null;
   }
 
@@ -21,12 +23,21 @@ export function findReusableSubscriptionCheckoutUrl(
   for (const candidate of sessions) {
     if (!candidate || typeof candidate !== "object") continue;
     const session = candidate as Partial<ReusableCheckoutSession>;
+    const clientReferenceId = session.client_reference_id;
+    const metadataUserId = typeof session.metadata?.user_id === "string"
+      ? session.metadata.user_id
+      : null;
+    const customerId = typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id;
     const belongsToUser =
-      session.client_reference_id === userId ||
-      session.metadata?.user_id === userId;
+      (clientReferenceId === userId || metadataUserId === userId) &&
+      (!clientReferenceId || clientReferenceId === userId) &&
+      (!metadataUserId || metadataUserId === userId);
     if (
       session.status !== "open" ||
       session.mode !== "subscription" ||
+      customerId !== expectedCustomerId ||
       !belongsToUser ||
       typeof session.url !== "string" ||
       !Number.isFinite(session.expires_at) ||
@@ -35,7 +46,7 @@ export function findReusableSubscriptionCheckoutUrl(
 
     try {
       const url = new URL(session.url);
-      if (url.protocol === "https:" && url.hostname === "checkout.stripe.com") {
+      if (url.origin === "https://checkout.stripe.com" && !url.username && !url.password) {
         return session.url;
       }
     } catch {
