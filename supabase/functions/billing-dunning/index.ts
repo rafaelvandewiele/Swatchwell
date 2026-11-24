@@ -36,6 +36,39 @@ Deno.serve(async (req) => {
     if (profileError) return new Response("Could not load an overdue subscription profile.", { status: 500 });
     if (!profile || profile.role === "admin" || !profile.email) continue;
 
+    const language = normalizeDunningLanguage(profile.language);
+    const copy = messages[language];
+
+    // Retry cancellation notifications before consulting Stripe again. The
+    // subscription may already be cancelled, but the email can still be pending.
+    if (row.status === "canceled") {
+      if (row.last_dunning_email_at) continue;
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + resendKey,
+          "Content-Type": "application/json",
+          "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id),
+        },
+        body: JSON.stringify({
+          from: "Swatchwell <swatchwell@veyca.dev>",
+          to: [profile.email],
+          subject: copy.cancelledSubject,
+          text: copy.cancelled,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
+        return new Response("Could not send a subscription cancellation notification.", { status: 502 });
+      }
+      const { error: notificationUpdateError } = await admin.from("billing_subscriptions")
+        .update({ last_dunning_email_at: new Date().toISOString() })
+        .eq("user_id", row.user_id);
+      if (notificationUpdateError) return new Response("Could not persist the cancellation notification timestamp.", { status: 500 });
+      cancelled++;
+      continue;
+    }
+
     // The local subscription row can lag behind Stripe if a webhook was
     // delayed. Never cancel or remind based only on a stale database status.
     const stripeStateResponse = await fetch(
@@ -86,40 +119,6 @@ Deno.serve(async (req) => {
         .update({ premium_source: "none", updated_at: new Date().toISOString() })
         .eq("id", row.user_id);
       if (profileSyncError) return new Response("Could not revoke access for a non-active subscription.", { status: 500 });
-      continue;
-    }
-
-    const language = normalizeDunningLanguage(profile.language);
-    const copy = messages[language];
-
-    // A cancelled row with a pending notification is retried on the next
-    // scheduler run. last_dunning_email_at is cleared when cancellation is
-    // persisted and set only after Resend accepts the notification.
-    if (row.status === "canceled") {
-      if (row.last_dunning_email_at) continue;
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + resendKey,
-          "Content-Type": "application/json",
-          "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id),
-        },
-        body: JSON.stringify({
-          from: "Swatchwell <swatchwell@veyca.dev>",
-          to: [profile.email],
-          subject: copy.cancelledSubject,
-          text: copy.cancelled,
-        }),
-      });
-      if (!response.ok) {
-        console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
-        return new Response("Could not send a subscription cancellation notification.", { status: 502 });
-      }
-      const { error: notificationUpdateError } = await admin.from("billing_subscriptions")
-        .update({ last_dunning_email_at: new Date().toISOString() })
-        .eq("user_id", row.user_id);
-      if (notificationUpdateError) return new Response("Could not persist the cancellation notification timestamp.", { status: 500 });
-      cancelled++;
       continue;
     }
 
