@@ -77,6 +77,18 @@ describe("billing dunning helpers", () => {
     });
   });
 
+  it("starts a fresh grace period for a different subscription", () => {
+    expect(resolveDunningFailureState("past_due", {
+      stripe_subscription_id: "sub_old",
+      status: "canceled",
+      failed_at: "2026-11-10T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-10T09:00:00.000Z",
+    }, "2026-11-24T08:00:00.000Z", "sub_new")).toEqual({
+      failedAt: "2026-11-24T08:00:00.000Z",
+      lastDunningEmailAt: null,
+    });
+  });
+
   it("clears dunning state after recovery or a cancellation unrelated to payment failure", () => {
     expect(resolveDunningFailureState("active", {
       status: "past_due",
