@@ -70,16 +70,22 @@ Deno.serve(async (req) => {
     });
     if(insertError) return json({error:"Could not create confirmation"},500);
     const confirmUrl = "https://swatchwell.veyca.dev/account-deletion/confirm?token="+encodeURIComponent(token);
-    const response=await fetch("https://api.resend.com/emails",{
-      method:"POST",
-      headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},
-      body:JSON.stringify({
-        from:"Swatchwell <swatchwell@veyca.dev>",
-        to:[user.email],
-        subject:copy.subject,
-        html:`<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#243247"><h1>Swatchwell</h1><p>${copy.body}</p><p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#243247;color:white;text-decoration:none">${copy.button}</a></p><p style="font-size:12px;color:#777">30 minutes</p></div>`,
-      }),
-    });
+    let response: Response;
+    try {
+      response=await fetch("https://api.resend.com/emails",{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},
+        body:JSON.stringify({
+          from:"Swatchwell <swatchwell@veyca.dev>",
+          to:[user.email],
+          subject:copy.subject,
+          html:`<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#243247"><h1>Swatchwell</h1><p>${copy.body}</p><p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#243247;color:white;text-decoration:none">${copy.button}</a></p><p style="font-size:12px;color:#777">30 minutes</p></div>`,
+        }),
+      });
+    } catch {
+      await admin.from("account_deletion_requests").delete().eq("token_hash",tokenHash);
+      return json({error:"Could not send confirmation email"},502);
+    }
     if(!response.ok) {
       await admin.from("account_deletion_requests").delete().eq("token_hash",tokenHash);
       return json({error:"Could not send confirmation email"},502);
