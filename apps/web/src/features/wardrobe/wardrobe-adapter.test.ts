@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  sortOutfitLayers,
   toGeneratorItem,
   toGeneratorWardrobe,
 } from "./wardrobe-adapter";
@@ -63,6 +64,20 @@ describe("Wardrobe adapter", () => {
     expect(result).toHaveLength(2);
     expect(result[0].category).toBe("shirt");
     expect(result[1].category).toBe("pants");
+  });
+
+  it("sorts outfit layers from shoes upward", () => {
+    const result = sortOutfitLayers([
+      { id: "sweater", category: "sweater" },
+      { id: "shirt", category: "shirt" },
+      { id: "jacket", category: "jacket" },
+      { id: "pants", category: "pants" },
+      { id: "shoes", category: "shoes" },
+      { id: "accessory", category: "accessory" },
+    ]);
+    expect(result.map((item) => item.id)).toEqual([
+      "shoes", "pants", "shirt", "sweater", "jacket", "accessory",
+    ]);
   });
 
   it("does not mutate the original wardrobe", () => {
