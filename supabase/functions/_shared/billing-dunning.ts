@@ -20,6 +20,7 @@ export function dunningCancellationIdempotencyKey(subscriptionId: string): strin
 }
 
 export interface PreviousDunningState {
+  stripe_subscription_id?: string | null;
   status?: string | null;
   failed_at?: string | null;
   last_dunning_email_at?: string | null;
@@ -29,26 +30,32 @@ export function resolveDunningFailureState(
   currentStatus: string,
   previous: PreviousDunningState | null | undefined,
   nowIso: string,
+  currentSubscriptionId?: string,
 ): { failedAt: string | null; lastDunningEmailAt: string | null } {
+  const sameSubscription = !currentSubscriptionId ||
+    !previous?.stripe_subscription_id ||
+    previous.stripe_subscription_id === currentSubscriptionId;
+  const prior = sameSubscription ? previous : null;
+
   if (currentStatus === "past_due" || currentStatus === "unpaid") {
     return {
-      failedAt: previous?.failed_at ?? nowIso,
-      lastDunningEmailAt: previous?.last_dunning_email_at ?? null,
+      failedAt: prior?.failed_at ?? nowIso,
+      lastDunningEmailAt: prior?.last_dunning_email_at ?? null,
     };
   }
 
   const cancelledAfterFailure =
     currentStatus === "canceled" &&
-    Boolean(previous?.failed_at) &&
-    ["past_due", "unpaid", "canceled"].includes(previous?.status ?? "");
+    Boolean(prior?.failed_at) &&
+    ["past_due", "unpaid", "canceled"].includes(prior?.status ?? "");
 
   if (cancelledAfterFailure) {
     return {
-      failedAt: previous!.failed_at!,
+      failedAt: prior!.failed_at!,
       // A first cancellation event after a failed-payment state needs a
       // cancellation notice. Duplicate deletion events preserve its marker.
-      lastDunningEmailAt: previous?.status === "canceled"
-        ? previous.last_dunning_email_at ?? null
+      lastDunningEmailAt: prior?.status === "canceled"
+        ? prior.last_dunning_email_at ?? null
         : null,
     };
   }
