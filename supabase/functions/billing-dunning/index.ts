@@ -1,6 +1,11 @@
 /// <reference lib="deno.ns" />
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  dunningCancellationIdempotencyKey,
+  dunningReminderIdempotencyKey,
+  normalizeDunningLanguage,
+} from "../_shared/billing-dunning.ts";
 
 const messages = {
   en: { reminderSubject: "Your Swatchwell Premium payment needs attention", reminder: "We could not collect your latest Swatchwell Premium payment. Your access remains active for now. Please update your payment method in account settings. We will retry daily; access ends if payment remains outstanding for five days.", cancelledSubject: "Your Swatchwell Premium subscription was cancelled", cancelled: "Your payment remained outstanding for five days, so your Swatchwell Premium subscription has been cancelled and premium access has ended." },
@@ -84,7 +89,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const language = profile.language in messages ? profile.language as keyof typeof messages : "en";
+    const language = normalizeDunningLanguage(profile.language);
     const copy = messages[language];
     if (daysOverdue >= 5) {
       const cancelResponse = await fetch("https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(row.stripe_subscription_id), { method: "DELETE", headers: { Authorization: "Bearer " + stripeKey } });
@@ -101,14 +106,14 @@ Deno.serve(async (req) => {
         .eq("user_id", row.user_id);
       if (subscriptionUpdateError) return new Response("Could not persist the cancelled subscription.", { status: 500 });
 
-      const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.cancelledSubject, text: copy.cancelled }) });
+      const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json", "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id) }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.cancelledSubject, text: copy.cancelled }) });
       if (response.ok) cancelled++;
       else console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
       continue;
     }
     const lastSent = row.last_dunning_email_at ? new Date(row.last_dunning_email_at).getTime() : 0;
     if (lastSent && now - lastSent < 23 * 3600000) continue;
-    const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.reminderSubject, text: copy.reminder + "\n\nhttps://swatchwell.veyca.dev/settings" }) });
+    const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json", "Idempotency-Key": dunningReminderIdempotencyKey(row.stripe_subscription_id, new Date(now)) }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.reminderSubject, text: copy.reminder + "\n\nhttps://swatchwell.veyca.dev/settings" }) });
     if (response.ok) {
       const { error: reminderUpdateError } = await admin.from("billing_subscriptions")
         .update({ last_dunning_email_at: new Date().toISOString() })
