@@ -348,8 +348,6 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
   useEffect(() => {
     let cancelled = false;
 
-    setPhotoUrls({});
-
     async function loadPhotos() {
       const expectedUserId = userId;
       if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
