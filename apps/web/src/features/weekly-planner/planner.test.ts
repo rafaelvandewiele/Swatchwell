@@ -86,8 +86,7 @@ describe("weekly outfit selection", () => {
     expect(new Set(coreLooks).size).toBe(coreLooks.length);
     for (const day of result.days) {
       if (day.itemIds) {
-        expect(day.itemIds.some((id) => id.startsWith("tee-"))).toBe(true);
-        expect(day.itemIds.some((id) => id.startsWith("sweater-"))).toBe(true);
+        expect(day.itemIds.some((id) => id.startsWith("shirt-") || id.startsWith("tee-"))).toBe(true);
         expect(day.itemIds.some((id) => id.startsWith("pants-"))).toBe(true);
         expect(day.itemIds.some((id) => id.startsWith("shoes-"))).toBe(true);
       }
@@ -151,6 +150,34 @@ describe("weekly outfit selection", () => {
     expect(otherIds.has(refreshed[3].itemIds?.slice().sort().join("-") ?? "")).toBe(false);
   });
 
+
+  it("generates a weekly plan from only a base top and trousers", () => {
+    const essentials = [
+      { id: "shirt", name: "Oxford shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "pants", name: "Navy trousers", category: "pants" as const, color: "#26364A" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    const result = generateWeeklyOutfits(essentials, undefined, days);
+    expect(result.days.some((day) => day.itemIds?.length)).toBe(true);
+    for (const day of result.days) {
+      if (!day.itemIds) continue;
+      expect(day.itemIds).toContain("shirt");
+      expect(day.itemIds).toContain("pants");
+    }
+  });
+
+  it("accepts a pinned shirt-and-trousers outfit without optional layers", () => {
+    const essentials = [
+      { id: "shirt", name: "Oxford shirt", category: "shirt" as const, color: "#FFFFFF" },
+      { id: "pants", name: "Navy trousers", category: "pants" as const, color: "#26364A" },
+    ];
+    const days = createEmptyWeeklyPlan("2026-11-16").days;
+    days[0].pinned = true;
+    days[0].itemIds = ["shirt", "pants"];
+    const result = generateWeeklyOutfits(essentials, undefined, days);
+    expect(result.days[0].pinned).toBe(true);
+    expect(result.days[0].itemIds).toEqual(["shirt", "pants"]);
+  });
 
   it("keeps the current outfit when refresh has no genuinely different core combination", () => {
     const minimalWardrobe = [
