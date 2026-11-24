@@ -159,6 +159,11 @@ export default function TravelCapsule({isPremium,isAuthenticated,onSignIn}:Props
                     ? currentId
                     : rows[0]?.id ?? null,
                 );
+              })
+              .catch((error) => {
+                if (active && current === generation) {
+                  setError(error instanceof Error ? error.message : t("Could not load your travel plans."));
+                }
               });
           },
         )
