@@ -183,6 +183,7 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
 
 export async function saveUserStyleData(
   patch: Partial<Pick<UserStyleData, 'wardrobe' | 'savedOutfits' | 'colorProfile'>>,
+  expectedUserId: string,
 ): Promise<void> {
   if (!supabase) throw new Error('Account storage is not configured.')
 
@@ -196,7 +197,11 @@ export async function saveUserStyleData(
     throw new Error('Verify your email address before saving personal style data.')
   }
 
-  const userId = authData.user.id
+  if (!expectedUserId.trim() || authData.user.id !== expectedUserId) {
+    throw new Error('Your account changed before this save could finish. Please retry.')
+  }
+
+  const userId = expectedUserId
   const updatedAt = new Date().toISOString()
 
   const values: {
