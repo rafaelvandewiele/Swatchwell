@@ -44,6 +44,12 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const isCurrentAccount = async (expectedUserId: string) => {
+    if (!supabase || activeUserIdRef.current !== expectedUserId) return false;
+    const { data, error } = await supabase.auth.getUser();
+    return !error && data.user?.id === expectedUserId && activeUserIdRef.current === expectedUserId;
+  };
+
   const refreshEvents = useCallback(async (id: string) => {
     if (!supabase) return;
     const { data, error: queryError } = await supabase
@@ -202,64 +208,83 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
   const dateLabel = (value: string) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(value + "T12:00:00"));
 
   const logWear = async (itemId: string) => {
-    if (!supabase || !userId) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem(itemId);
     setError("");
     setNotice("");
     try {
       const { error: insertError } = await supabase.from("user_garment_wear_events").upsert({
-        user_id: userId, item_id: itemId, worn_on: logDate,
+        user_id: expectedUserId, item_id: itemId, worn_on: logDate,
       }, { onConflict: "user_id,item_id,worn_on", ignoreDuplicates: true });
       if (insertError) throw insertError;
-      await refreshEvents(userId);
-      setNotice(t("Wear date saved."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      await refreshEvents(expectedUserId);
+      if (await isCurrentAccount(expectedUserId)) setNotice(t("Wear date saved."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear date could not be saved."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear date could not be saved."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const deleteEvent = async (event: GarmentWearEvent) => {
-    if (!supabase || !userId) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem(event.id);
     setError("");
     try {
-      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("id", event.id).eq("user_id", userId);
+      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("id", event.id).eq("user_id", expectedUserId);
       if (deleteError) throw deleteError;
-      await refreshEvents(userId);
-      setNotice(t("Wear record removed."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      await refreshEvents(expectedUserId);
+      if (await isCurrentAccount(expectedUserId)) setNotice(t("Wear record removed."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear record could not be removed."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear record could not be removed."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const resetEvents = async () => {
-    if (!supabase || !userId || !window.confirm(t("Reset all recorded wear dates? This cannot be undone."))) return;
+    const expectedUserId = userId;
+    if (!supabase || !expectedUserId || !window.confirm(t("Reset all recorded wear dates? This cannot be undone.")) || !await isCurrentAccount(expectedUserId)) return;
     setBusyItem("reset");
     setError("");
     try {
-      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("user_id", userId);
+      const { error: deleteError } = await supabase.from("user_garment_wear_events").delete().eq("user_id", expectedUserId);
       if (deleteError) throw deleteError;
+      if (!await isCurrentAccount(expectedUserId)) return;
       setEvents([]);
       setNotice(t("All wear records have been reset."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Wear records could not be reset."));
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(e instanceof Error ? e.message : t("Wear records could not be reset."));
+      }
     } finally {
-      setBusyItem(null);
+      if (activeUserIdRef.current === expectedUserId) setBusyItem(null);
     }
   };
 
   const checkout = async () => {
     if (!supabase) return;
-    const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
-    if (checkoutError || !data?.url) {
-      setError(t("Premium checkout could not be started. Please try again."));
-      return;
+    const { data: before, error: beforeError } = await supabase.auth.getUser();
+    const expectedUserId = before.user?.id;
+    if (beforeError || !expectedUserId || activeUserIdRef.current !== expectedUserId) return;
+    try {
+      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout-session", { body: {} });
+      if (checkoutError || !data?.url) throw checkoutError ?? new Error(t("Premium checkout could not be started. Please try again."));
+      if (!await isCurrentAccount(expectedUserId)) return;
+      window.location.assign(data.url);
+    } catch (error) {
+      if (activeUserIdRef.current === expectedUserId) {
+        setError(error instanceof Error ? error.message : t("Premium checkout could not be started. Please try again."));
+      }
     }
-    window.location.assign(data.url);
   };
 
   if (!isPremium) {
