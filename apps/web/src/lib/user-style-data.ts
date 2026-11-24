@@ -206,6 +206,16 @@ export async function clearLocalStyleDataForUser(
 ): Promise<void> {
   if (!userId.trim()) return
 
+  const migrationState = localStorage.getItem(MIGRATION_KEY)
+  if (
+    migrationState === `in-progress:${userId}` ||
+    (clearUnownedLegacyData && migrationState === null)
+  ) {
+    localStorage.removeItem(LEGACY_WARDROBE_KEY)
+    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+    localStorage.setItem(MIGRATION_KEY, 'done')
+  }
+
   const db = await openPhotoDatabase()
   try {
     if (!db.objectStoreNames.contains(STORE_NAME)) return
@@ -229,16 +239,6 @@ export async function clearLocalStyleDataForUser(
     })
   } finally {
     db.close()
-  }
-
-  const migrationState = localStorage.getItem(MIGRATION_KEY)
-  if (
-    migrationState === `in-progress:${userId}` ||
-    (clearUnownedLegacyData && migrationState === null)
-  ) {
-    localStorage.removeItem(LEGACY_WARDROBE_KEY)
-    localStorage.removeItem(LEGACY_OUTFITS_KEY)
-    localStorage.setItem(MIGRATION_KEY, 'done')
   }
 }
 
