@@ -135,6 +135,7 @@ export default function ColorProfile() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const loadVersion = useRef(0);
@@ -166,10 +167,12 @@ export default function ColorProfile() {
         if (!active || version !== loadVersion.current) return;
 
         if (!authData.user || !data || data.userId !== authData.user.id) {
+          setUserId(null);
           setError(t("Sign in to create and save your personal colour profile."));
           return;
         }
 
+        setUserId(authData.user.id);
         const candidate = data.colorProfile;
         if (
           candidate &&
@@ -198,6 +201,7 @@ export default function ColorProfile() {
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       loadVersion.current += 1;
+      setUserId(null);
       setStoredProfile(null);
       setProfile(INITIAL_PROFILE);
       setSaved(false);
@@ -235,12 +239,16 @@ export default function ColorProfile() {
     try {
       setSaving(true);
       setError("");
+      const expectedUserId = userId;
+      if (!expectedUserId) throw new Error(t("Sign in required."));
       const nextProfile = createColorProfile(profile);
-      await saveUserStyleData({ colorProfile: nextProfile });
+      await saveUserStyleData({ colorProfile: nextProfile }, expectedUserId);
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
-      if (!authData.user) throw new Error(t("Sign in required."));
+      if (!authData.user || authData.user.id !== expectedUserId) {
+        throw new Error(t("Your account changed before this save could finish."));
+      }
 
       setStoredProfile(nextProfile);
       setSaved(true);
@@ -255,7 +263,14 @@ export default function ColorProfile() {
     try {
       setSaving(true);
       setError("");
-      await saveUserStyleData({ colorProfile: null });
+      const expectedUserId = userId;
+      if (!expectedUserId) throw new Error(t("Sign in required."));
+      await saveUserStyleData({ colorProfile: null }, expectedUserId);
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user || authData.user.id !== expectedUserId) {
+        throw new Error(t("Your account changed before this save could finish."));
+      }
       setProfile(INITIAL_PROFILE);
       setStoredProfile(null);
       setSaved(false);
