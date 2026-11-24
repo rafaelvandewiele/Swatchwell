@@ -131,11 +131,15 @@ export default function Wardrobe() {
     }
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      void loadForUser(session?.user.id ?? null)
+      const confirmedUserId = session?.user.email_confirmed_at ? session.user.id : null
+      void loadForUser(confirmedUserId)
     })
 
     void supabase.auth.getSession().then(({ data }) => {
-      if (active) void loadForUser(data.session?.user.id ?? null)
+      const confirmedUserId = data.session?.user.email_confirmed_at
+        ? data.session.user.id
+        : null
+      if (active) void loadForUser(confirmedUserId)
     })
 
     return () => {
