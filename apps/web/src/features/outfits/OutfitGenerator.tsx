@@ -88,15 +88,13 @@ function reconcileSavedOutfits(
       );
 
     const hasTop = items.some((item) =>
-      item.category === "tshirt",
+      ["shirt", "tshirt", "polo"].includes(item.category),
     );
 
     const hasTrousers = items.some((item) => item.category === "pants");
-    const hasSweater = items.some((item) => item.category === "sweater");
-    const hasShoes = items.some((item) => item.category === "shoes");
 
-    // Keep only favourites that still form a complete outfit.
-    if (!hasTop || !hasTrousers || !hasSweater || !hasShoes) {
+    // Tops and trousers are essential. Sweaters and shoes are optional layers.
+    if (!hasTop || !hasTrousers) {
       return [];
     }
 
