@@ -77,6 +77,7 @@ export default function Wardrobe() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const activeUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) {
@@ -88,12 +89,10 @@ export default function Wardrobe() {
     let generation = 0
     let urls: string[] = []
 
-    let activeUserId: string | null = null
-
     async function loadForUser(id: string | null) {
       const current = ++generation
-      const accountChanged = activeUserId !== id
-      activeUserId = id
+      const accountChanged = activeUserIdRef.current !== id
+      activeUserIdRef.current = id
       urls.forEach(URL.revokeObjectURL)
       urls = []
       setUserId(id)
