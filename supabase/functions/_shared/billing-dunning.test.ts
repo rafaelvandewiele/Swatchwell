@@ -3,6 +3,7 @@ import {
   dunningCancellationIdempotencyKey,
   dunningReminderIdempotencyKey,
   normalizeDunningLanguage,
+  resolveDunningFailureState,
 } from "./billing-dunning";
 
 describe("billing dunning helpers", () => {
@@ -34,6 +35,65 @@ describe("billing dunning helpers", () => {
       .toBe("swatchwell-dunning-cancelled/sub_123");
     expect(dunningCancellationIdempotencyKey("sub_456"))
       .not.toBe(dunningCancellationIdempotencyKey("sub_123"));
+  });
+
+
+  it("starts a failure grace period only once and preserves reminder timestamps", () => {
+    const first = resolveDunningFailureState("past_due", null, "2026-11-24T08:00:00.000Z");
+    expect(first).toEqual({
+      failedAt: "2026-11-24T08:00:00.000Z",
+      lastDunningEmailAt: null,
+    });
+    const repeated = resolveDunningFailureState("unpaid", {
+      status: "past_due",
+      failed_at: "2026-11-20T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-23T08:00:00.000Z",
+    }, "2026-11-24T08:00:00.000Z");
+    expect(repeated).toEqual({
+      failedAt: "2026-11-20T08:00:00.000Z",
+      lastDunningEmailAt: "2026-11-23T08:00:00.000Z",
+    });
+  });
+
+  it("marks a cancellation notice pending after a failed-payment cancellation", () => {
+    expect(resolveDunningFailureState("canceled", {
+      status: "past_due",
+      failed_at: "2026-11-20T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-23T08:00:00.000Z",
+    }, "2026-11-24T08:00:00.000Z")).toEqual({
+      failedAt: "2026-11-20T08:00:00.000Z",
+      lastDunningEmailAt: null,
+    });
+  });
+
+  it("preserves a sent cancellation-notice marker across duplicate deletion events", () => {
+    expect(resolveDunningFailureState("canceled", {
+      status: "canceled",
+      failed_at: "2026-11-20T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-24T08:00:00.000Z",
+    }, "2026-11-25T08:00:00.000Z")).toEqual({
+      failedAt: "2026-11-20T08:00:00.000Z",
+      lastDunningEmailAt: "2026-11-24T08:00:00.000Z",
+    });
+  });
+
+  it("clears dunning state after recovery or a cancellation unrelated to payment failure", () => {
+    expect(resolveDunningFailureState("active", {
+      status: "past_due",
+      failed_at: "2026-11-20T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-23T08:00:00.000Z",
+    }, "2026-11-24T08:00:00.000Z")).toEqual({
+      failedAt: null,
+      lastDunningEmailAt: null,
+    });
+    expect(resolveDunningFailureState("canceled", {
+      status: "active",
+      failed_at: null,
+      last_dunning_email_at: null,
+    }, "2026-11-24T08:00:00.000Z")).toEqual({
+      failedAt: null,
+      lastDunningEmailAt: null,
+    });
   });
 
   it("rejects empty IDs and invalid reminder timestamps", () => {
