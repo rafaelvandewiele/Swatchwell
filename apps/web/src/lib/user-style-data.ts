@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type { StoredColorProfile } from '../features/color-profile/color-profile'
-import { shouldClaimLegacyStyleData, shouldFinalizeLegacyStyleData } from './style-data-migration'
+import { shouldClaimLegacyStyleData, shouldFinalizeLegacyStyleData, isOwnedLocalPhotoKey } from './style-data-migration'
 
 export interface UserStyleData {
   userId: string
@@ -227,7 +227,7 @@ export async function clearLocalStyleDataForUser(
       request.onsuccess = () => {
         const prefix = `${userId}:`
         for (const key of request.result) {
-          if (typeof key === 'string' && key.startsWith(prefix)) {
+          if (isOwnedLocalPhotoKey(key, userId)) {
             store.delete(key)
           }
         }
