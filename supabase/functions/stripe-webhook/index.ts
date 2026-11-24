@@ -2,6 +2,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyStripeSignature } from "../_shared/stripe-signature.ts";
+import { isOlderStripeSubscriptionEvent } from "../_shared/subscription-order.ts";
 
 function throwIfError(error: { message?: string } | null, operation: string): void {
   if (error) throw new Error(operation + ": " + (error.message ?? "database operation failed"));
@@ -77,7 +78,7 @@ Deno.serve(async (req) => {
 
       const { data: previous, error: previousError } = await admin
         .from("billing_subscriptions")
-        .select("stripe_subscription_id,status,failed_at,last_dunning_email_at,updated_at")
+        .select("stripe_subscription_id,status,failed_at,last_dunning_email_at")
         .eq("user_id", customer.user_id)
         .maybeSingle();
       throwIfError(previousError, "Could not read the previous subscription state");
@@ -95,15 +96,29 @@ Deno.serve(async (req) => {
         currentSubscription = { ...object, status: "canceled" };
       }
 
-      // A customer may replace a cancelled subscription. Compare Stripe's
-      // immutable creation time with the last persisted subscription update,
-      // so delayed events for an older subscription cannot overwrite a newer one.
-      const isOlderSubscriptionEvent = Boolean(
+      // A customer may replace a cancelled subscription. Compare the
+      // immutable creation timestamps of the two Stripe subscription objects.
+      // Database updated_at is not a reliable proxy: a delayed event for an old
+      // subscription can be persisted after the newer subscription was created.
+      let isOlderSubscriptionEvent = false;
+      if (
         previous?.stripe_subscription_id &&
-        previous.stripe_subscription_id !== object.id &&
-        Number.isFinite(Date.parse(previous.updated_at)) &&
-        Number(currentSubscription.created) * 1000 <= Date.parse(previous.updated_at)
-      );
+        previous.stripe_subscription_id !== object.id
+      ) {
+        const previousResponse = await fetch(
+          "https://api.stripe.com/v1/subscriptions/" +
+            encodeURIComponent(previous.stripe_subscription_id),
+          { headers: { Authorization: "Bearer " + stripeKey } },
+        );
+        const previousSubscription = await previousResponse.json();
+        if (!previousResponse.ok) {
+          throw new Error("Could not verify the previously stored Stripe subscription.");
+        }
+        isOlderSubscriptionEvent = isOlderStripeSubscriptionEvent(
+          Number(currentSubscription.created),
+          Number(previousSubscription.created),
+        );
+      }
 
       if (isOlderSubscriptionEvent) {
         console.warn("Ignoring an event for a superseded Stripe subscription", object.id);
