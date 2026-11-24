@@ -71,6 +71,7 @@ function readStoredProfile(value: unknown): StoredColorProfile | null {
 
 export default function ColorsScreen() {
   const loadVersion = useRef(0);
+  const activeUserIdRef = useRef<string | null>(null);
 
   const [profile, setProfile] = useState<SeasonalProfile>(INITIAL_PROFILE);
   const [storedProfile, setStoredProfile] =
@@ -122,6 +123,7 @@ export default function ColorsScreen() {
       if (authError) throw authError;
       if (!isCurrent()) return;
 
+      activeUserIdRef.current = user?.id ?? null;
       setUserId(user?.id ?? null);
 
       if (!user) {
@@ -172,11 +174,13 @@ export default function ColorsScreen() {
 
       loadVersion.current += 1;
 
+      activeUserIdRef.current = session?.user.id ?? null;
       setUserId(session?.user.id ?? null);
       setStoredProfile(null);
       setProfile(INITIAL_PROFILE);
       setStep(0);
       setLoading(true);
+      setSaving(false);
       setError('');
 
       queueMicrotask(() => {
@@ -244,7 +248,7 @@ export default function ColorsScreen() {
       } = await client.auth.getUser();
 
       if (authError) throw authError;
-      if (!user || user.id !== userId) {
+      if (!user || user.id !== userId || activeUserIdRef.current !== userId) {
         throw new Error('Your account changed. Please try again.');
       }
 
@@ -290,14 +294,16 @@ export default function ColorsScreen() {
       } = await client.auth.getUser();
 
       if (latestAuthError) throw latestAuthError;
-      if (latestUser?.id !== user.id) return;
+      if (latestUser?.id !== user.id || activeUserIdRef.current !== user.id) return;
 
       setStoredProfile(nextProfile);
       Alert.alert('Profile saved', 'Your colour profile is now saved to your account.');
     } catch {
-      setError('Your colour profile could not be saved. Please try again.');
+      if (activeUserIdRef.current === userId) {
+        setError('Your colour profile could not be saved. Please try again.');
+      }
     } finally {
-      setSaving(false);
+      if (activeUserIdRef.current === userId) setSaving(false);
     }
   }
 
@@ -316,7 +322,7 @@ export default function ColorsScreen() {
       } = await client.auth.getUser();
 
       if (authError) throw authError;
-      if (!user || user.id !== userId) {
+      if (!user || user.id !== userId || activeUserIdRef.current !== userId) {
         throw new Error('Your account changed.');
       }
 
@@ -330,15 +336,21 @@ export default function ColorsScreen() {
 
       if (resetError) throw resetError;
 
+      const { data: latest, error: latestError } = await client.auth.getUser();
+      if (latestError) throw latestError;
+      if (latest.user?.id !== user.id || activeUserIdRef.current !== user.id) return;
+
       setStoredProfile(null);
       setProfile(INITIAL_PROFILE);
       setStep(0);
 
       Alert.alert('Profile reset', 'You can complete the questionnaire again.');
     } catch {
-      setError('Your colour profile could not be reset. Please try again.');
+      if (activeUserIdRef.current === userId) {
+        setError('Your colour profile could not be reset. Please try again.');
+      }
     } finally {
-      setSaving(false);
+      if (activeUserIdRef.current === userId) setSaving(false);
     }
   }
 
