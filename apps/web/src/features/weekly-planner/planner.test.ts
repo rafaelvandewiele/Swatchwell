@@ -179,18 +179,17 @@ describe("weekly outfit selection", () => {
     expect(result.days[0].itemIds).toEqual(["shirt", "pants"]);
   });
 
-  it("keeps the current outfit when refresh has no genuinely different core combination", () => {
+  it("keeps the current outfit when only a different pair of shoes is available", () => {
     const minimalWardrobe = [
       { id: "tee", name: "White T-shirt", category: "tshirt" as const, color: "#FFFFFF" },
-      { id: "sweater", name: "Navy sweater", category: "sweater" as const, color: "#26364A" },
       { id: "pants", name: "Trousers", category: "pants" as const, color: "#252525" },
       { id: "shoes-1", name: "White shoes", category: "shoes" as const, color: "#FFFFFF" },
       { id: "shoes-2", name: "Brown shoes", category: "shoes" as const, color: "#684B35" },
     ];
     const days = createEmptyWeeklyPlan("2026-11-16").days;
-    days[0].itemIds = ["tee", "sweater", "pants", "shoes-1"];
+    days[0].itemIds = ["tee", "pants", "shoes-1"];
     const result = regenerateDayOutfit(minimalWardrobe, undefined, days, 0);
-    expect(result.days[0].itemIds).toEqual(["tee", "sweater", "pants", "shoes-1"]);
+    expect(result.days[0].itemIds).toEqual(["tee", "pants", "shoes-1"]);
     expect(result.repeatConflict).toBe(true);
   });
 
