@@ -31,6 +31,51 @@ export interface WardrobeGarment {
   extraColors?: string[];
 }
 
+const CATEGORY_ALIASES: Record<string, WardrobeCategory> = {
+  shirt: "Shirts",
+  tshirt: "T-shirts",
+  polo: "Polo shirts",
+  sweater: "Sweaters",
+  pants: "Trousers",
+  jacket: "Outerwear",
+  shoes: "Shoes",
+  accessory: "Accessories",
+};
+
+export function normalizeWardrobeGarment(value: unknown): WardrobeGarment | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.id !== "string" || !item.id.trim() ||
+    typeof item.name !== "string" || !item.name.trim() ||
+    typeof item.category !== "string"
+  ) return null;
+
+  const category = item.category === "Knitwear"
+    ? "Sweaters"
+    : Object.prototype.hasOwnProperty.call(CATEGORY_MAP, item.category)
+      ? item.category as WardrobeCategory
+      : CATEGORY_ALIASES[item.category];
+
+  if (!category) return null;
+  const color = typeof item.color === "string" && /^#[0-9a-fA-F]{6}$/.test(item.color)
+    ? item.color
+    : "#D8D4C9";
+  const extraColors = Array.isArray(item.extraColors)
+    ? [...new Set(item.extraColors.filter((entry): entry is string =>
+        typeof entry === "string" && /^#[0-9a-fA-F]{6}$/.test(entry),
+      ))].slice(0, 5)
+    : [];
+
+  return {
+    id: item.id,
+    name: item.name,
+    category,
+    color,
+    ...(extraColors.length ? { extraColors } : {}),
+  };
+}
+
 export function toGeneratorItem(item: WardrobeGarment): ClothingItem {
   return {
     id: item.id,
