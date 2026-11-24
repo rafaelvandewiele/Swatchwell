@@ -42,19 +42,49 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
     event.preventDefault()
     if (!supabase) return
     setBusy(true); setError(''); setMessage('')
-    const {error: saveError} = await supabase.rpc('update_my_profile', {p_first_name:firstName.trim(),p_last_name:lastName.trim(),p_language:language})
-    if (saveError) setError(c.error)
-    else setMessage(c.saved)
-    setBusy(false)
+    try {
+      const {data:before,error:beforeError}=await supabase.auth.getUser()
+      const expectedUserId=before.user?.id
+      if(beforeError||!expectedUserId) throw beforeError??new Error(c.error)
+      const {data:latest,error:latestError}=await supabase.auth.getUser()
+      if(latestError||latest.user?.id!==expectedUserId) return
+      const {error:saveError}=await supabase.rpc('update_my_profile',{
+        p_first_name:firstName.trim(),
+        p_last_name:lastName.trim(),
+        p_language:language,
+      })
+      if(saveError) throw saveError
+      const {data:after,error:afterError}=await supabase.auth.getUser()
+      if(afterError||after.user?.id!==expectedUserId) return
+      setMessage(c.saved)
+    } catch {
+      setError(c.error)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function requestDeletion() {
     if (!supabase) return
     setBusy(true); setError(''); setMessage('')
-    const {error: invokeError} = await supabase.functions.invoke('account-deletion', {body:{action:'request'}})
-    if (invokeError) setError(c.error)
-    else setMessage(c.sent)
-    setBusy(false)
+    try {
+      const {data:before,error:beforeError}=await supabase.auth.getUser()
+      const expectedUserId=before.user?.id
+      if(beforeError||!expectedUserId) throw beforeError??new Error(c.error)
+      const {data:latest,error:latestError}=await supabase.auth.getUser()
+      if(latestError||latest.user?.id!==expectedUserId) return
+      const {error:invokeError}=await supabase.functions.invoke('account-deletion',{
+        body:{action:'request',expectedUserId},
+      })
+      if(invokeError) throw invokeError
+      const {data:after,error:afterError}=await supabase.auth.getUser()
+      if(afterError||after.user?.id!==expectedUserId) return
+      setMessage(c.sent)
+    } catch {
+      setError(c.error)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function confirm() {
@@ -62,10 +92,25 @@ export default function SettingsPage({ confirmDeletion = false }: { confirmDelet
     const token = new URLSearchParams(window.location.search).get('token')
     if (!token) { setError(c.error); return }
     setBusy(true); setError(''); setMessage('')
-    const {data,error: invokeError} = await supabase.functions.invoke('account-deletion', {body:{action:'confirm',token}})
-    if (invokeError || !data?.success) setError(c.error)
-    else { setMessage(c.done); await supabase.auth.signOut({scope:'local'}); window.history.replaceState({},'', '/') }
-    setBusy(false)
+    try {
+      const {data,error:invokeError}=await supabase.functions.invoke('account-deletion',{
+        body:{action:'confirm',token},
+      })
+      if(invokeError||!data?.success||typeof data.userId!=='string') throw invokeError??new Error(c.error)
+      const {data:current,error:currentError}=await supabase.auth.getUser()
+      if(currentError) throw currentError
+      // A signed-out confirmation link may be opened while another account
+      // is active in this browser. Never sign out that unrelated account.
+      if(current.user?.id===data.userId) {
+        await supabase.auth.signOut({scope:'local'})
+      }
+      setMessage(c.done)
+      window.history.replaceState({},'','/')
+    } catch {
+      setError(c.error)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return <div className="settings-page page-content">
