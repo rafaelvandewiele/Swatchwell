@@ -211,7 +211,6 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       setHasSavedPlan(false);
       setRepeatAvoidanceWeeks(4);
       setError("");
-      setNotice("");
     };
 
     const loadForSession = async () => {
