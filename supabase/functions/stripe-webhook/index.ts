@@ -307,6 +307,7 @@ Deno.serve(async (req) => {
           new Date().toISOString(),
         );
         const failedAt = dunningState.failedAt;
+        const currentlyPastDue = ["past_due", "unpaid"].includes(currentSubscription.status);
         const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
           .update({
             status: currentSubscription.status,
