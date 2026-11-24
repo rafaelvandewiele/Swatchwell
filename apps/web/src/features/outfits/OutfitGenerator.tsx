@@ -350,18 +350,21 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
     setPhotoUrls({});
 
     async function loadPhotos() {
+      const expectedUserId = userId;
+      if (!expectedUserId || activeUserIdRef.current !== expectedUserId) return;
       const entries = await Promise.all(
         wardrobe.map(async (item) => {
-          const url = await getWardrobePhotoUrl(userId!, item.id, item.imageKey);
-          if (!url) return null;
-          return [item.id, url] as const;
+          try {
+            const url = await getWardrobePhotoUrl(expectedUserId, item.id, item.imageKey);
+            return url ? [item.id, url] as const : null;
+          } catch {
+            // A missing or temporarily unavailable photo must not block all outfit images.
+            return null;
+          }
         }),
       );
 
-      if (cancelled) {
-        return;
-      }
-
+      if (cancelled || activeUserIdRef.current !== expectedUserId) return;
       setPhotoUrls(Object.fromEntries(
         entries.filter((entry): entry is NonNullable<typeof entry> => entry !== null),
       ));
@@ -554,7 +557,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
             const { error } = await supabase.from("user_outfit_rotation_settings").upsert({
               user_id: expectedUserId, repeat_days: value, updated_at: new Date().toISOString(),
             }, { onConflict: "user_id" });
-            if (activeUserIdRef.current !== expectedUserId) return;
+            if (!await isCurrentAccount(expectedUserId)) return;
             if (error) {
               setRepeatDays(previous);
               setSaveError(error.message);
