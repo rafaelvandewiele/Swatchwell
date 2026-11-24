@@ -152,34 +152,38 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
     setPreferredLanguage(appLanguage)
 
     void (async () => {
-      const { data: before, error: beforeError } = await supabase.auth.getUser()
-      if (
-        beforeError ||
-        before.user?.id !== expectedUserId ||
-        !active ||
-        profileLoadVersion.current !== version
-      ) return
+      try {
+        const { data: before, error: beforeError } = await supabase.auth.getUser()
+        if (
+          beforeError ||
+          before.user?.id !== expectedUserId ||
+          !active ||
+          profileLoadVersion.current !== version
+        ) return
 
-      const { data, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, is_premium, first_name, last_name, language')
-        .eq('id', expectedUserId)
-        .maybeSingle()
-      const { data: after, error: afterError } = await supabase.auth.getUser()
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, is_premium, first_name, last_name, language')
+          .eq('id', expectedUserId)
+          .maybeSingle()
+        const { data: after, error: afterError } = await supabase.auth.getUser()
 
-      if (
-        profileError ||
-        afterError ||
-        after.user?.id !== expectedUserId ||
-        !active ||
-        profileLoadVersion.current !== version
-      ) return
+        if (
+          profileError ||
+          afterError ||
+          after.user?.id !== expectedUserId ||
+          !active ||
+          profileLoadVersion.current !== version
+        ) return
 
-      setProfile(data)
-      setFirstName(data?.first_name ?? '')
-      setLastName(data?.last_name ?? '')
-      setPreferredLanguage((data?.language ?? appLanguage) as Language)
-      if (data?.language) setLanguage(data.language as Language)
+        setProfile(data)
+        setFirstName(data?.first_name ?? '')
+        setLastName(data?.last_name ?? '')
+        setPreferredLanguage((data?.language ?? appLanguage) as Language)
+        if (data?.language) setLanguage(data.language as Language)
+      } catch {
+        if (active && profileLoadVersion.current === version) setProfile(null)
+      }
     })()
 
     return () => {
