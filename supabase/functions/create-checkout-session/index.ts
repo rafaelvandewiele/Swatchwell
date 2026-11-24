@@ -2,6 +2,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findReusableSubscriptionCheckoutUrl } from "../_shared/checkout-session.ts";
+import { isBlockingSubscriptionStatus } from "../_shared/billing-subscription.ts";
 
 const originAllowed = (origin: string) =>
   origin === "https://swatchwell.veyca.dev" ||
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
     .eq("user_id", user.id)
     .maybeSingle();
   if (subscriptionError) return json({ error: "Could not verify the existing subscription." }, 500, origin);
-  if (currentSubscription && ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(currentSubscription.status)) {
+  if (currentSubscription && isBlockingSubscriptionStatus(currentSubscription.status)) {
     return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
   }
 
@@ -74,11 +75,13 @@ Deno.serve(async (req) => {
     { headers: { Authorization: "Bearer " + stripeKey } },
   );
   const subscriptionsResult = await subscriptionsResponse.json();
-  if (!subscriptionsResponse.ok) return json({ error: "Could not verify existing Stripe subscriptions." }, 502, origin);
-  const existingStripeSubscription = (subscriptionsResult.data ?? []).find((subscription: { status?: string }) =>
-    ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(subscription.status ?? "")
+  if (!subscriptionsResponse.ok || !Array.isArray(subscriptionsResult.data)) {
+    return json({ error: "Could not verify existing Stripe subscriptions." }, 502, origin);
+  }
+  const hasExistingStripeSubscription = subscriptionsResult.data.some((subscription: { status?: string }) =>
+    isBlockingSubscriptionStatus(subscription.status)
   );
-  if (existingStripeSubscription) {
+  if (hasExistingStripeSubscription) {
     return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
   }
 
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
     { headers: { Authorization: "Bearer " + stripeKey } },
   );
   const openSessionsResult = await openSessionsResponse.json();
-  if (!openSessionsResponse.ok) {
+  if (!openSessionsResponse.ok || !Array.isArray(openSessionsResult.data)) {
     return json({ error: "Could not verify open checkout sessions." }, 502, origin);
   }
   const reusableCheckoutUrl = findReusableSubscriptionCheckoutUrl(
