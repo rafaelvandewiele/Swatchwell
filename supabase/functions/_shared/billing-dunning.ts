@@ -30,11 +30,10 @@ export function resolveDunningFailureState(
   currentStatus: string,
   previous: PreviousDunningState | null | undefined,
   nowIso: string,
-  currentSubscriptionId?: string,
+  currentSubscriptionId: string,
 ): { failedAt: string | null; lastDunningEmailAt: string | null } {
-  const sameSubscription = !currentSubscriptionId ||
-    !previous?.stripe_subscription_id ||
-    previous.stripe_subscription_id === currentSubscriptionId;
+  const sameSubscription = Boolean(currentSubscriptionId) &&
+    previous?.stripe_subscription_id === currentSubscriptionId;
   const prior = sameSubscription ? previous : null;
 
   if (currentStatus === "past_due" || currentStatus === "unpaid") {
