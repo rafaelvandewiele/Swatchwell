@@ -237,11 +237,29 @@ function App() {
 
   async function changeLanguage(next: Language) {
     if (supabase) {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) return;
       if (userData.user) {
-        const { data: profile } = await supabase.from("profiles").select("first_name,last_name").eq("id", userData.user.id).maybeSingle();
-        const { error } = await supabase.rpc("update_my_profile", { p_first_name: profile?.first_name ?? "", p_last_name: profile?.last_name ?? "", p_language: next });
-        if (error) return;
+        const expectedUserId = userData.user.id;
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("first_name,last_name")
+          .eq("id", expectedUserId)
+          .maybeSingle();
+        if (profileError || !profile) return;
+
+        const { data: latestUser, error: latestUserError } = await supabase.auth.getUser();
+        if (latestUserError || latestUser.user?.id !== expectedUserId) return;
+
+        const { error: updateError } = await supabase.rpc("update_my_profile", {
+          p_first_name: profile.first_name,
+          p_last_name: profile.last_name,
+          p_language: next,
+        });
+        if (updateError) return;
+
+        const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
+        if (verifyError || verifiedUser.user?.id !== expectedUserId) return;
       }
     }
     setLanguage(next);
