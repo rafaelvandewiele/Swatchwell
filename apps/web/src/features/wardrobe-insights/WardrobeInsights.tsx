@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { generateOutfits } from "@swatchwell/outfit-engine";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
@@ -34,6 +34,7 @@ function todayKey() {
 export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn }: Props) {
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
   const [wardrobe, setWardrobe] = useState<StoredGarment[]>([]);
   const [events, setEvents] = useState<GarmentWearEvent[]>([]);
   const [photos, setPhotos] = useState<Record<string, string>>({});
@@ -51,6 +52,7 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       .eq("user_id", id)
       .order("worn_on", { ascending: false });
     if (queryError) throw queryError;
+    if (activeUserIdRef.current !== id) return;
     setEvents((data ?? []) as GarmentWearEvent[]);
   }, []);
 
@@ -59,9 +61,21 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       setLoading(false);
       return;
     }
+
     let active = true;
     let generation = 0;
     let channel: RealtimeChannel | null = null;
+
+    const clearAccountState = () => {
+      setUserId(null);
+      setWardrobe([]);
+      setEvents([]);
+      setPhotos({});
+      setBusyItem(null);
+      setLogDate(todayKey);
+      setError("");
+      setNotice("");
+    };
 
     const load = async () => {
       const current = ++generation;
@@ -69,25 +83,42 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
       setError("");
       try {
         const { data: auth, error: authError } = await supabase!.auth.getUser();
+        if (!active || current !== generation) return;
         if (authError || !auth.user?.email_confirmed_at) {
-          if (active) {
-            setUserId(null);
-            setWardrobe([]);
-            setEvents([]);
+          if (activeUserIdRef.current !== null) {
+            activeUserIdRef.current = null;
+            clearAccountState();
           }
           return;
         }
+
         const id = auth.user.id;
+        if (activeUserIdRef.current !== id) {
+          activeUserIdRef.current = id;
+          clearAccountState();
+        }
+
         const [style, wearResult] = await Promise.all([
           loadUserStyleData(),
-          supabase!.from("user_garment_wear_events").select("id,item_id,worn_on").eq("user_id", id).order("worn_on", { ascending: false }),
+          supabase!.from("user_garment_wear_events")
+            .select("id,item_id,worn_on")
+            .eq("user_id", id)
+            .order("worn_on", { ascending: false }),
         ]);
         if (wearResult.error) throw wearResult.error;
-        if (!active || current !== generation || style?.userId !== id) return;
-        const items = style.wardrobe.filter((item): item is StoredGarment => Boolean(item && typeof item === "object" && "id" in item && "name" in item && "category" in item && "color" in item)) as StoredGarment[];
+        if (!active || current !== generation || activeUserIdRef.current !== id || style?.userId !== id) return;
+
+        const items = style.wardrobe.filter((item): item is StoredGarment => Boolean(
+          item && typeof item === "object" &&
+          "id" in item && typeof item.id === "string" &&
+          "name" in item && typeof item.name === "string" &&
+          "category" in item && typeof item.category === "string" &&
+          "color" in item && typeof item.color === "string"
+        ));
         setUserId(id);
         setWardrobe(items);
         setEvents((wearResult.data ?? []) as GarmentWearEvent[]);
+
         const photoEntries = await Promise.all(items.map(async (item) => {
           if (!item.imageKey) return null;
           try {
@@ -97,15 +128,25 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
             return null;
           }
         }));
-        if (active && current === generation) setPhotos(Object.fromEntries(photoEntries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))));
-        channel = supabase!.channel("wardrobe-insights-" + id).on("postgres_changes", {
-          event: "*", schema: "public", table: "user_garment_wear_events", filter: "user_id=eq." + id,
-        }, () => {
-          void refreshEvents(id).catch((e) => setError(e instanceof Error ? e.message : t("Wear data could not be refreshed.")));
-        }).subscribe();
-      } catch (e) {
+        if (!active || current !== generation || activeUserIdRef.current !== id) return;
+        setPhotos(Object.fromEntries(
+          photoEntries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+        ));
+
+        channel = supabase!.channel("wardrobe-insights-" + id)
+          .on("postgres_changes", {
+            event: "*", schema: "public", table: "user_garment_wear_events", filter: "user_id=eq." + id,
+          }, () => {
+            void refreshEvents(id).catch((error) => {
+              if (active && activeUserIdRef.current === id) {
+                setError(error instanceof Error ? error.message : t("Wear data could not be refreshed."));
+              }
+            });
+          })
+          .subscribe();
+      } catch (error) {
         if (active && current === generation) {
-          const message = e instanceof Error ? e.message : "";
+          const message = error instanceof Error ? error.message : "";
           setError(/user_garment_wear_events|schema cache|does not exist|42P01|PGRST205/i.test(message)
             ? t("Apply the Wardrobe Insights Supabase migration to enable private wear tracking.")
             : message || t("Your wardrobe insights could not be loaded."));
@@ -116,9 +157,20 @@ export default function WardrobeInsights({ isPremium, isAuthenticated, onSignIn 
     };
 
     void load();
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user.email_confirmed_at ? session.user.id : null;
+      if (nextUserId === activeUserIdRef.current) return;
+      generation++;
+      if (channel) {
+        void supabase!.removeChannel(channel);
+        channel = null;
+      }
+      activeUserIdRef.current = nextUserId;
+      clearAccountState();
+      setLoading(Boolean(nextUserId));
       queueMicrotask(() => { if (active) void load(); });
     });
+
     return () => {
       active = false;
       generation++;
