@@ -158,12 +158,13 @@ export function getWeatherFit(outfit: OutfitRecommendation, weather: PlannerWeat
 
 function isCompleteLayeredOutfit(items: ClothingItem[]): boolean {
   const categories = new Set(items.map((item) => item.category));
-  return categories.has("sweater") && categories.has("tshirt") && categories.has("pants") && categories.has("shoes");
+  const hasBaseTop = ["shirt", "tshirt", "polo"].some((category) => categories.has(category as ClothingItem["category"]));
+  return hasBaseTop && categories.has("pants");
 }
 
 function getOutfitCoreKey(items: OutfitRecommendation["items"]): string {
   return items
-    .filter((item) => ["sweater", "tshirt", "pants"].includes(item.category))
+    .filter((item) => ["sweater", "shirt", "tshirt", "polo", "pants"].includes(item.category))
     .map((item) => item.id)
     .sort()
     .join("-");
@@ -205,10 +206,8 @@ export function generateWeeklyOutfits(
   });
   const availableIds = new Set(wardrobe.map((item) => item.id));
   const validCandidates = candidates.filter((outfit) =>
-    outfit.items.some((item) => item.category === "sweater") &&
-    outfit.items.some((item) => item.category === "tshirt") &&
+    outfit.items.some((item) => ["shirt", "tshirt", "polo"].includes(item.category)) &&
     outfit.items.some((item) => item.category === "pants") &&
-    outfit.items.some((item) => item.category === "shoes") &&
     outfit.items.every((item) => availableIds.has(item.id)),
   );
   const usage = new Map<string, number>();
