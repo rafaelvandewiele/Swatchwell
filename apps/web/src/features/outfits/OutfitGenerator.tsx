@@ -250,6 +250,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
 
   const [saveError, setSaveError] = useState("");
   const activeUserIdRef = useRef<string | null>(null);
+  const recordingOutfitsRef = useRef(new Set<string>());
 
   const isCurrentAccount = async (expectedUserId: string) => {
     if (!supabase || activeUserIdRef.current !== expectedUserId) return false;
@@ -429,11 +430,20 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
 
     async function markOutfitWorn(outfit: OutfitRecommendation) {
       const expectedUserId = userId;
-      if (!expectedUserId || !supabase || !await isCurrentAccount(expectedUserId)) return;
+      if (
+        !expectedUserId ||
+        !supabase ||
+        recordingOutfitsRef.current.has(outfit.id)
+      ) return;
+
+      // Reserve synchronously so rapid repeated clicks cannot create duplicate
+      // outfit-wear rows before React has time to rerender.
+      recordingOutfitsRef.current.add(outfit.id);
       const date = new Date().toISOString().slice(0,10);
       const itemIds = outfit.items.map((item) => item.id);
       const outfitName = outfit.items.map((item) => item.name).join(" + ");
       try {
+        if (!await isCurrentAccount(expectedUserId)) return;
         const { error } = await supabase.from("user_outfit_wear_events").insert({
           user_id: expectedUserId, item_ids: itemIds, outfit_name: outfitName, worn_on: date,
         });
@@ -454,6 +464,8 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
         if (activeUserIdRef.current === expectedUserId) {
           setSaveError(error instanceof Error ? error.message : t("Your outfit could not be marked as worn."));
         }
+      } finally {
+        recordingOutfitsRef.current.delete(outfit.id);
       }
     }
 
