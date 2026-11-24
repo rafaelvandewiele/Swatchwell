@@ -537,7 +537,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
               {outfitItems.length > 0 ? (
                 <div className="weekly-planner-outfit">
                   {[...outfitItems].sort((a, b) => {
-                    const order: Record<string, number> = { sweater: 0, tshirt: 1, pants: 2, shoes: 3, shirt: 4, polo: 4, jacket: 5, accessory: 6 };
+                    const order: Record<string, number> = { shoes: 0, pants: 1, shirt: 2, tshirt: 2, polo: 2, sweater: 3, jacket: 4, accessory: 5 };
                     return (order[a.category] ?? 99) - (order[b.category] ?? 99);
                   }).map((item) => {
                     const wardrobeItem = wardrobe.find((entry) => entry.id === item.id);
