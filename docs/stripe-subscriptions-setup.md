@@ -60,10 +60,10 @@ Supabase already supplies SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_R
 3. Deploy account-deletion with --no-verify-jwt. The function verifies the user's JWT itself for the authenticated request action; the email confirmation action uses a one-time token so it must also work when the recipient is signed out or using another device.
 4. Deploy stripe-webhook with --no-verify-jwt. Stripe signature verification is performed inside the function.
 5. Deploy billing-dunning with --no-verify-jwt. The function validates BILLING_CRON_SECRET itself.
-6. Schedule billing-dunning once per day using Supabase Cron / pg_cron or an external scheduler. Send POST with Authorization: Bearer BILLING_CRON_SECRET. Never expose this secret to the browser.
+6. Schedule billing-dunning every six hours using Supabase Cron / pg_cron or an external scheduler. The function sends payment reminders at most once per 23 hours and retries pending cancellation notices. Send POST with Authorization: Bearer BILLING_CRON_SECRET. Never expose this secret to the browser.
 
 ### GitHub Actions scheduler (included)
-The repository includes `.github/workflows/billing-dunning.yml`, which calls the function daily at 08:17 UTC and can also be run manually.
+The repository includes `.github/workflows/billing-dunning.yml`, which calls the function every six hours at 17 minutes past the hour (UTC) and can also be run manually. Payment reminders remain limited to one per 23 hours; the more frequent schedule allows failed cancellation-email attempts to be retried before Resend's 24-hour idempotency window expires.
 
 1. Set `BILLING_CRON_SECRET` in Supabase Edge Function secrets.
 2. Add a GitHub Actions repository secret with the exact same value and the name `BILLING_CRON_SECRET`.
