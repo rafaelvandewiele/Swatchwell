@@ -33,7 +33,15 @@ Deno.serve(async (req) => {
   if (!url || !anon || !service) return json({ error:"Account deletion is not configured" },503);
   const admin = createClient(url,service);
   let body: {action?:string;token?:string;expectedUserId?:string};
-  try { body=await req.json(); } catch { return json({error:"Invalid request"},400); }
+  try {
+    const parsed: unknown = await req.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return json({error:"Invalid request"},400);
+    }
+    body = parsed as {action?:string;token?:string;expectedUserId?:string};
+  } catch {
+    return json({error:"Invalid request"},400);
+  }
 
   if(body.action==="request") {
     const authHeader = req.headers.get("Authorization") ?? "";
