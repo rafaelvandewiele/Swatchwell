@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { findReusableSubscriptionCheckoutUrl } from "../_shared/checkout-session.ts";
 
 const originAllowed = (origin: string) =>
   origin === "https://swatchwell.veyca.dev" ||
@@ -80,6 +81,23 @@ Deno.serve(async (req) => {
   if (existingStripeSubscription) {
     return json({ error: "A subscription already exists for this account. Manage it in billing settings." }, 409, origin);
   }
+
+  // Reuse an existing in-progress subscription checkout even when the
+  // customer returns after the short Stripe idempotency-key window.
+  const openSessionsResponse = await fetch(
+    "https://api.stripe.com/v1/checkout/sessions?customer=" +
+      encodeURIComponent(customerId) + "&status=open&limit=100",
+    { headers: { Authorization: "Bearer " + stripeKey } },
+  );
+  const openSessionsResult = await openSessionsResponse.json();
+  if (!openSessionsResponse.ok) {
+    return json({ error: "Could not verify open checkout sessions." }, 502, origin);
+  }
+  const reusableCheckoutUrl = findReusableSubscriptionCheckoutUrl(
+    openSessionsResult.data,
+    user.id,
+  );
+  if (reusableCheckoutUrl) return json({ url: reusableCheckoutUrl }, 200, origin);
 
   const form = new URLSearchParams();
   form.set("mode", "subscription");
