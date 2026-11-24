@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), stripeKey = Deno.env.get("STRIPE_SECRET_KEY"), resendKey = Deno.env.get("RESEND_API_KEY");
   if (!url || !service || !stripeKey || !resendKey) return new Response("Billing automation is not configured.", { status: 503 });
   const admin = createClient(url, service);
-  const { data: rows, error } = await admin.from("billing_subscriptions").select("user_id,stripe_subscription_id,status,failed_at,last_dunning_email_at").not("failed_at", "is", null).in("status", ["past_due", "unpaid"]);
+  const { data: rows, error } = await admin.from("billing_subscriptions").select("user_id,stripe_subscription_id,status,failed_at,last_dunning_email_at").not("failed_at", "is", null).in("status", ["past_due", "unpaid", "canceled"]);
   if (error) return new Response("Could not load overdue subscriptions.", { status: 500 });
   const now = Date.now();
   let reminders = 0, cancelled = 0;
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       const { error: subscriptionSyncError } = await admin.from("billing_subscriptions")
         .update({
           status: currentSubscription.status,
-          failed_at: null,
+          failed_at: currentSubscription.status === "canceled" ? row.failed_at : null,
           last_dunning_email_at: null,
           cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
           updated_at: new Date().toISOString(),
@@ -91,9 +91,44 @@ Deno.serve(async (req) => {
 
     const language = normalizeDunningLanguage(profile.language);
     const copy = messages[language];
+
+    // A cancelled row with a pending notification is retried on the next
+    // scheduler run. last_dunning_email_at is cleared when cancellation is
+    // persisted and set only after Resend accepts the notification.
+    if (row.status === "canceled") {
+      if (row.last_dunning_email_at) continue;
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + resendKey,
+          "Content-Type": "application/json",
+          "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id),
+        },
+        body: JSON.stringify({
+          from: "Swatchwell <swatchwell@veyca.dev>",
+          to: [profile.email],
+          subject: copy.cancelledSubject,
+          text: copy.cancelled,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
+        return new Response("Could not send a subscription cancellation notification.", { status: 502 });
+      }
+      const { error: notificationUpdateError } = await admin.from("billing_subscriptions")
+        .update({ last_dunning_email_at: new Date().toISOString() })
+        .eq("user_id", row.user_id);
+      if (notificationUpdateError) return new Response("Could not persist the cancellation notification timestamp.", { status: 500 });
+      cancelled++;
+      continue;
+    }
+
     if (daysOverdue >= 5) {
       const cancelResponse = await fetch("https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(row.stripe_subscription_id), { method: "DELETE", headers: { Authorization: "Bearer " + stripeKey } });
-      if (!cancelResponse.ok) continue;
+      if (!cancelResponse.ok) {
+        console.error("Could not cancel overdue Stripe subscription", row.stripe_subscription_id);
+        return new Response("Could not cancel an overdue Stripe subscription.", { status: 502 });
+      }
       // Revoke access first. If the subscription-row update then fails, the
       // overdue row remains eligible for retry and this update is idempotent.
       const { error: profileUpdateError } = await admin.from("profiles")
@@ -102,13 +137,33 @@ Deno.serve(async (req) => {
       if (profileUpdateError) return new Response("Could not revoke overdue Premium access.", { status: 500 });
 
       const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
-        .update({ status: "canceled", cancel_at_period_end: false, updated_at: new Date().toISOString() })
+        .update({ status: "canceled", cancel_at_period_end: false, last_dunning_email_at: null, updated_at: new Date().toISOString() })
         .eq("user_id", row.user_id);
       if (subscriptionUpdateError) return new Response("Could not persist the cancelled subscription.", { status: 500 });
 
-      const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resendKey, "Content-Type": "application/json", "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id) }, body: JSON.stringify({ from: "Swatchwell <swatchwell@veyca.dev>", to: [profile.email], subject: copy.cancelledSubject, text: copy.cancelled }) });
-      if (response.ok) cancelled++;
-      else console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + resendKey,
+          "Content-Type": "application/json",
+          "Idempotency-Key": dunningCancellationIdempotencyKey(row.stripe_subscription_id),
+        },
+        body: JSON.stringify({
+          from: "Swatchwell <swatchwell@veyca.dev>",
+          to: [profile.email],
+          subject: copy.cancelledSubject,
+          text: copy.cancelled,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Could not send subscription cancellation email", row.stripe_subscription_id);
+        return new Response("Could not send a subscription cancellation notification.", { status: 502 });
+      }
+      const { error: notificationUpdateError } = await admin.from("billing_subscriptions")
+        .update({ last_dunning_email_at: new Date().toISOString() })
+        .eq("user_id", row.user_id);
+      if (notificationUpdateError) return new Response("Could not persist the cancellation notification timestamp.", { status: 500 });
+      cancelled++;
       continue;
     }
     const lastSent = row.last_dunning_email_at ? new Date(row.last_dunning_email_at).getTime() : 0;
