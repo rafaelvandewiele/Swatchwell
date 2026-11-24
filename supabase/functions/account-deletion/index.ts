@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
     if(cleanupError) return json({error:"Could not prepare a new confirmation request"},500);
     const {data:profile,error:profileError}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
     if(profileError) return json({error:"Could not load account settings"},500);
-    const language = typeof profile?.language === "string" && profile.language in messages
+    const language = typeof profile?.language === "string" &&
+      Object.prototype.hasOwnProperty.call(messages, profile.language)
       ? profile.language as keyof typeof messages
       : "en";
     const copy=messages[language];
