@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !anon || !service) return json({ error:"Account deletion is not configured" },503);
   const admin = createClient(url,service);
-  let body: {action?:string;token?:string};
+  let body: {action?:string;token?:string;expectedUserId?:string};
   try { body=await req.json(); } catch { return json({error:"Invalid request"},400); }
 
   if(body.action==="request") {
@@ -40,6 +40,9 @@ Deno.serve(async (req) => {
     const userClient = createClient(url,anon,{global:{headers:{Authorization:authHeader}}});
     const {data:{user},error:userError}=await userClient.auth.getUser();
     if(userError || !user || !user.email_confirmed_at || !user.email) return json({error:"Unauthorized"},401);
+    if(typeof body.expectedUserId!=="string" || body.expectedUserId!==user.id) {
+      return json({error:"The signed-in account changed. Please retry."},409);
+    }
     const apiKey=Deno.env.get("RESEND_API_KEY");
     if(!apiKey) return json({error:"Email provider is not configured"},503);
     const {data:recent,error:recentError}=await admin.from("account_deletion_requests")
@@ -170,7 +173,7 @@ Deno.serve(async (req) => {
 
     const {error:deleteError}=await admin.auth.admin.deleteUser(targetUserId);
     if(deleteError) return json({error:"Could not delete account"},500);
-    return json({success:true});
+    return json({success:true,userId:targetUserId});
   }
   return json({error:"Unsupported action"},400);
 });
