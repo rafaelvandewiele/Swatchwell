@@ -88,7 +88,10 @@ Deno.serve(async (req) => {
     const tokenHash=await digest(body.token);
     const {data:request,error:requestError}=await admin.from("account_deletion_requests")
       .select("id,user_id,expires_at").eq("token_hash",tokenHash).maybeSingle();
-    if(requestError || !request || new Date(request.expires_at).getTime()<Date.now()) return json({error:"Invalid or expired token"},400);
+    const expiresAt = request ? new Date(request.expires_at).getTime() : Number.NaN;
+    if(requestError || !request || !Number.isFinite(expiresAt) || expiresAt<=Date.now()) {
+      return json({error:"Invalid or expired token"},400);
+    }
     const targetUserId=request.user_id;
 
     // Resolve billing records before deleting the auth user. A database error
@@ -119,7 +122,12 @@ Deno.serve(async (req) => {
         if(currentResponse.status!==404) {
           const current=await currentResponse.json();
           if(!currentResponse.ok) return json({error:"Could not verify the Stripe subscription"},502);
-          if(typeof current.customer==="string") stripeCustomerId=stripeCustomerId??current.customer;
+          if(typeof current.customer==="string") {
+            if(stripeCustomerId && stripeCustomerId!==current.customer) {
+              return json({error:"The stored billing customer does not match the subscription"},500);
+            }
+            stripeCustomerId=current.customer;
+          }
           if(current.status!=="canceled" && current.status!=="incomplete_expired") {
             const cancelResponse=await fetch(subscriptionUrl,{method:"DELETE",headers:stripeHeaders});
             if(!cancelResponse.ok) return json({error:"Could not cancel the Stripe subscription"},502);
@@ -138,26 +146,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Remove every page of private wardrobe photos before deleting the auth
-    // user. Storage objects do not cascade with auth.users, so a failed list
-    // or removal must stop deletion rather than silently orphan personal data.
-    while (true) {
-      const {data:files,error:listError}=await admin.storage
-        .from("wardrobe-photos")
-        .list(targetUserId,{limit:1000,offset:0});
-      if(listError) return json({error:"Could not enumerate wardrobe photos"},500);
+    // Storage folders are virtual: list() returns nested folders as entries
+    // with a null id, not downloadable objects. Walk the complete user tree,
+    // then remove actual object paths in bounded batches before deleting auth.
+    const photoBucket=admin.storage.from("wardrobe-photos");
+    const pendingDirectories=[targetUserId];
+    const photoPaths:string[]=[];
+    while(pendingDirectories.length>0) {
+      const directory=pendingDirectories.pop()!;
+      let offset=0;
+      while(true) {
+        const {data:entries,error:listError}=await photoBucket.list(directory,{limit:1000,offset});
+        if(listError) return json({error:"Could not enumerate wardrobe photos"},500);
+        const page=entries??[];
+        for(const entry of page) {
+          if(entry.id===null) {
+            pendingDirectories.push(directory+"/"+entry.name);
+          } else {
+            photoPaths.push(directory+"/"+entry.name);
+          }
+        }
+        if(page.length<1000) break;
+        offset+=page.length;
+      }
+    }
 
-      const paths=(files??[]).map((file)=>targetUserId+"/"+file.name);
-      if(paths.length===0) break;
-
-      const {error:removeError}=await admin.storage
-        .from("wardrobe-photos")
-        .remove(paths);
+    for(let offset=0;offset<photoPaths.length;offset+=1000) {
+      const {error:removeError}=await photoBucket.remove(photoPaths.slice(offset,offset+1000));
       if(removeError) return json({error:"Could not remove wardrobe photos"},500);
-
-      // Always read from offset zero because deleting a page shifts the
-      // remaining objects forward.
-      if(paths.length<1000) break;
     }
 
     const {error:deleteError}=await admin.auth.admin.deleteUser(targetUserId);
