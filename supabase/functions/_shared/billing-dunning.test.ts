@@ -58,6 +58,7 @@ describe("billing dunning helpers", () => {
 
   it("marks a cancellation notice pending after a failed-payment cancellation", () => {
     expect(resolveDunningFailureState("canceled", {
+      stripe_subscription_id: "sub_123",
       status: "past_due",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-23T08:00:00.000Z",
@@ -69,6 +70,7 @@ describe("billing dunning helpers", () => {
 
   it("preserves a sent cancellation-notice marker across duplicate deletion events", () => {
     expect(resolveDunningFailureState("canceled", {
+      stripe_subscription_id: "sub_123",
       status: "canceled",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-24T08:00:00.000Z",
@@ -86,6 +88,17 @@ describe("billing dunning helpers", () => {
       last_dunning_email_at: "2026-11-10T09:00:00.000Z",
     }, "2026-11-24T08:00:00.000Z", "sub_new")).toEqual({
       failedAt: "2026-11-24T08:00:00.000Z",
+      lastDunningEmailAt: null,
+    });
+  });
+
+  it("does not reuse failure state when the previous subscription identity is missing", () => {
+    expect(resolveDunningFailureState("canceled", {
+      status: "past_due",
+      failed_at: "2026-11-20T08:00:00.000Z",
+      last_dunning_email_at: "2026-11-23T08:00:00.000Z",
+    }, "2026-11-24T08:00:00.000Z", "sub_123")).toEqual({
+      failedAt: null,
       lastDunningEmailAt: null,
     });
   });
