@@ -26,9 +26,10 @@ const digest = async (value: string) => {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers:cors });
   if (req.method !== "POST") return json({ error:"Method not allowed" },405);
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const url = Deno.env.get("SUPABASE_URL");
+  const anon = Deno.env.get("SUPABASE_ANON_KEY");
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !anon || !service) return json({ error:"Account deletion is not configured" },503);
   const admin = createClient(url,service);
   let body: {action?:string;token?:string};
   try { body=await req.json(); } catch { return json({error:"Invalid request"},400); }
@@ -54,7 +55,9 @@ Deno.serve(async (req) => {
     if(cleanupError) return json({error:"Could not prepare a new confirmation request"},500);
     const {data:profile,error:profileError}=await admin.from("profiles").select("language").eq("id",user.id).maybeSingle();
     if(profileError) return json({error:"Could not load account settings"},500);
-    const language = profile && profile.language in messages ? profile.language as keyof typeof messages : "en";
+    const language = typeof profile?.language === "string" && profile.language in messages
+      ? profile.language as keyof typeof messages
+      : "en";
     const copy=messages[language];
     const token = [...crypto.getRandomValues(new Uint8Array(32))].map((b)=>b.toString(16).padStart(2,"0")).join("");
     const tokenHash=await digest(token);
