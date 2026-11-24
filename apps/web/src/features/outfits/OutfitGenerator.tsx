@@ -394,7 +394,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
     // Keep reconciled favourites in the active account.
     useEffect(() => {
       if (!userId || loading) return;
-      void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }).catch(() => {
+      void saveUserStyleData({ savedOutfits: reconciledSavedOutfits }, userId).catch(() => {
         setSaveError(t("Your saved outfits could not be synchronised."));
       });
     }, [reconciledSavedOutfits, userId, loading, t]);
@@ -430,7 +430,7 @@ export default function OutfitGenerator({ isPremium = false }: { isPremium?: boo
         : [...reconciledSavedOutfits, { outfit }];
 
       try {
-        await saveUserStyleData({ savedOutfits: updated });
+        await saveUserStyleData({ savedOutfits: updated }, userId);
         setSavedOutfits(updated);
         setSaveError("");
       } catch {
