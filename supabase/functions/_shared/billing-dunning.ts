@@ -18,3 +18,40 @@ export function dunningCancellationIdempotencyKey(subscriptionId: string): strin
   if (!subscriptionId.trim()) throw new Error("A subscription ID is required.");
   return "swatchwell-dunning-cancelled/" + subscriptionId;
 }
+
+export interface PreviousDunningState {
+  status?: string | null;
+  failed_at?: string | null;
+  last_dunning_email_at?: string | null;
+}
+
+export function resolveDunningFailureState(
+  currentStatus: string,
+  previous: PreviousDunningState | null | undefined,
+  nowIso: string,
+): { failedAt: string | null; lastDunningEmailAt: string | null } {
+  if (currentStatus === "past_due" || currentStatus === "unpaid") {
+    return {
+      failedAt: previous?.failed_at ?? nowIso,
+      lastDunningEmailAt: previous?.last_dunning_email_at ?? null,
+    };
+  }
+
+  const cancelledAfterFailure =
+    currentStatus === "canceled" &&
+    Boolean(previous?.failed_at) &&
+    ["past_due", "unpaid", "canceled"].includes(previous?.status ?? "");
+
+  if (cancelledAfterFailure) {
+    return {
+      failedAt: previous!.failed_at!,
+      // A first cancellation event after a failed-payment state needs a
+      // cancellation notice. Duplicate deletion events preserve its marker.
+      lastDunningEmailAt: previous?.status === "canceled"
+        ? previous.last_dunning_email_at ?? null
+        : null,
+    };
+  }
+
+  return { failedAt: null, lastDunningEmailAt: null };
+}
