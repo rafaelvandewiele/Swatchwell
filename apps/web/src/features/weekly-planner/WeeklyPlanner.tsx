@@ -73,6 +73,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const { t, language } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
+  const recordingDaysRef = useRef(new Set<number>());
   const [weekStart, setWeekStart] = useState(() => getWeekStartKey(new Date()));
   const [days, setDays] = useState<PlannedDay[]>(() => createEmptyWeeklyPlan(getWeekStartKey(new Date())).days);
   const [wardrobe, setWardrobe] = useState<StoredWardrobeItem[]>([]);
@@ -420,7 +421,14 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   const markWorn = async (index: number) => {
     const day = days[index];
     const expectedUserId = userId;
-    if (!day?.itemIds?.length || !expectedUserId || !supabase || activeUserIdRef.current !== expectedUserId) return;
+    if (
+      !day?.itemIds?.length ||
+      !expectedUserId ||
+      !supabase ||
+      activeUserIdRef.current !== expectedUserId ||
+      recordingDaysRef.current.has(index)
+    ) return;
+    recordingDaysRef.current.add(index);
     const undo = Boolean(day.wornAt);
     const wornAt = undo ? null : new Date().toISOString();
     const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
@@ -463,6 +471,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       if (activeUserIdRef.current === expectedUserId) {
         setError(t("Your weekly plan was saved, but wear insights could not be updated. Apply the Wardrobe Insights Supabase migration and try again."));
       }
+    } finally {
+      recordingDaysRef.current.delete(index);
     }
   };
 
