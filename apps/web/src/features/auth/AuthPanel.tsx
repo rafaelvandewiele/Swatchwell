@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
@@ -65,6 +65,7 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const profileLoadVersion = useRef(0)
 
   useEffect(() => {
     if (!supabase) return
@@ -134,26 +135,58 @@ export default function AuthPanel({ onClose, initialMode, onRecoveryComplete }: 
   }, [t, setLanguage])
 
   useEffect(() => {
+    const version = ++profileLoadVersion.current
     if (!supabase || !session) {
       setProfile(null)
+      setFirstName('')
+      setLastName('')
+      setPreferredLanguage(appLanguage)
       return
     }
 
-    supabase
-      .from('profiles')
-      .select('role, is_premium, first_name, last_name, language')
-      .eq('id', session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setProfile(data)
-          setFirstName(data.first_name ?? '')
-          setLastName(data.last_name ?? '')
-          setPreferredLanguage(data.language ?? 'en')
-          setLanguage((data.language ?? 'en') as Language)
-        }
-      })
-  }, [session, setLanguage])
+    const expectedUserId = session.user.id
+    let active = true
+    setProfile(null)
+    setFirstName('')
+    setLastName('')
+    setPreferredLanguage(appLanguage)
+
+    void (async () => {
+      const { data: before, error: beforeError } = await supabase.auth.getUser()
+      if (
+        beforeError ||
+        before.user?.id !== expectedUserId ||
+        !active ||
+        profileLoadVersion.current !== version
+      ) return
+
+      const { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, is_premium, first_name, last_name, language')
+        .eq('id', expectedUserId)
+        .maybeSingle()
+      const { data: after, error: afterError } = await supabase.auth.getUser()
+
+      if (
+        profileError ||
+        afterError ||
+        after.user?.id !== expectedUserId ||
+        !active ||
+        profileLoadVersion.current !== version
+      ) return
+
+      setProfile(data)
+      setFirstName(data?.first_name ?? '')
+      setLastName(data?.last_name ?? '')
+      setPreferredLanguage((data?.language ?? appLanguage) as Language)
+      if (data?.language) setLanguage(data.language as Language)
+    })()
+
+    return () => {
+      active = false
+      if (profileLoadVersion.current === version) profileLoadVersion.current += 1
+    }
+  }, [session, setLanguage, appLanguage])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
