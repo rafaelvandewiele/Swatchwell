@@ -429,13 +429,14 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       recordingDaysRef.current.has(index)
     ) return;
     recordingDaysRef.current.add(index);
-    const undo = Boolean(day.wornAt);
-    const wornAt = undo ? null : new Date().toISOString();
-    const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
-    setDays(next);
-    const saved = await persist(next);
-    if (!saved || activeUserIdRef.current !== expectedUserId) return;
     try {
+      const undo = Boolean(day.wornAt);
+      const wornAt = undo ? null : new Date().toISOString();
+      const next = days.map((entry, dayIndex) => dayIndex === index ? { ...entry, wornAt } : entry);
+      setDays(next);
+      const saved = await persist(next);
+      if (!saved || activeUserIdRef.current !== expectedUserId) return;
+
       const { data: currentAuth, error: currentAuthError } = await supabase.auth.getUser();
       if (currentAuthError) throw currentAuthError;
       if (currentAuth.user?.id !== expectedUserId || activeUserIdRef.current !== expectedUserId) return;
@@ -443,28 +444,28 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
         const { error: deleteError } = await supabase
           .from("user_garment_wear_events")
           .delete()
-          .eq("user_id", userId)
+          .eq("user_id", expectedUserId)
           .eq("worn_on", day.date)
           .in("item_id", day.itemIds);
         if (deleteError) throw deleteError;
         const { error: outfitDeleteError } = await supabase
           .from("user_outfit_wear_events")
           .delete()
-          .eq("user_id", userId)
+          .eq("user_id", expectedUserId)
           .eq("worn_on", day.date)
           .eq("item_ids", day.itemIds);
         if (outfitDeleteError) throw outfitDeleteError;
       } else {
         const { error: insertError } = await supabase
           .from("user_garment_wear_events")
-          .upsert(day.itemIds.map((itemId) => ({ user_id: userId, item_id: itemId, worn_on: day.date })), {
+          .upsert(day.itemIds.map((itemId) => ({ user_id: expectedUserId, item_id: itemId, worn_on: day.date })), {
             onConflict: "user_id,item_id,worn_on",
             ignoreDuplicates: true,
           });
         if (insertError) throw insertError;
         const { error: outfitInsertError } = await supabase
           .from("user_outfit_wear_events")
-          .insert({ user_id: userId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
+          .insert({ user_id: expectedUserId, item_ids: day.itemIds, outfit_name: day.itemIds.map((id) => wardrobe.find((item) => item.id === id)?.name).filter(Boolean).join(" + "), worn_on: day.date });
         if (outfitInsertError) throw outfitInsertError;
       }
     } catch {
