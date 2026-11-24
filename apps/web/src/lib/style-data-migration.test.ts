@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   shouldClaimLegacyStyleData,
   shouldFinalizeLegacyStyleData,
+  isOwnedLocalPhotoKey,
 } from "./style-data-migration";
 
 describe("legacy style-data migration ownership", () => {
@@ -28,5 +29,15 @@ describe("legacy style-data migration ownership", () => {
   it("rejects empty user identifiers", () => {
     expect(shouldClaimLegacyStyleData(null, " ")).toBe(false);
     expect(shouldFinalizeLegacyStyleData(null, " ")).toBe(false);
+  });
+});
+
+describe("local photo key ownership", () => {
+  it("matches only keys scoped to the exact account prefix", () => {
+    expect(isOwnedLocalPhotoKey("user-a:legacy-photo", "user-a")).toBe(true);
+    expect(isOwnedLocalPhotoKey("user-ab:legacy-photo", "user-a")).toBe(false);
+    expect(isOwnedLocalPhotoKey("legacy-photo", "user-a")).toBe(false);
+    expect(isOwnedLocalPhotoKey(42, "user-a")).toBe(false);
+    expect(isOwnedLocalPhotoKey("user-a:legacy-photo", " ")).toBe(false);
   });
 });
