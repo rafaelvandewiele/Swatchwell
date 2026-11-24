@@ -39,16 +39,17 @@ describe("billing dunning helpers", () => {
 
 
   it("starts a failure grace period only once and preserves reminder timestamps", () => {
-    const first = resolveDunningFailureState("past_due", null, "2026-11-24T08:00:00.000Z");
+    const first = resolveDunningFailureState("past_due", null, "2026-11-24T08:00:00.000Z", "sub_123");
     expect(first).toEqual({
       failedAt: "2026-11-24T08:00:00.000Z",
       lastDunningEmailAt: null,
     });
     const repeated = resolveDunningFailureState("unpaid", {
+      stripe_subscription_id: "sub_123",
       status: "past_due",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-23T08:00:00.000Z",
-    }, "2026-11-24T08:00:00.000Z");
+    }, "2026-11-24T08:00:00.000Z", "sub_123");
     expect(repeated).toEqual({
       failedAt: "2026-11-20T08:00:00.000Z",
       lastDunningEmailAt: "2026-11-23T08:00:00.000Z",
@@ -60,7 +61,7 @@ describe("billing dunning helpers", () => {
       status: "past_due",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-23T08:00:00.000Z",
-    }, "2026-11-24T08:00:00.000Z")).toEqual({
+    }, "2026-11-24T08:00:00.000Z", "sub_123")).toEqual({
       failedAt: "2026-11-20T08:00:00.000Z",
       lastDunningEmailAt: null,
     });
@@ -71,7 +72,7 @@ describe("billing dunning helpers", () => {
       status: "canceled",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-24T08:00:00.000Z",
-    }, "2026-11-25T08:00:00.000Z")).toEqual({
+    }, "2026-11-25T08:00:00.000Z", "sub_123")).toEqual({
       failedAt: "2026-11-20T08:00:00.000Z",
       lastDunningEmailAt: "2026-11-24T08:00:00.000Z",
     });
@@ -91,18 +92,20 @@ describe("billing dunning helpers", () => {
 
   it("clears dunning state after recovery or a cancellation unrelated to payment failure", () => {
     expect(resolveDunningFailureState("active", {
+      stripe_subscription_id: "sub_123",
       status: "past_due",
       failed_at: "2026-11-20T08:00:00.000Z",
       last_dunning_email_at: "2026-11-23T08:00:00.000Z",
-    }, "2026-11-24T08:00:00.000Z")).toEqual({
+    }, "2026-11-24T08:00:00.000Z", "sub_123")).toEqual({
       failedAt: null,
       lastDunningEmailAt: null,
     });
     expect(resolveDunningFailureState("canceled", {
+      stripe_subscription_id: "sub_123",
       status: "active",
       failed_at: null,
       last_dunning_email_at: null,
-    }, "2026-11-24T08:00:00.000Z")).toEqual({
+    }, "2026-11-24T08:00:00.000Z", "sub_123")).toEqual({
       failedAt: null,
       lastDunningEmailAt: null,
     });
