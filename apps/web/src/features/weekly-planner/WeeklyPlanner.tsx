@@ -201,7 +201,6 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
       setRepeatAvoidanceWeeks(savedRepeatWindow === 0 || savedRepeatWindow === 2 ? savedRepeatWindow : 4);
       setDays(sanitized);
       setHasSavedPlan(Boolean(planResult.data));
-      setHasSavedPlan(Boolean(planResult.data));
     } catch (loadError) {
       if (isActive() && request === loadGeneration.current) setError(loadError instanceof Error ? loadError.message : t("The weekly plan could not be loaded."));
     } finally {
@@ -279,10 +278,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   }, [isPremium, weekStart, loadWeek]);
 
   useEffect(() => {
-    if (!userId || loading || !supabase) {
-      setPhotoUrls({});
-      return;
-    }
+    if (!userId || loading || !supabase) return;
     let active = true;
     void Promise.all(wardrobe.map(async (item) => {
       if (!item.imageKey) return null;
