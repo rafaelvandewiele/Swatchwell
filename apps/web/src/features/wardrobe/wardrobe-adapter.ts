@@ -31,7 +31,20 @@ export interface WardrobeGarment {
   extraColors?: string[];
 }
 
-const CATEGORY_ALIASES: Record<string, ClothingCategory> = {
+type NormalizedWardrobeCategory = Exclude<WardrobeCategory, "Knitwear">;
+
+const NORMALIZED_CATEGORIES = new Set<NormalizedWardrobeCategory>([
+  "Shirts",
+  "T-shirts",
+  "Polo shirts",
+  "Sweaters",
+  "Trousers",
+  "Outerwear",
+  "Shoes",
+  "Accessories",
+]);
+
+const CATEGORY_ALIASES: Record<string, NormalizedWardrobeCategory> = {
   shirt: "Shirts",
   tshirt: "T-shirts",
   polo: "Polo shirts",
@@ -44,7 +57,7 @@ const CATEGORY_ALIASES: Record<string, ClothingCategory> = {
 
 export function normalizeWardrobeGarment(
   value: unknown,
-): (Omit<WardrobeGarment, "category"> & { category: ClothingCategory }) | null {
+): (Omit<WardrobeGarment, "category"> & { category: NormalizedWardrobeCategory }) | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Record<string, unknown>;
   if (
@@ -53,10 +66,10 @@ export function normalizeWardrobeGarment(
     typeof item.category !== "string"
   ) return null;
 
-  const category: ClothingCategory | null = item.category === "Knitwear"
+  const category: NormalizedWardrobeCategory | null = item.category === "Knitwear"
     ? "Sweaters"
-    : Object.prototype.hasOwnProperty.call(CATEGORY_MAP, item.category)
-      ? CATEGORY_MAP[item.category as WardrobeCategory]
+    : NORMALIZED_CATEGORIES.has(item.category as NormalizedWardrobeCategory)
+      ? item.category as NormalizedWardrobeCategory
       : Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, item.category)
         ? CATEGORY_ALIASES[item.category]
         : null;
