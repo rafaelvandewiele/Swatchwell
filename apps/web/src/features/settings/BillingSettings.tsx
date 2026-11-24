@@ -61,11 +61,12 @@ export default function BillingSettings() {
       if (userError) throw userError
       if (request !== loadGeneration.current) return
       if (!user?.email_confirmed_at) {
+        if (expectedUserId && activeUserIdRef.current !== expectedUserId) return
         activeUserIdRef.current = null
         clearAccountState()
         return
       }
-      if (expectedUserId && user.id !== expectedUserId) return
+      if (expectedUserId && (user.id !== expectedUserId || activeUserIdRef.current !== expectedUserId)) return
       if (activeUserIdRef.current !== user.id) {
         activeUserIdRef.current = user.id
         clearAccountState()
@@ -103,9 +104,9 @@ export default function BillingSettings() {
         setSubscriptions({})
       }
     } catch {
-      if (request === loadGeneration.current) setError(c.error)
+      if (request === loadGeneration.current && (!expectedUserId || activeUserIdRef.current === expectedUserId)) setError(c.error)
     } finally {
-      if (request === loadGeneration.current) setLoading(false)
+      if (request === loadGeneration.current && (!expectedUserId || activeUserIdRef.current === expectedUserId)) setLoading(false)
     }
   }
 
@@ -131,43 +132,85 @@ export default function BillingSettings() {
   }, [])
 
   async function openCheckout() {
-    if (!supabase) return
+    const expectedUserId = activeUserIdRef.current
+    if (!supabase || !expectedUserId) return
     setBusy(true); setError('')
-    const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: {} })
-    if (invokeError || !data?.url) { setError(c.error); setBusy(false); return }
-    window.location.assign(data.url)
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: {} })
+      if (activeUserIdRef.current !== expectedUserId) return
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedUserId) return
+      if (invokeError || !data?.url) throw new Error(c.error)
+      window.location.assign(data.url)
+    } catch {
+      if (activeUserIdRef.current === expectedUserId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedUserId) setBusy(false)
+    }
   }
 
   async function openPortal() {
-    if (!supabase) return
+    const expectedUserId = activeUserIdRef.current
+    if (!supabase || !expectedUserId) return
     setBusy(true); setError('')
-    const { data, error: invokeError } = await supabase.functions.invoke('create-billing-portal', { body: {} })
-    if (invokeError || !data?.url) { setError(c.error); setBusy(false); return }
-    window.location.assign(data.url)
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-billing-portal', { body: {} })
+      if (activeUserIdRef.current !== expectedUserId) return
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedUserId) return
+      if (invokeError || !data?.url) throw new Error(c.error)
+      window.location.assign(data.url)
+    } catch {
+      if (activeUserIdRef.current === expectedUserId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedUserId) setBusy(false)
+    }
   }
 
   async function setUserPremium(userId: string, enabled: boolean) {
-    if (!supabase) return
+    const expectedAdminId = activeUserIdRef.current
+    if (!supabase || !expectedAdminId) return
     setBusy(true); setError(''); setNotice('')
-    const { error: rpcError } = await supabase.rpc('admin_set_premium', { p_user_id: userId, p_enabled: enabled })
-    if (rpcError) {
-      const missingFunction = rpcError.code === 'PGRST202' || rpcError.message.toLowerCase().includes('admin_set_premium')
-      setError(missingFunction ? c.migrationMissing : c.grantFailure + rpcError.message)
-    } else {
-      setNotice(c.grantSuccess)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedAdminId || activeUserIdRef.current !== expectedAdminId) return
+      const { error: rpcError } = await supabase.rpc('admin_set_premium', { p_user_id: userId, p_enabled: enabled })
+      if (activeUserIdRef.current !== expectedAdminId) return
+      if (rpcError) {
+        const missingFunction = rpcError.code === 'PGRST202' || rpcError.message.toLowerCase().includes('admin_set_premium')
+        setError(missingFunction ? c.migrationMissing : c.grantFailure + rpcError.message)
+      } else {
+        setNotice(c.grantSuccess)
+      }
+      await refresh(expectedAdminId)
+    } catch {
+      if (activeUserIdRef.current === expectedAdminId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedAdminId) setBusy(false)
     }
-    await refresh()
-    setBusy(false)
   }
 
   async function updateSubscription(userId: string, action: 'cancel_now' | 'cancel_at_period_end' | 'resume') {
-    if (!supabase) return
+    const expectedAdminId = activeUserIdRef.current
+    if (!supabase || !expectedAdminId) return
     if (action === 'cancel_now' && !window.confirm('Cancel this Stripe subscription immediately?')) return
     setBusy(true); setError(''); setNotice('')
-    const { error: invokeError } = await supabase.functions.invoke('admin-update-subscription', { body: { userId, action } })
-    if (invokeError) setError(c.error)
-    await refresh()
-    setBusy(false)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (authData.user?.id !== expectedAdminId || activeUserIdRef.current !== expectedAdminId) return
+      const { error: invokeError } = await supabase.functions.invoke('admin-update-subscription', { body: { userId, action } })
+      if (activeUserIdRef.current !== expectedAdminId) return
+      if (invokeError) setError(c.error)
+      await refresh(expectedAdminId)
+    } catch {
+      if (activeUserIdRef.current === expectedAdminId) setError(c.error)
+    } finally {
+      if (activeUserIdRef.current === expectedAdminId) setBusy(false)
+    }
   }
 
   if (loading) return <section className="settings-card"><p>{c.loading}</p></section>
