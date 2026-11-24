@@ -92,10 +92,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
     () => toGeneratorWardrobe(wardrobe).filter((item) => isGarmentAvailable(garmentStatuses.find((status) => status.item_id === item.id)?.status)),
     [wardrobe, garmentStatuses],
   );
-  const hasPlannerTop = generatorWardrobe.some((item) => item.category === "tshirt");
+  const hasPlannerTop = generatorWardrobe.some((item) => ["shirt", "tshirt", "polo"].includes(item.category));
   const hasPlannerTrousers = generatorWardrobe.some((item) => item.category === "pants");
-  const hasPlannerSweater = generatorWardrobe.some((item) => item.category === "sweater");
-  const hasPlannerShoes = generatorWardrobe.some((item) => item.category === "shoes");
   const outfitOptions = useMemo(() => generateOutfits(generatorWardrobe, { limit: 50, requireCompleteLayers: true, ...(season ? { season } : {}) }), [generatorWardrobe, season]);
 
   const persist = useCallback(async (nextDays: PlannedDay[], nextWeekStart = weekStart, nextRepeatAvoidanceWeeks = repeatAvoidanceWeeks) => {
@@ -294,8 +292,8 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
   };
 
   const generateWeek = async () => {
-    if (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) {
-      setError(t("Add at least one T-shirt, sweater, pair of trousers and shoes to generate complete outfits."));
+    if (!hasPlannerTop || !hasPlannerTrousers) {
+      setError(t("Add at least one top and one pair of trousers to generate complete outfits."));
       return;
     }
     setGenerating(true);
@@ -437,7 +435,7 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
           <span className="premium-required-lock">🔒</span>
           <div className="eyebrow">{t("PREMIUM MEMBERSHIP")}</div>
           <h1>{t("Swatchwell Premium")}</h1>
-          <p>{t("Plan seven days of complete layered outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
+          <p>{t("Plan seven days of outfits from your own wardrobe. Keep favourite looks in place and avoid repeating the same combination.")}</p>
           <strong>{t("€2.99 per month")}</strong>
           {isAuthenticated
             ? <button className="primary-button" type="button" onClick={() => void subscribeToPremium()}>{t("Subscribe to Premium")} <span>→</span></button>
@@ -484,19 +482,19 @@ export default function WeeklyPlanner({ isPremium, isAuthenticated, onSignIn, on
         <div className="weekly-planner-actions">
           <label className="weekly-planner-repeat">{t("Avoid recent repeats")}<select value={String(repeatAvoidanceWeeks)} onChange={(event) => void changeRepeatAvoidance(event.target.value)} disabled={loading || saving || generating}><option value="0">{t("Off")}</option><option value="2">{t("2 weeks")}</option><option value="4">{t("4 weeks")}</option></select></label>
           <span className="weekly-planner-status">{loading ? t("Loading your week...") : saving ? t("Saving...") : hasSavedPlan ? t("Synced to your account") : t("Not saved yet")}</span>
-          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes}>
+          <button className="primary-button" type="button" onClick={() => void generateWeek()} disabled={loading || saving || generating || !hasPlannerTop || !hasPlannerTrousers}>
             {generating ? t("Creating your week...") : t("Generate my week")}
           </button>
         </div>
       </div>
 
       {error && <div className="weekly-planner-error" role="alert">{error}</div>}
-      {!loading && wardrobe.length > 0 && (!hasPlannerTop || !hasPlannerTrousers || !hasPlannerSweater || !hasPlannerShoes) && <div className="weekly-planner-error" role="status">{t("The planner needs at least one T-shirt, sweater, pair of trousers and shoes. Add the missing pieces to your wardrobe.")}</div>}
+      {!loading && wardrobe.length > 0 && (!hasPlannerTop || !hasPlannerTrousers) && <div className="weekly-planner-error" role="status">{t("Add at least one top and one pair of trousers to generate complete outfits.")}</div>}
 
       {!loading && wardrobe.length === 0 && (
         <div className="weekly-planner-empty">
           <h2>{t("Your wardrobe comes first.")}</h2>
-          <p>{t("Add a T-shirt, sweater, pair of trousers and shoes. Swatchwell needs all four pieces to build a complete outfit.")}</p>
+          <p>{t("Add a few tops and trousers to your wardrobe. Swatchwell will use those pieces to build complete outfits.")}</p>
           <button className="primary-button" type="button" onClick={onOpenWardrobe}>{t("Open my wardrobe")}</button>
         </div>
       )}
