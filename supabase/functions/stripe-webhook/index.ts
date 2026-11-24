@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       if (subscriptionId) {
         const { data: sub, error: subError } = await admin
           .from("billing_subscriptions")
-          .select("user_id,failed_at,last_dunning_email_at")
+          .select("user_id,status,failed_at,last_dunning_email_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the failed subscription");
@@ -301,10 +301,12 @@ Deno.serve(async (req) => {
         const currentSubscription = await stripeResponse.json();
         if (!stripeResponse.ok) throw new Error("Could not verify the failed subscription status.");
 
-        const currentlyPastDue = ["past_due", "unpaid"].includes(currentSubscription.status);
-        const failedAt = currentlyPastDue
-          ? sub.failed_at ?? new Date().toISOString()
-          : null;
+        const dunningState = resolveDunningFailureState(
+          currentSubscription.status,
+          sub,
+          new Date().toISOString(),
+        );
+        const failedAt = dunningState.failedAt;
         const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
           .update({
             status: currentSubscription.status,
@@ -316,7 +318,7 @@ Deno.serve(async (req) => {
               : null,
             cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
             failed_at: failedAt,
-            last_dunning_email_at: failedAt ? sub.last_dunning_email_at : null,
+            last_dunning_email_at: dunningState.lastDunningEmailAt,
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", sub.user_id);
