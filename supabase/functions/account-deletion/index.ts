@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
         if(listError) return json({error:"Could not enumerate wardrobe photos"},500);
         const page=entries??[];
         for(const entry of page) {
-          if(entry.id===null) {
+          if(entry.id==null) {
             pendingDirectories.push(directory+"/"+entry.name);
           } else {
             photoPaths.push(directory+"/"+entry.name);
