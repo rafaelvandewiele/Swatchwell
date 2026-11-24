@@ -200,6 +200,48 @@ export async function loadUserStyleData(): Promise<UserStyleData | null> {
   return { userId, wardrobe, savedOutfits, colorProfile: null }
 }
 
+export async function clearLocalStyleDataForUser(
+  userId: string,
+  clearUnownedLegacyData = false,
+): Promise<void> {
+  if (!userId.trim()) return
+
+  const db = await openPhotoDatabase()
+  try {
+    if (!db.objectStoreNames.contains(STORE_NAME)) return
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.getAllKeys()
+      request.onsuccess = () => {
+        const prefix = `${userId}:`
+        for (const key of request.result) {
+          if (typeof key === 'string' && key.startsWith(prefix)) {
+            store.delete(key)
+          }
+        }
+      }
+      request.onerror = () => reject(request.error)
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+      transaction.onabort = () => reject(transaction.error)
+    })
+  } finally {
+    db.close()
+  }
+
+  const migrationState = localStorage.getItem(MIGRATION_KEY)
+  if (
+    migrationState === `in-progress:${userId}` ||
+    (clearUnownedLegacyData && migrationState === null)
+  ) {
+    localStorage.removeItem(LEGACY_WARDROBE_KEY)
+    localStorage.removeItem(LEGACY_OUTFITS_KEY)
+    localStorage.setItem(MIGRATION_KEY, 'done')
+  }
+}
+
 export async function saveUserStyleData(
   patch: Partial<Pick<UserStyleData, 'wardrobe' | 'savedOutfits' | 'colorProfile'>>,
   expectedUserId: string,
