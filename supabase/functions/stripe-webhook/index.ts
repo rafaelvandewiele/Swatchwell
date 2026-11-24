@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       if (subscriptionId) {
         const { data: sub, error: subError } = await admin
           .from("billing_subscriptions")
-          .select("user_id,failed_at,last_dunning_email_at")
+          .select("user_id,status,failed_at,last_dunning_email_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
         throwIfError(subError, "Could not resolve the paid subscription");
@@ -217,7 +217,17 @@ Deno.serve(async (req) => {
         );
         const currentSubscription = await stripeResponse.json();
         if (!stripeResponse.ok) throw new Error("Could not verify the current Stripe subscription status.");
-        const currentlyEntitled = ["active", "trialing"].includes(currentSubscription.status);
+        const dunningState = resolveDunningFailureState(
+          currentSubscription.status,
+          sub,
+          new Date().toISOString(),
+        );
+        const failedAt = dunningState.failedAt;
+        const currentlyPastDue = ["past_due", "unpaid"].includes(currentSubscription.status);
+        const withinGracePeriod = Boolean(failedAt)
+          && Date.now() - new Date(failedAt).getTime() < 5 * 86400000;
+        const currentlyEntitled = ["active", "trialing"].includes(currentSubscription.status)
+          || (currentlyPastDue && withinGracePeriod);
 
         const { error: subscriptionUpdateError } = await admin.from("billing_subscriptions")
           .update({
@@ -229,8 +239,8 @@ Deno.serve(async (req) => {
               ? new Date(currentSubscription.current_period_end * 1000).toISOString()
               : null,
             cancel_at_period_end: Boolean(currentSubscription.cancel_at_period_end),
-            failed_at: currentlyEntitled ? null : sub.failed_at,
-            last_dunning_email_at: currentlyEntitled ? null : sub.last_dunning_email_at,
+            failed_at: failedAt,
+            last_dunning_email_at: dunningState.lastDunningEmailAt,
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", sub.user_id);
